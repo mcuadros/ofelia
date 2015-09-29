@@ -12,7 +12,7 @@ var _ = Suite(&SuiteScheduler{})
 
 func (s *SuiteScheduler) TestAddJob(c *C) {
 	job := &TestJob{}
-	job.SetSpec("@hourly")
+	job.Schedule = "@hourly"
 
 	sc := NewScheduler()
 	err := sc.AddJob(job)
@@ -26,7 +26,7 @@ func (s *SuiteScheduler) TestAddJob(c *C) {
 
 func (s *SuiteScheduler) TestStartStop(c *C) {
 	job := &TestJob{}
-	job.SetSpec("@every 1s")
+	job.Schedule = "@every 1s"
 
 	sc := NewScheduler()
 	err := sc.AddJob(job)
@@ -45,7 +45,7 @@ func (s *SuiteScheduler) TestStartStop(c *C) {
 }
 
 type TestJob struct {
-	BasicJob
+	BareJob
 }
 
 func (j *TestJob) Run() {

@@ -14,18 +14,18 @@ type SuiteCommon struct{}
 var _ = Suite(&SuiteCommon{})
 
 func (s *SuiteCommon) TestBasicJobGetters(c *C) {
-	job := &BasicJob{
-		name: "foo",
-		spec: "bar",
+	job := &BareJob{
+		Name:     "foo",
+		Schedule: "bar",
 	}
 
-	c.Assert(job.Name(), Equals, "foo")
-	c.Assert(job.Spec(), Equals, "bar")
+	c.Assert(job.GetName(), Equals, "foo")
+	c.Assert(job.GetSchedule(), Equals, "bar")
 	c.Assert(job.Running(), Equals, int32(0))
 }
 
 func (s *SuiteCommon) TestBasicJobStart(c *C) {
-	job := &BasicJob{}
+	job := &BareJob{}
 	job.Start()
 	job.Start()
 
@@ -41,7 +41,7 @@ func (s *SuiteCommon) TestBasicJobStart(c *C) {
 }
 
 func (s *SuiteCommon) TestBasicJobStartOverlap(c *C) {
-	job := &BasicJob{}
+	job := &BareJob{}
 	job.AllowOverlap = true
 	job.Start()
 	job.Start()
@@ -57,7 +57,7 @@ func (s *SuiteCommon) TestBasicJobStartOverlap(c *C) {
 }
 
 func (s *SuiteCommon) TestBasicJobStop(c *C) {
-	job := &BasicJob{}
+	job := &BareJob{}
 	job.Stop(job.Start(), nil)
 
 	c.Assert(job.Running(), Equals, int32(0))

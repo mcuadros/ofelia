@@ -8,7 +8,7 @@ import (
 )
 
 type ExecJob struct {
-	BasicJob
+	BareJob
 	Client                    *docker.Client
 	Command                   []string
 	Container                 string
@@ -16,6 +16,10 @@ type ExecJob struct {
 	TTY                       bool
 	InputStream               io.Reader
 	OutputStream, ErrorStream io.Writer
+}
+
+func NewExecJob(c *docker.Client) *ExecJob {
+	return &ExecJob{Client: c}
 }
 
 func (j *ExecJob) Run() {

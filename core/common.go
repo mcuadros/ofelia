@@ -1,7 +1,9 @@
 package core
 
 import (
+	"crypto/rand"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,53 +12,60 @@ import (
 var ErrSkippedExecution = errors.New("skipped execution")
 
 type Job interface {
-	Name() string
-	Spec() string
+	GetName() string
+	GetSchedule() string
 	Run()
 	Running() int32
 	History() []*Execution
+	SetAfterStart(h Hook)
+	SetAfterStop(h Hook)
 }
 
-type BasicJob struct {
+type BareJob struct {
+	Schedule     string
+	Name         string
 	AllowOverlap bool
 
-	name    string
-	spec    string
 	running int32
 	history []*Execution
-	l       sync.Mutex
+	lock    sync.Mutex
+	hooks   struct {
+		afterStart Hook
+		afterStop  Hook
+	}
 }
 
-func (j *BasicJob) Name() string {
-	return j.name
+func (j *BareJob) GetName() string {
+	return j.Name
 }
 
-func (j *BasicJob) Spec() string {
-	return j.spec
+func (j *BareJob) GetSchedule() string {
+	return j.Schedule
 }
 
-func (j *BasicJob) Running() int32 {
+func (j *BareJob) Running() int32 {
 	return atomic.LoadInt32(&j.running)
 }
 
-func (j *BasicJob) SetName(name string) {
-	j.name = name
+func (j *BareJob) SetAfterStart(h Hook) {
+	j.hooks.afterStart = h
 }
 
-func (j *BasicJob) SetSpec(spec string) {
-	j.spec = spec
+func (j *BareJob) SetAfterStop(h Hook) {
+	j.hooks.afterStop = h
 }
 
-func (j *BasicJob) History() []*Execution {
+func (j *BareJob) History() []*Execution {
 	return j.history
 }
 
-func (j *BasicJob) Start() *Execution {
-	e := &Execution{}
+func (j *BareJob) Start() *Execution {
+	e := NewExecution()
+	defer j.callAfterStart(e)
 
-	j.l.Lock()
+	j.lock.Lock()
 	j.history = append(j.history, e)
-	j.l.Unlock()
+	j.lock.Unlock()
 
 	e.Start()
 	if !j.AllowOverlap && j.Running() != 0 {
@@ -69,18 +78,41 @@ func (j *BasicJob) Start() *Execution {
 	return e
 }
 
-func (j *BasicJob) Stop(e *Execution, err error) {
+func (j *BareJob) callAfterStart(e *Execution) {
+	if j.hooks.afterStart == nil {
+		return
+	}
+
+	j.hooks.afterStart(e)
+}
+
+func (j *BareJob) Stop(e *Execution, err error) {
+	defer j.callAfterStop(e)
+
 	e.Stop(err)
 	atomic.AddInt32(&j.running, -1)
 }
 
+func (j *BareJob) callAfterStop(e *Execution) {
+	if j.hooks.afterStop == nil {
+		return
+	}
+
+	j.hooks.afterStop(e)
+}
+
 type Execution struct {
+	ID        string
 	Date      time.Time
 	Duration  time.Duration
 	IsRunning bool
 	Failed    bool
 	Skipped   bool
 	Error     error
+}
+
+func NewExecution() *Execution {
+	return &Execution{ID: randomID()}
 }
 
 func (e *Execution) Start() {
@@ -99,4 +131,15 @@ func (e *Execution) Stop(err error) {
 		e.Skipped = true
 		e.Duration = 0
 	}
+}
+
+type Hook func(*Execution)
+
+func randomID() string {
+	b := make([]byte, 6)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+
+	return fmt.Sprintf("%x", b)
 }

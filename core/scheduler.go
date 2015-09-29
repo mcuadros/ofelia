@@ -2,13 +2,14 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/robfig/cron"
 )
 
 var ErrEmptyScheduler error = errors.New("unable to start a empty scheduler.")
-var ErrEmptySpec error = errors.New("unable to add a job with a empty spec.")
+var ErrEmptySchedule error = errors.New("unable to add a job with a empty schedule.")
 
 type Scheduler struct {
 	Jobs []Job
@@ -24,17 +25,31 @@ func NewScheduler() *Scheduler {
 }
 
 func (s *Scheduler) AddJob(j Job) error {
-	if j.Spec() == "" {
-		return ErrEmptySpec
+	if j.GetSchedule() == "" {
+		return ErrEmptySchedule
 	}
 
-	err := s.cron.AddJob(j.Spec(), &cronJob{j, &s.wg})
+	s.registerHooks(j)
+	err := s.cron.AddJob(j.GetSchedule(), &cronJob{j, &s.wg})
 	if err != nil {
 		return err
 	}
 
 	s.Jobs = append(s.Jobs, j)
 	return nil
+}
+
+func (s *Scheduler) registerHooks(j Job) {
+	j.SetAfterStart(func(e *Execution) {
+		fmt.Printf("Job started %q\n", e.ID)
+	})
+
+	j.SetAfterStop(func(e *Execution) {
+		fmt.Printf(
+			"Job finished %q in %s, failed: %t, skipped: %t, error: %V\n",
+			e.ID, e.Duration, e.Failed, e.Skipped, e.Error,
+		)
+	})
 }
 
 func (s *Scheduler) Start() error {
