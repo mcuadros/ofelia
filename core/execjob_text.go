@@ -42,8 +42,11 @@ func (s *SuiteExecJob) TestRun(c *C) {
 	job.TTY = true
 	job.Run()
 
-	c.Assert(job.LastError(), IsNil)
-	c.Assert(job.LastDuration().Seconds() > 1.0, Equals, true)
+	h := job.History()
+	c.Assert(h, HasLen, 1)
+	c.Assert(h[0].Failed, Equals, false)
+	c.Assert(h[0].Error, IsNil)
+	c.Assert(h[0].Duration.Seconds() > 1.0, Equals, true)
 
 	container, err := s.client.InspectContainer(ContainerFixture)
 	c.Assert(err, IsNil)

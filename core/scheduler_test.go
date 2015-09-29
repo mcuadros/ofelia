@@ -33,23 +33,24 @@ func (s *SuiteScheduler) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 
 	sc.Start()
-	time.Sleep(time.Second)
+	time.Sleep(time.Second * 2)
 	sc.Stop()
 
-	c.Assert(job.Executions, Equals, 1)
-	c.Assert(job.LastExecution().IsZero(), Equals, false)
-
+	h := job.History()
+	c.Assert(h, HasLen, 2)
+	c.Assert(h[0].IsRunning, Equals, false)
+	c.Assert(h[0].Date.IsZero(), Equals, false)
+	c.Assert(h[1].IsRunning, Equals, false)
+	c.Assert(h[1].Date.IsZero(), Equals, false)
 }
 
 type TestJob struct {
 	BasicJob
-	Executions int
 }
 
 func (j *TestJob) Run() {
-	j.MarkStart()
-	defer j.MarkStop(nil)
+	e := j.Start()
+	defer j.Stop(e, nil)
 
 	time.Sleep(time.Millisecond * 500)
-	j.Executions++
 }

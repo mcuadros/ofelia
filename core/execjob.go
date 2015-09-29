@@ -22,8 +22,8 @@ func (j *ExecJob) Run() {
 	var err error
 	var exec *docker.Exec
 
-	j.MarkStart()
-	defer func() { j.MarkStop(err) }()
+	e := j.Start()
+	defer func() { j.Stop(e, err) }()
 
 	exec, err = j.buildExec()
 	if err != nil {

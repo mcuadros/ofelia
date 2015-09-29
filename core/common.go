@@ -1,24 +1,30 @@
 package core
 
-import "time"
+import (
+	"errors"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+var ErrSkippedExecution = errors.New("skipped execution")
 
 type Job interface {
 	Name() string
 	Spec() string
-	IsRunning() bool
-	LastError() error
-	LastExecution() time.Time
-	LastDuration() time.Duration
 	Run()
+	Running() int32
+	History() []*Execution
 }
 
 type BasicJob struct {
-	name          string
-	spec          string
-	isRunning     bool
-	lastError     error
-	lastExecution time.Time
-	lastDuration  time.Duration
+	AllowOverlap bool
+
+	name    string
+	spec    string
+	running int32
+	history []*Execution
+	l       sync.Mutex
 }
 
 func (j *BasicJob) Name() string {
@@ -29,6 +35,10 @@ func (j *BasicJob) Spec() string {
 	return j.spec
 }
 
+func (j *BasicJob) Running() int32 {
+	return atomic.LoadInt32(&j.running)
+}
+
 func (j *BasicJob) SetName(name string) {
 	j.name = name
 }
@@ -37,29 +47,56 @@ func (j *BasicJob) SetSpec(spec string) {
 	j.spec = spec
 }
 
-func (j *BasicJob) IsRunning() bool {
-	return j.isRunning
+func (j *BasicJob) History() []*Execution {
+	return j.history
 }
 
-func (j *BasicJob) LastError() error {
-	return j.lastError
+func (j *BasicJob) Start() *Execution {
+	e := &Execution{}
+
+	j.l.Lock()
+	j.history = append(j.history, e)
+	j.l.Unlock()
+
+	e.Start()
+	if !j.AllowOverlap && j.Running() != 0 {
+		e.Stop(ErrSkippedExecution)
+		return nil
+	}
+
+	atomic.AddInt32(&j.running, 1)
+
+	return e
 }
 
-func (j *BasicJob) LastExecution() time.Time {
-	return j.lastExecution
+func (j *BasicJob) Stop(e *Execution, err error) {
+	e.Stop(err)
+	atomic.AddInt32(&j.running, -1)
 }
 
-func (j *BasicJob) LastDuration() time.Duration {
-	return j.lastDuration
+type Execution struct {
+	Date      time.Time
+	Duration  time.Duration
+	IsRunning bool
+	Failed    bool
+	Skipped   bool
+	Error     error
 }
 
-func (j *BasicJob) MarkStart() {
-	j.isRunning = true
-	j.lastExecution = time.Now()
+func (e *Execution) Start() {
+	e.IsRunning = true
+	e.Date = time.Now()
 }
 
-func (j *BasicJob) MarkStop(err error) {
-	j.isRunning = false
-	j.lastError = err
-	j.lastDuration = time.Since(j.lastExecution)
+func (e *Execution) Stop(err error) {
+	e.IsRunning = false
+	e.Duration = time.Since(e.Date)
+
+	if err != nil && err != ErrSkippedExecution {
+		e.Error = err
+		e.Failed = true
+	} else if err == ErrSkippedExecution {
+		e.Skipped = true
+		e.Duration = 0
+	}
 }
