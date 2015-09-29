@@ -8,6 +8,7 @@ type Job interface {
 	IsRunning() bool
 	LastError() error
 	LastExecution() time.Time
+	LastDuration() time.Duration
 	Run()
 }
 
@@ -17,6 +18,7 @@ type BasicJob struct {
 	isRunning     bool
 	lastError     error
 	lastExecution time.Time
+	lastDuration  time.Duration
 }
 
 func (j *BasicJob) Name() string {
@@ -47,6 +49,10 @@ func (j *BasicJob) LastExecution() time.Time {
 	return j.lastExecution
 }
 
+func (j *BasicJob) LastDuration() time.Duration {
+	return j.lastDuration
+}
+
 func (j *BasicJob) MarkStart() {
 	j.isRunning = true
 	j.lastExecution = time.Now()
@@ -55,4 +61,5 @@ func (j *BasicJob) MarkStart() {
 func (j *BasicJob) MarkStop(err error) {
 	j.isRunning = false
 	j.lastError = err
+	j.lastDuration = time.Since(j.lastExecution)
 }
