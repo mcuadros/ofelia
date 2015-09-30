@@ -14,7 +14,6 @@ var ErrUnexpected = errors.New("error unexpected, docker has returned exit code 
 type ExecJob struct {
 	BareJob
 	Client    *docker.Client
-	Command   string
 	Container string
 	User      string `default:"root"`
 	TTY       bool   `default:"false"`

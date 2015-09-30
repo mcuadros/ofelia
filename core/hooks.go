@@ -29,12 +29,12 @@ func AfterStopHook(_ *Scheduler, j Job, e *Execution) {
 		e.Date.Format(time.RFC1123), j.GetName(), e.ID, e.Duration, e.Failed, e.Skipped, errText,
 	)
 
-	js, _ := json.MarshalIndent(NewResult(e), "", "   ")
+	js, _ := json.MarshalIndent(NewExecutionResult(e), "", "   ")
 	log := fmt.Sprintf("%s/%s_%s.json", LogFolder, j.GetName(), e.Date.Format("2006-01-02T15_04_05"))
 	ioutil.WriteFile(log, js, 0644)
 }
 
-type Result struct {
+type ExecutionResult struct {
 	ID       string
 	Date     time.Time
 	Duration string
@@ -45,8 +45,8 @@ type Result struct {
 	Stderr   string `json:",omitempty"`
 }
 
-func NewResult(e *Execution) *Result {
-	r := &Result{}
+func NewExecutionResult(e *Execution) *ExecutionResult {
+	r := &ExecutionResult{}
 	r.ID = e.ID
 	r.Date = e.Date
 	r.Duration = e.Duration.String()
