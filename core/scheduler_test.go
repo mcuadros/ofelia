@@ -33,8 +33,12 @@ func (s *SuiteScheduler) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 
 	sc.Start()
+	c.Assert(sc.IsRunning(), Equals, true)
+
 	time.Sleep(time.Second * 2)
+
 	sc.Stop()
+	c.Assert(sc.IsRunning(), Equals, false)
 
 	h := job.History()
 	c.Assert(h, HasLen, 2)

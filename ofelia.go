@@ -2,57 +2,26 @@ package main
 
 import (
 	"fmt"
+	"os"
 
-	"github.com/mcuadros/ofelia/core"
+	"github.com/mcuadros/ofelia/cli"
 
-	"github.com/fsouza/go-dockerclient"
-	"github.com/mcuadros/go-defaults"
-	"gopkg.in/gcfg.v1"
+	"github.com/jessevdk/go-flags"
 )
 
-type Config struct {
-	Jobs map[string]*core.ExecJob `gcfg:"Job"`
-}
-
-func (c *Config) LoadFile(filename string) error {
-	err := gcfg.ReadFileInto(c, filename)
-	if err != nil {
-		return err
-	}
-
-	c.loadDefaults()
-	return nil
-}
-
-func (c *Config) loadDefaults() {
-	defaults.SetDefaults(c)
-	for name, j := range c.Jobs {
-		j.Name = name
-		defaults.SetDefaults(j)
-	}
-}
+var version string
+var build string
 
 func main() {
-	config := &Config{}
-	if err := config.LoadFile("config.ini"); err != nil {
-		panic(err)
+	parser := flags.NewNamedParser("ofelia", flags.Default)
+	parser.AddCommand("daemon", "daemon process", "", &cli.DaemonCommand{})
+
+	if _, err := parser.Parse(); err != nil {
+		if _, ok := err.(*flags.Error); ok {
+			parser.WriteHelp(os.Stdout)
+			fmt.Printf("\nBuild information\n  commit: %s\n  date:%s\n", version, build)
+		}
+
+		os.Exit(1)
 	}
-
-	fmt.Printf("Loaded %d job(s)\n", len(config.Jobs))
-
-	d, err := docker.NewClientFromEnv()
-	if err != nil {
-		panic(err)
-	}
-
-	s := core.NewScheduler()
-
-	for _, j := range config.Jobs {
-		j.Client = d
-		s.AddJob(j)
-	}
-
-	s.Start()
-
-	select {}
 }

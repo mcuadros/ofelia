@@ -13,8 +13,9 @@ var ErrEmptySchedule error = errors.New("unable to add a job with a empty schedu
 type Scheduler struct {
 	Jobs []Job
 
-	cron *cron.Cron
-	wg   sync.WaitGroup
+	cron      *cron.Cron
+	wg        sync.WaitGroup
+	isRunning bool
 }
 
 func NewScheduler() *Scheduler {
@@ -53,6 +54,7 @@ func (s *Scheduler) Start() error {
 		return ErrEmptyScheduler
 	}
 
+	s.isRunning = true
 	s.cron.Start()
 	return nil
 }
@@ -60,8 +62,13 @@ func (s *Scheduler) Start() error {
 func (s *Scheduler) Stop() error {
 	s.wg.Wait()
 	s.cron.Stop()
+	s.isRunning = false
 
 	return nil
+}
+
+func (s *Scheduler) IsRunning() bool {
+	return s.isRunning
 }
 
 type cronJob struct {
