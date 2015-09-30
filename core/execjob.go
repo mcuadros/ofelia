@@ -3,11 +3,10 @@ package core
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/fsouza/go-dockerclient"
 )
-
-const BashBin = "/bin/bash"
 
 var ErrUnexpected = errors.New("error unexpected, docker has returned exit code -1, maybe wrong user?")
 
@@ -50,7 +49,7 @@ func (j *ExecJob) buildExec() (*docker.Exec, error) {
 		AttachStdout: true,
 		AttachStderr: true,
 		Tty:          j.TTY,
-		Cmd:          []string{BashBin, "-c", `"` + j.Command + `"`},
+		Cmd:          strings.Split(j.Command, " "),
 		Container:    j.Container,
 		User:         j.User,
 	})
