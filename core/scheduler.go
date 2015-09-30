@@ -1,9 +1,7 @@
 package core
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/robfig/cron"
@@ -42,18 +40,11 @@ func (s *Scheduler) AddJob(j Job) error {
 
 func (s *Scheduler) registerHooks(j Job) {
 	j.SetAfterStart(func(e *Execution) {
-		fmt.Printf("Job started %q\n", e.ID)
+		AfterStartHook(s, j, e)
 	})
 
 	j.SetAfterStop(func(e *Execution) {
-		fmt.Printf(
-			"Job finished %q in %s, failed: %t, skipped: %t, error: %V\n",
-			e.ID, e.Duration, e.Failed, e.Skipped, e.Error,
-		)
-
-		fmt.Println(e.OutputStream.(*bytes.Buffer).String())
-		fmt.Println(e.ErrorStream.(*bytes.Buffer).String())
-
+		AfterStopHook(s, j, e)
 	})
 }
 

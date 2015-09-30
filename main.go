@@ -2,13 +2,11 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	"gopkg.in/gcfg.v1"
 
 	"github.com/mcuadros/docker-cron/core"
 	"github.com/mcuadros/go-defaults"
-	"github.com/tonnerre/golang-pretty"
 
 	"github.com/fsouza/go-dockerclient"
 )
@@ -37,8 +35,11 @@ func (c *Config) loadDefaults() {
 
 func main() {
 	config := &Config{}
-	config.LoadFile("config.ini")
-	fmt.Printf("%# v\n", pretty.Formatter(config))
+	if err := config.LoadFile("config.ini"); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Loaded %d job(s)\n", len(config.Jobs))
 
 	d, err := docker.NewClientFromEnv()
 	if err != nil {
@@ -54,5 +55,5 @@ func main() {
 
 	s.Start()
 
-	time.Sleep(time.Hour)
+	select {}
 }

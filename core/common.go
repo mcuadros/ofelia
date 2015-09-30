@@ -16,24 +16,26 @@ var ErrSkippedExecution = errors.New("skipped execution")
 type Job interface {
 	GetName() string
 	GetSchedule() string
+	GetCommand() string
 	Run()
 	Running() int32
 	History() []*Execution
-	SetAfterStart(h Hook)
-	SetAfterStop(h Hook)
+	SetAfterStart(h ExecutionHook)
+	SetAfterStop(h ExecutionHook)
 }
 
 type BareJob struct {
 	Schedule     string
 	Name         string
+	Command      string
 	AllowOverlap bool `gcfg:"allow-overlap" default:"true"`
 
 	running int32
 	history []*Execution
 	lock    sync.Mutex
 	hooks   struct {
-		afterStart Hook
-		afterStop  Hook
+		afterStart ExecutionHook
+		afterStop  ExecutionHook
 	}
 }
 
@@ -45,15 +47,19 @@ func (j *BareJob) GetSchedule() string {
 	return j.Schedule
 }
 
+func (j *BareJob) GetCommand() string {
+	return j.Command
+}
+
 func (j *BareJob) Running() int32 {
 	return atomic.LoadInt32(&j.running)
 }
 
-func (j *BareJob) SetAfterStart(h Hook) {
+func (j *BareJob) SetAfterStart(h ExecutionHook) {
 	j.hooks.afterStart = h
 }
 
-func (j *BareJob) SetAfterStop(h Hook) {
+func (j *BareJob) SetAfterStop(h ExecutionHook) {
 	j.hooks.afterStop = h
 }
 
@@ -141,8 +147,6 @@ func (e *Execution) Stop(err error) {
 	}
 }
 
-type Hook func(*Execution)
-
 func randomID() string {
 	b := make([]byte, 6)
 	if _, err := rand.Read(b); err != nil {
@@ -151,3 +155,5 @@ func randomID() string {
 
 	return fmt.Sprintf("%x", b)
 }
+
+type ExecutionHook func(*Execution)
