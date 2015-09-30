@@ -1,0 +1,22 @@
+language: go
+
+sudo: false
+
+go:
+  - 1.5
+
+script:
+  - make test
+
+before_deploy:
+  - make packages
+
+deploy:
+  provider: releases
+  api_key: $GITHUB_TOKEN
+  file:
+    - build/ofelia_darwin_amd64.tar.gz
+    - build/ofelia_linux_amd64.tar.gz
+  skip_cleanup: true
+  on:
+    tags: true

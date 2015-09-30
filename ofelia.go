@@ -3,12 +3,11 @@ package main
 import (
 	"fmt"
 
-	"gopkg.in/gcfg.v1"
-
-	"github.com/mcuadros/docker-cron/core"
-	"github.com/mcuadros/go-defaults"
+	"github.com/mcuadros/ofelia/core"
 
 	"github.com/fsouza/go-dockerclient"
+	"github.com/mcuadros/go-defaults"
+	"gopkg.in/gcfg.v1"
 )
 
 type Config struct {
