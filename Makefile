@@ -1,7 +1,7 @@
 # Package configuration
 PROJECT = ofelia
 COMMANDS = ofelia
-DEPENDENCIES = github.com/aktau/github-release
+DEPENDENCIES =
 
 # Environment
 BASE_PATH := $(shell pwd)
@@ -24,6 +24,10 @@ GOGET = $(GOCMD) get -v
 GOTEST = $(GOCMD) test -v
 GHRELEASE = github-release
 
+ifneq ($(origin TRAVIS_TAG), undefined)
+	BRANCH := $(TRAVIS_TAG)
+endif
+
 # Rules
 all: clean upload
 
@@ -38,27 +42,14 @@ packages: dependencies
 	for os in $(PKG_OS); do \
 		for arch in $(PKG_ARCH); do \
 			cd $(BASE_PATH); \
-			mkdir -p $(BUILD_PATH)/$(PROJECT)_$${os}_$${arch}; \
+			mkdir -p $(BUILD_PATH)/$(PROJECT)_$(BRANCH)_$${os}_$${arch}; \
 			for cmd in $(COMMANDS); do \
-				GOOS=$${os} GOARCH=$${arch} $(GOCMD) build -ldflags "-X main.version $(SHA1) -X main.build \"$(BUILD)\"" -o $(BUILD_PATH)/$(PROJECT)_$${os}_$${arch}/$${cmd} $${cmd}.go ; \
+				GOOS=$${os} GOARCH=$${arch} $(GOCMD) build -ldflags "-X main.version $(BRANCH) -X main.build \"$(BUILD)\"" -o $(BUILD_PATH)/$(PROJECT)_$(BRANCH)_$${os}_$${arch}/$${cmd} $${cmd}.go ; \
 			done; \
 			for content in $(PKG_CONTENT); do \
-				cp -rf $${content} $(BUILD_PATH)/$(PROJECT)_$${os}_$${arch}/; \
+				cp -rf $${content} $(BUILD_PATH)/$(PROJECT)_$(BRANCH)_$${os}_$${arch}/; \
 			done; \
-			cd  $(BUILD_PATH) && tar -cvzf $(BUILD_PATH)/$(PROJECT)_$${os}_$${arch}.tar.gz $(PROJECT)_$${os}_$${arch}/; \
-		done; \
-	done;
-
-upload: packages
-	cd $(BASE_PATH); \
-	$(GHRELEASE) delete --tag $(PKG_TAG); \
-	$(GHRELEASE) release --tag $(PKG_TAG) --name "$(PKG_TAG) ($(SHA1))"; \
-	for os in $(PKG_OS); do \
-		for arch in $(PKG_ARCH); do \
-			$(GHRELEASE) upload \
-		    --tag $(PKG_TAG) \
-				--name "$(PROJECT)_$${os}_$${arch}.tar.gz" \
-				--file $(BUILD_PATH)/$(PROJECT)_$${os}_$${arch}.tar.gz; \
+			cd  $(BUILD_PATH) && tar -cvzf $(BUILD_PATH)/$(PROJECT)_$(BRANCH)_$${os}_$${arch}.tar.gz $(PROJECT)_$(BRANCH)_$${os}_$${arch}/; \
 		done; \
 	done;
 

@@ -15,8 +15,8 @@ deploy:
   provider: releases
   api_key: $GITHUB_TOKEN
   file:
-    - build/ofelia_darwin_amd64.tar.gz
-    - build/ofelia_linux_amd64.tar.gz
+    - build/ofelia_${TRAVIS_TAG}_darwin_amd64.tar.gz
+    - build/ofelia_${TRAVIS_TAG}_linux_amd64.tar.gz
   skip_cleanup: true
   on:
     tags: true
