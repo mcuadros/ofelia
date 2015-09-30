@@ -1,21 +1,23 @@
 package core
 
 import (
+	"errors"
 	"fmt"
-	"io"
 
 	"github.com/fsouza/go-dockerclient"
 )
 
+const BashBin = "/bin/bash"
+
+var ErrUnexpected = errors.New("error unexpected, docker has returned exit code -1, maybe wrong user?")
+
 type ExecJob struct {
 	BareJob
-	Client                    *docker.Client
-	Command                   []string
-	Container                 string
-	User                      string
-	TTY                       bool
-	InputStream               io.Reader
-	OutputStream, ErrorStream io.Writer
+	Client    *docker.Client
+	Command   string
+	Container string
+	User      string `default:"root"`
+	TTY       bool   `default:"false"`
 }
 
 func NewExecJob(c *docker.Client) *ExecJob {
@@ -34,17 +36,22 @@ func (j *ExecJob) Run() {
 		return
 	}
 
-	err = j.startExec(exec)
+	err = j.startExec(e, exec)
+	if err != nil {
+		return
+	}
+
+	err = j.inspectExec(exec)
 	return
 }
 
 func (j *ExecJob) buildExec() (*docker.Exec, error) {
 	exec, err := j.Client.CreateExec(docker.CreateExecOptions{
-		AttachStdin:  true,
+		AttachStdin:  false,
 		AttachStdout: true,
 		AttachStderr: true,
 		Tty:          j.TTY,
-		Cmd:          j.Command,
+		Cmd:          []string{BashBin, "-c", `"` + j.Command + `"`},
 		Container:    j.Container,
 		User:         j.User,
 	})
@@ -55,12 +62,12 @@ func (j *ExecJob) buildExec() (*docker.Exec, error) {
 
 	return exec, nil
 }
-func (j *ExecJob) startExec(exec *docker.Exec) error {
+
+func (j *ExecJob) startExec(e *Execution, exec *docker.Exec) error {
 	err := j.Client.StartExec(exec.ID, docker.StartExecOptions{
 		Tty:          j.TTY,
-		InputStream:  j.InputStream,
-		OutputStream: j.OutputStream,
-		ErrorStream:  j.ErrorStream,
+		OutputStream: e.OutputStream,
+		ErrorStream:  e.ErrorStream,
 		RawTerminal:  j.TTY,
 	})
 
@@ -69,4 +76,20 @@ func (j *ExecJob) startExec(exec *docker.Exec) error {
 	}
 
 	return nil
+}
+
+func (j *ExecJob) inspectExec(exec *docker.Exec) error {
+	i, err := j.Client.InspectExec(exec.ID)
+	if err != nil {
+		return fmt.Errorf("error inspecting exec: %s", err)
+	}
+
+	switch i.ExitCode {
+	case 0:
+		return nil
+	case -1:
+		return ErrUnexpected
+	default:
+		return fmt.Errorf("error non-zero exit code: %d", i.ExitCode)
+	}
 }

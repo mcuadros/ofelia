@@ -1,9 +1,11 @@
 package core
 
 import (
+	"bytes"
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -24,7 +26,7 @@ type Job interface {
 type BareJob struct {
 	Schedule     string
 	Name         string
-	AllowOverlap bool
+	AllowOverlap bool `gcfg:"allow-overlap" default:"true"`
 
 	running int32
 	history []*Execution
@@ -109,10 +111,16 @@ type Execution struct {
 	Failed    bool
 	Skipped   bool
 	Error     error
+
+	OutputStream, ErrorStream io.ReadWriter
 }
 
 func NewExecution() *Execution {
-	return &Execution{ID: randomID()}
+	return &Execution{
+		ID:           randomID(),
+		OutputStream: bytes.NewBuffer(nil),
+		ErrorStream:  bytes.NewBuffer(nil),
+	}
 }
 
 func (e *Execution) Start() {

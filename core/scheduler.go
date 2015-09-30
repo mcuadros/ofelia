@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sync"
@@ -49,6 +50,10 @@ func (s *Scheduler) registerHooks(j Job) {
 			"Job finished %q in %s, failed: %t, skipped: %t, error: %V\n",
 			e.ID, e.Duration, e.Failed, e.Skipped, e.Error,
 		)
+
+		fmt.Println(e.OutputStream.(*bytes.Buffer).String())
+		fmt.Println(e.ErrorStream.(*bytes.Buffer).String())
+
 	})
 }
 

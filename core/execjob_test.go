@@ -37,7 +37,7 @@ func (s *SuiteExecJob) TestRun(c *C) {
 
 	job := &ExecJob{Client: s.client}
 	job.Container = ContainerFixture
-	job.Command = []string{"/bin/bash", "-l"}
+	job.Command = "ls"
 	job.User = "foo"
 	job.TTY = true
 	job.Run()
@@ -54,7 +54,7 @@ func (s *SuiteExecJob) TestRun(c *C) {
 	exec, err := s.client.InspectExec(container.ExecIDs[0])
 	c.Assert(err, IsNil)
 	c.Assert(exec.ProcessConfig.EntryPoint, Equals, "/bin/bash")
-	c.Assert(exec.ProcessConfig.Arguments, DeepEquals, []string{"-l"})
+	c.Assert(exec.ProcessConfig.Arguments, DeepEquals, []string{"-c", `"ls"`})
 	c.Assert(exec.ProcessConfig.User, Equals, "foo")
 	c.Assert(exec.ProcessConfig.Tty, Equals, true)
 }
