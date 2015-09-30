@@ -3,9 +3,9 @@ package core
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/fsouza/go-dockerclient"
+	"github.com/gobs/args"
 )
 
 var ErrUnexpected = errors.New("error unexpected, docker has returned exit code -1, maybe wrong user?")
@@ -49,7 +49,7 @@ func (j *ExecJob) buildExec() (*docker.Exec, error) {
 		AttachStdout: true,
 		AttachStderr: true,
 		Tty:          j.TTY,
-		Cmd:          strings.Split(j.Command, " "),
+		Cmd:          args.GetArgs(j.Command),
 		Container:    j.Container,
 		User:         j.User,
 	})
