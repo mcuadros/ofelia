@@ -3,110 +3,55 @@ package core
 import (
 	"bytes"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"io"
-	"sync"
-	"sync/atomic"
 	"time"
 )
-
-var ErrSkippedExecution = errors.New("skipped execution")
 
 type Job interface {
 	GetName() string
 	GetSchedule() string
 	GetCommand() string
-	Run()
+	Middlewares() []Middleware
+	Use(...Middleware)
+	Run(*Context) error
 	Running() int32
 	History() []*Execution
-	SetAfterStart(h ExecutionHook)
-	SetAfterStop(h ExecutionHook)
+	AddHistory(...*Execution)
+	NotifyStart()
+	NotifyStop()
 }
 
-type BareJob struct {
-	Schedule     string
-	Name         string
-	Command      string
-	AllowOverlap bool `gcfg:"allow-overlap" default:"true"`
+type Context struct {
+	Scheduler *Scheduler
+	Job       Job
+	Execution *Execution
 
-	running int32
-	history []*Execution
-	lock    sync.Mutex
-	hooks   struct {
-		afterStart ExecutionHook
-		afterStop  ExecutionHook
+	current     int
+	middlewares []Middleware
+}
+
+func NewContext(s *Scheduler, j Job, e *Execution) *Context {
+	return &Context{
+		Scheduler:   s,
+		Job:         j,
+		Execution:   e,
+		middlewares: j.Middlewares(),
 	}
 }
 
-func (j *BareJob) GetName() string {
-	return j.Name
-}
+func (c *Context) Next() error {
+	defer func() { c.current++ }()
 
-func (j *BareJob) GetSchedule() string {
-	return j.Schedule
-}
-
-func (j *BareJob) GetCommand() string {
-	return j.Command
-}
-
-func (j *BareJob) Running() int32 {
-	return atomic.LoadInt32(&j.running)
-}
-
-func (j *BareJob) SetAfterStart(h ExecutionHook) {
-	j.hooks.afterStart = h
-}
-
-func (j *BareJob) SetAfterStop(h ExecutionHook) {
-	j.hooks.afterStop = h
-}
-
-func (j *BareJob) History() []*Execution {
-	return j.history
-}
-
-func (j *BareJob) Start() *Execution {
-	e := NewExecution()
-	defer j.callAfterStart(e)
-
-	j.lock.Lock()
-	j.history = append(j.history, e)
-	j.lock.Unlock()
-
-	e.Start()
-	if !j.AllowOverlap && j.Running() != 0 {
-		e.Stop(ErrSkippedExecution)
-		return nil
+	if c.current >= len(c.middlewares) {
+		return c.Job.Run(c)
 	}
 
-	atomic.AddInt32(&j.running, 1)
-
-	return e
+	return c.middlewares[c.current].Run(c)
 }
 
-func (j *BareJob) callAfterStart(e *Execution) {
-	if j.hooks.afterStart == nil {
-		return
-	}
-
-	j.hooks.afterStart(e)
-}
-
-func (j *BareJob) Stop(e *Execution, err error) {
-	defer j.callAfterStop(e)
-
-	e.Stop(err)
-	atomic.AddInt32(&j.running, -1)
-}
-
-func (j *BareJob) callAfterStop(e *Execution) {
-	if j.hooks.afterStop == nil {
-		return
-	}
-
-	j.hooks.afterStop(e)
+type Middleware interface {
+	Run(*Context) error
 }
 
 type Execution struct {
@@ -138,12 +83,9 @@ func (e *Execution) Stop(err error) {
 	e.IsRunning = false
 	e.Duration = time.Since(e.Date)
 
-	if err != nil && err != ErrSkippedExecution {
+	if err != nil {
 		e.Error = err
 		e.Failed = true
-	} else if err == ErrSkippedExecution {
-		e.Skipped = true
-		e.Duration = 0
 	}
 }
 
@@ -155,5 +97,3 @@ func randomID() string {
 
 	return fmt.Sprintf("%x", b)
 }
-
-type ExecutionHook func(*Execution)

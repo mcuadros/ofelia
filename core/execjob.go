@@ -22,25 +22,17 @@ func NewExecJob(c *docker.Client) *ExecJob {
 	return &ExecJob{Client: c}
 }
 
-func (j *ExecJob) Run() {
-	var err error
-	var exec *docker.Exec
-
-	e := j.Start()
-	defer func() { j.Stop(e, err) }()
-
-	exec, err = j.buildExec()
+func (j *ExecJob) Run(ctx *Context) error {
+	exec, err := j.buildExec()
 	if err != nil {
-		return
+		return err
 	}
 
-	err = j.startExec(e, exec)
-	if err != nil {
-		return
+	if err := j.startExec(ctx.Execution, exec); err != nil {
+		return err
 	}
 
-	err = j.inspectExec(exec)
-	return
+	return j.inspectExec(exec)
 }
 
 func (j *ExecJob) buildExec() (*docker.Exec, error) {

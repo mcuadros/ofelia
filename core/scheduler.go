@@ -29,24 +29,13 @@ func (s *Scheduler) AddJob(j Job) error {
 		return ErrEmptySchedule
 	}
 
-	s.registerHooks(j)
-	err := s.cron.AddJob(j.GetSchedule(), &cronJob{j, &s.wg})
+	err := s.cron.AddJob(j.GetSchedule(), &jobWrapper{s, j})
 	if err != nil {
 		return err
 	}
 
 	s.Jobs = append(s.Jobs, j)
 	return nil
-}
-
-func (s *Scheduler) registerHooks(j Job) {
-	j.SetAfterStart(func(e *Execution) {
-		AfterStartHook(s, j, e)
-	})
-
-	j.SetAfterStop(func(e *Execution) {
-		AfterStopHook(s, j, e)
-	})
 }
 
 func (s *Scheduler) Start() error {
@@ -71,14 +60,30 @@ func (s *Scheduler) IsRunning() bool {
 	return s.isRunning
 }
 
-type cronJob struct {
-	Job Job
-	wg  *sync.WaitGroup
+type jobWrapper struct {
+	s *Scheduler
+	j Job
 }
 
-func (c *cronJob) Run() {
-	c.wg.Add(1)
-	defer c.wg.Done()
+func (w *jobWrapper) Run() {
+	w.s.wg.Add(1)
+	defer w.s.wg.Done()
 
-	c.Job.Run()
+	e := NewExecution()
+	w.start(e)
+
+	ctx := NewContext(w.s, w.j, e)
+	err := ctx.Next()
+	w.stop(e, err)
+}
+
+func (w *jobWrapper) start(e *Execution) {
+	e.Start()
+	w.j.AddHistory(e)
+	w.j.NotifyStart()
+}
+
+func (w *jobWrapper) stop(e *Execution, err error) {
+	e.Stop(err)
+	w.j.NotifyStop()
 }

@@ -21,7 +21,7 @@ func (s *SuiteScheduler) TestAddJob(c *C) {
 
 	e := sc.cron.Entries()
 	c.Assert(e, HasLen, 1)
-	c.Assert(e[0].Job.(*cronJob).Job, DeepEquals, job)
+	c.Assert(e[0].Job.(*jobWrapper).j, DeepEquals, job)
 }
 
 func (s *SuiteScheduler) TestStartStop(c *C) {
@@ -46,15 +46,4 @@ func (s *SuiteScheduler) TestStartStop(c *C) {
 	c.Assert(h[0].Date.IsZero(), Equals, false)
 	c.Assert(h[1].IsRunning, Equals, false)
 	c.Assert(h[1].Date.IsZero(), Equals, false)
-}
-
-type TestJob struct {
-	BareJob
-}
-
-func (j *TestJob) Run() {
-	e := j.Start()
-	defer j.Stop(e, nil)
-
-	time.Sleep(time.Millisecond * 500)
 }

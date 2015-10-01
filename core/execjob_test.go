@@ -3,7 +3,6 @@ package core
 import (
 	"archive/tar"
 	"bytes"
-	"time"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/mcuadros/go-dockerclient/testing"
@@ -31,8 +30,9 @@ func (s *SuiteExecJob) SetUpTest(c *C) {
 }
 
 func (s *SuiteExecJob) TestRun(c *C) {
+	var executed bool
 	s.server.PrepareExec("*", func() {
-		time.Sleep(time.Second)
+		executed = true
 	})
 
 	job := &ExecJob{Client: s.client}
@@ -40,13 +40,12 @@ func (s *SuiteExecJob) TestRun(c *C) {
 	job.Command = `echo -a "foo bar"`
 	job.User = "foo"
 	job.TTY = true
-	job.Run()
 
-	h := job.History()
-	c.Assert(h, HasLen, 1)
-	c.Assert(h[0].Failed, Equals, false)
-	c.Assert(h[0].Error, IsNil)
-	c.Assert(h[0].Duration.Seconds() > 1.0, Equals, true)
+	e := NewExecution()
+
+	err := job.Run(&Context{Execution: e})
+	c.Assert(err, IsNil)
+	c.Assert(executed, Equals, true)
 
 	container, err := s.client.InspectContainer(ContainerFixture)
 	c.Assert(err, IsNil)
