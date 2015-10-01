@@ -15,6 +15,7 @@ var build string
 func main() {
 	parser := flags.NewNamedParser("ofelia", flags.Default)
 	parser.AddCommand("daemon", "daemon process", "", &cli.DaemonCommand{})
+	parser.AddCommand("validate", "validates the config file", "", &cli.ValidateCommand{})
 
 	if _, err := parser.Parse(); err != nil {
 		if _, ok := err.(*flags.Error); ok {
