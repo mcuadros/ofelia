@@ -1,4 +1,4 @@
-# Ofelia - a job scheduler [![Latest Stable Version](http://img.shields.io/github/release/mcuadros/ofelia.svg?style=flat)](https://github.com/mcuadros/ofelia/releases) [![codecov.io](http://codecov.io/github/mcuadros/ofelia/coverage.svg?branch=master)](http://codecov.io/github/mcuadros/ofelia?branch=master) [![Build Status](http://img.shields.io/travis/mcuadros/ofelia.svg?style=flat)](https://travis-ci.org/mcuadros/ofelia)
+# Ofelia - a job scheduler [![GitHub version](https://badge.fury.io/gh/mcuadros%2Fofelia.svg)](https://github.com/mcuadros/ofelia/releases) [![codecov.io](http://codecov.io/github/mcuadros/ofelia/coverage.svg?branch=master)](http://codecov.io/github/mcuadros/ofelia?branch=master) [![Build Status](https://travis-ci.org/mcuadros/ofelia.svg)](https://travis-ci.org/mcuadros/ofelia)
 
 <img src="https://weirdspace.dk/FranciscoIbanez/Graphics/Ofelia.gif" align="right" width="180px" height="300px" vspace="20" />
 
