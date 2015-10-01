@@ -1,7 +1,8 @@
 # Package configuration
 PROJECT = ofelia
 COMMANDS = ofelia
-DEPENDENCIES =
+DEPENDENCIES = golang.org/x/tools/cmd/cover
+PACKAGES = github.com/mcuadros/ofelia/core
 
 # Environment
 BASE_PATH := $(shell pwd)
@@ -24,6 +25,10 @@ GOGET = $(GOCMD) get -v
 GOTEST = $(GOCMD) test -v
 GHRELEASE = github-release
 
+# Coverage
+COVERAGE_REPORT = coverage.txt
+COVERAGE_MODE = atomic
+
 ifneq ($(origin TRAVIS_TAG), undefined)
 	BRANCH := $(TRAVIS_TAG)
 endif
@@ -36,7 +41,14 @@ dependencies:
 	for i in $(DEPENDENCIES); do $(GOGET) $$i; done
 
 test: dependencies
-	$(GOTEST) ./...
+	for p in $(PACKAGES); do \
+		$(GOTEST) $${p}; \
+	done;
+
+test-coverage: dependencies
+	for p in $(PACKAGES); do \
+		$(GOTEST) $${p} -coverprofile=$(COVERAGE_REPORT) -covermode=$(COVERAGE_MODE); \
+	done;
 
 packages: dependencies
 	for os in $(PKG_OS); do \

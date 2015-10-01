@@ -6,7 +6,10 @@ go:
   - 1.5
 
 script:
-  - make test
+  - make test-coverage
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
 
 before_deploy:
   - make packages
