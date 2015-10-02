@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/mcuadros/ofelia/core"
-	"github.com/prometheus/log"
 
 	"github.com/op/go-logging"
 )
@@ -21,7 +20,7 @@ func (m *Logger) Run(ctx *core.Context) error {
 	e := ctx.Execution
 	j := ctx.Job
 
-	log.Info(fmt.Sprintf(
+	m.logger.Debug(fmt.Sprintf(
 		"%s - Job started %q - %s",
 		j.GetName(), e.ID, j.GetCommand(),
 	))
@@ -34,10 +33,16 @@ func (m *Logger) Run(ctx *core.Context) error {
 		errText = ctx.Execution.Error.Error()
 	}
 
-	log.Info(fmt.Sprintf(
+	msg := fmt.Sprintf(
 		"%s - Job finished %q in %s, failed: %t, error: %s",
 		j.GetName(), e.ID, e.Duration, e.Failed, errText,
-	))
+	)
+
+	if ctx.Execution.Error != nil {
+		m.logger.Warning(msg)
+	} else {
+		m.logger.Notice(msg)
+	}
 
 	return err
 }
