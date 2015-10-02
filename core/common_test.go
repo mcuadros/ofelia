@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -28,6 +29,61 @@ func (s *SuiteCommon) TestNewContext(c *C) {
 	c.Assert(ctx.middlewares, HasLen, 2)
 }
 
+func (s *SuiteCommon) TestContextNextError(c *C) {
+	mA := &TestMiddleware{}
+	mB := &TestMiddleware{Error: fmt.Errorf("foo")}
+	mC := &TestMiddleware{Error: fmt.Errorf("bar")}
+
+	j := &TestJob{}
+	j.Use(mA, mB, mC)
+
+	e := NewExecution()
+
+	ctx := NewContext(nil, j, e)
+	ctx.Start()
+
+	err := ctx.Next()
+	c.Assert(err, IsNil)
+	c.Assert(mA.Called, Equals, 1)
+	c.Assert(mB.Called, Equals, 0)
+	c.Assert(mC.Called, Equals, 0)
+	c.Assert(j.Called, Equals, 0)
+	c.Assert(ctx.Execution.IsRunning, Equals, true)
+
+	err = ctx.Next()
+	c.Assert(err, IsNil)
+	c.Assert(mB.Called, Equals, 1)
+	c.Assert(mC.Called, Equals, 0)
+	c.Assert(j.Called, Equals, 0)
+	c.Assert(ctx.Execution.IsRunning, Equals, false)
+
+	err = ctx.Next()
+	c.Assert(err, IsNil)
+	c.Assert(mC.Called, Equals, 0)
+	c.Assert(j.Called, Equals, 0)
+
+	err = ctx.Next()
+	c.Assert(err, IsNil)
+	c.Assert(j.Called, Equals, 0)
+}
+
+func (s *SuiteCommon) TestContextNextNested(c *C) {
+	mA := &TestMiddleware{Nested: true}
+	mB := &TestMiddleware{Nested: true}
+	mC := &TestMiddleware{Nested: true}
+
+	j := &TestJob{}
+	j.Use(mA, mB, mC)
+
+	e := NewExecution()
+
+	ctx := NewContext(nil, j, e)
+	ctx.Start()
+
+	err := ctx.Next()
+	c.Assert(err, IsNil)
+}
+
 func (s *SuiteCommon) TestContextNext(c *C) {
 	mA := &TestMiddleware{}
 	mB := &TestMiddleware{}
@@ -39,28 +95,35 @@ func (s *SuiteCommon) TestContextNext(c *C) {
 	e := NewExecution()
 
 	ctx := NewContext(nil, j, e)
+	ctx.Start()
 
 	err := ctx.Next()
 	c.Assert(err, IsNil)
-	c.Assert(mA.Called, Equals, true)
-	c.Assert(mB.Called, Equals, false)
-	c.Assert(mC.Called, Equals, false)
-	c.Assert(j.Called, Equals, false)
+	c.Assert(mA.Called, Equals, 1)
+	c.Assert(mB.Called, Equals, 0)
+	c.Assert(mC.Called, Equals, 0)
+	c.Assert(j.Called, Equals, 0)
+	c.Assert(ctx.Execution.IsRunning, Equals, true)
 
 	err = ctx.Next()
 	c.Assert(err, IsNil)
-	c.Assert(mB.Called, Equals, true)
-	c.Assert(mC.Called, Equals, false)
-	c.Assert(j.Called, Equals, false)
+	c.Assert(mB.Called, Equals, 1)
+	c.Assert(mC.Called, Equals, 0)
+	c.Assert(j.Called, Equals, 0)
+	c.Assert(ctx.Execution.IsRunning, Equals, true)
 
 	err = ctx.Next()
 	c.Assert(err, IsNil)
-	c.Assert(mC.Called, Equals, true)
-	c.Assert(j.Called, Equals, false)
+	c.Assert(mC.Called, Equals, 1)
+	c.Assert(j.Called, Equals, 0)
 
 	err = ctx.Next()
 	c.Assert(err, IsNil)
-	c.Assert(j.Called, Equals, true)
+	c.Assert(j.Called, Equals, 1)
+
+	err = ctx.Next()
+	c.Assert(err, IsNil)
+	c.Assert(j.Called, Equals, 1)
 }
 
 func (s *SuiteCommon) TestExecutionStart(c *C) {
@@ -98,22 +161,28 @@ func (s *SuiteCommon) TestExecutionStopError(c *C) {
 }
 
 type TestMiddleware struct {
-	Called bool
+	Called int
+	Nested bool
+	Error  error
 }
 
-func (m *TestMiddleware) Run(*Context) error {
-	m.Called = true
+func (m *TestMiddleware) Run(ctx *Context) error {
+	m.Called++
 
-	return nil
+	if m.Nested {
+		ctx.Next()
+	}
+
+	return m.Error
 }
 
 type TestJob struct {
 	BareJob
-	Called bool
+	Called int
 }
 
 func (j *TestJob) Run(ctx *Context) error {
-	j.Called = true
+	j.Called++
 	time.Sleep(time.Millisecond * 500)
 
 	return nil

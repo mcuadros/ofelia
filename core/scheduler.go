@@ -70,20 +70,9 @@ func (w *jobWrapper) Run() {
 	defer w.s.wg.Done()
 
 	e := NewExecution()
-	w.start(e)
 
 	ctx := NewContext(w.s, w.j, e)
+	ctx.Start()
 	err := ctx.Next()
-	w.stop(e, err)
-}
-
-func (w *jobWrapper) start(e *Execution) {
-	e.Start()
-	w.j.AddHistory(e)
-	w.j.NotifyStart()
-}
-
-func (w *jobWrapper) stop(e *Execution, err error) {
-	e.Stop(err)
-	w.j.NotifyStop()
+	ctx.Stop(err)
 }

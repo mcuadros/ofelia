@@ -28,6 +28,7 @@ type Context struct {
 	Execution *Execution
 
 	current     int
+	executed    bool
 	middlewares []Middleware
 }
 
@@ -40,14 +41,41 @@ func NewContext(s *Scheduler, j Job, e *Execution) *Context {
 	}
 }
 
-func (c *Context) Next() error {
-	defer func() { c.current++ }()
+func (c *Context) Start() {
+	c.Execution.Start()
+	c.Job.AddHistory(c.Execution)
+	c.Job.NotifyStart()
+}
 
+func (c *Context) Next() error {
+	if !c.Execution.IsRunning {
+		return nil
+	}
+
+	if err := c.doNext(); err != nil || c.executed {
+		c.Stop(err)
+	}
+
+	return nil
+}
+
+func (c *Context) doNext() error {
 	if c.current >= len(c.middlewares) {
+		c.executed = true
 		return c.Job.Run(c)
 	}
 
-	return c.middlewares[c.current].Run(c)
+	c.current++
+	return c.middlewares[c.current-1].Run(c)
+}
+
+func (c *Context) Stop(err error) {
+	if !c.Execution.IsRunning {
+		return
+	}
+
+	c.Execution.Stop(err)
+	c.Job.NotifyStop()
 }
 
 type Middleware interface {
