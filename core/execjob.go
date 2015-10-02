@@ -70,6 +70,7 @@ func (j *ExecJob) startExec(e *Execution, exec *docker.Exec) error {
 
 func (j *ExecJob) inspectExec(exec *docker.Exec) error {
 	i, err := j.Client.InspectExec(exec.ID)
+
 	if err != nil {
 		return fmt.Errorf("error inspecting exec: %s", err)
 	}

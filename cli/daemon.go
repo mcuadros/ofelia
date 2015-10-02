@@ -8,6 +8,8 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/mcuadros/ofelia/core"
+	"github.com/mcuadros/ofelia/middlewares"
+	"github.com/op/go-logging"
 )
 
 // DaemonCommand daemon process
@@ -50,9 +52,11 @@ func (c *DaemonCommand) boot() error {
 		return err
 	}
 
+	logger := c.buildLogger()
 	c.scheduler = core.NewScheduler()
 	for _, j := range c.config.Jobs {
 		j.Client = d
+		j.Use(logger)
 		c.scheduler.AddJob(j)
 	}
 
@@ -90,4 +94,13 @@ func (c *DaemonCommand) shutdown() error {
 
 	fmt.Println("Waiting running jobs.")
 	return c.scheduler.Stop()
+}
+
+const logFormat = "%{color}%{shortfile} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}"
+
+func (c *DaemonCommand) buildLogger() *middlewares.Logger {
+	logging.SetFormatter(logging.MustStringFormatter(logFormat))
+
+	return middlewares.NewLogger(logging.MustGetLogger("ofelia"))
+
 }
