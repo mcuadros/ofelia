@@ -54,14 +54,14 @@ packages: dependencies
 	for os in $(PKG_OS); do \
 		for arch in $(PKG_ARCH); do \
 			cd $(BASE_PATH); \
-			mkdir -p $(BUILD_PATH)/$(PROJECT)_$(BRANCH)_$${os}_$${arch}; \
+			mkdir -p $(BUILD_PATH)/$(PROJECT)_$${os}_$${arch}; \
 			for cmd in $(COMMANDS); do \
-				GOOS=$${os} GOARCH=$${arch} $(GOCMD) build -ldflags "-X main.version $(BRANCH) -X main.build \"$(BUILD)\"" -o $(BUILD_PATH)/$(PROJECT)_$(BRANCH)_$${os}_$${arch}/$${cmd} $${cmd}.go ; \
+				GOOS=$${os} GOARCH=$${arch} $(GOCMD) build -ldflags "-X main.version $(BRANCH) -X main.build \"$(BUILD)\"" -o $(BUILD_PATH)/$(PROJECT)_$${os}_$${arch}/$${cmd} $${cmd}.go ; \
 			done; \
 			for content in $(PKG_CONTENT); do \
-				cp -rf $${content} $(BUILD_PATH)/$(PROJECT)_$(BRANCH)_$${os}_$${arch}/; \
+				cp -rf $${content} $(BUILD_PATH)/$(PROJECT)_$${os}_$${arch}/; \
 			done; \
-			cd  $(BUILD_PATH) && tar -cvzf $(BUILD_PATH)/$(PROJECT)_$(BRANCH)_$${os}_$${arch}.tar.gz $(PROJECT)_$(BRANCH)_$${os}_$${arch}/; \
+			cd  $(BUILD_PATH) && tar -cvzf $(BUILD_PATH)/$(PROJECT)_$(BRANCH)_$${os}_$${arch}.tar.gz $(PROJECT)_$${os}_$${arch}/; \
 		done; \
 	done;
 
