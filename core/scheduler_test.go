@@ -14,7 +14,7 @@ func (s *SuiteScheduler) TestAddJob(c *C) {
 	job := &TestJob{}
 	job.Schedule = "@hourly"
 
-	sc := NewScheduler()
+	sc := NewScheduler(&TestLogger{})
 	err := sc.AddJob(job)
 	c.Assert(err, IsNil)
 	c.Assert(sc.Jobs, HasLen, 1)
@@ -28,7 +28,7 @@ func (s *SuiteScheduler) TestStartStop(c *C) {
 	job := &TestJob{}
 	job.Schedule = "@every 1s"
 
-	sc := NewScheduler()
+	sc := NewScheduler(&TestLogger{})
 	err := sc.AddJob(job)
 	c.Assert(err, IsNil)
 

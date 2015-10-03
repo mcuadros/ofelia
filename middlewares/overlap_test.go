@@ -1,44 +1,28 @@
 package middlewares
 
-import (
-	"github.com/mcuadros/ofelia/core"
+import . "gopkg.in/check.v1"
 
-	. "gopkg.in/check.v1"
-)
-
-type SuiteOverlap struct{}
+type SuiteOverlap struct {
+	BaseSuite
+}
 
 var _ = Suite(&SuiteOverlap{})
 
 func (s *SuiteOverlap) TestRun(c *C) {
-	ctx := core.NewContext(nil, &TestJob{}, core.NewExecution())
-
 	m := &Overlap{}
-	c.Assert(m.Run(ctx), IsNil)
+	c.Assert(m.Run(s.ctx), IsNil)
 }
 
 func (s *SuiteOverlap) TestRunOverlap(c *C) {
-	job := &TestJob{}
-	ctx := core.NewContext(nil, job, core.NewExecution())
+	s.ctx.Job.NotifyStart()
 
-	job.NotifyStart()
 	m := &Overlap{}
-	c.Assert(m.Run(ctx), Equals, ErrSkippedExecution)
+	c.Assert(m.Run(s.ctx), Equals, ErrSkippedExecution)
 }
 
 func (s *SuiteOverlap) TestRunAllowOverlap(c *C) {
-	job := &TestJob{}
-	ctx := core.NewContext(nil, job, core.NewExecution())
+	s.ctx.Job.NotifyStart()
 
-	job.NotifyStart()
 	m := &Overlap{AllowOverlap: true}
-	c.Assert(m.Run(ctx), IsNil)
-}
-
-type TestJob struct {
-	core.BareJob
-}
-
-func (j *TestJob) Run(ctx *core.Context) error {
-	return nil
+	c.Assert(m.Run(s.ctx), IsNil)
 }

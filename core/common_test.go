@@ -16,7 +16,7 @@ type SuiteCommon struct{}
 var _ = Suite(&SuiteCommon{})
 
 func (s *SuiteCommon) TestNewContext(c *C) {
-	h := &Scheduler{}
+	h := NewScheduler(&TestLogger{})
 	j := &TestJob{}
 	j.Use(&TestMiddleware{}, &TestMiddleware{})
 
@@ -39,7 +39,8 @@ func (s *SuiteCommon) TestContextNextError(c *C) {
 
 	e := NewExecution()
 
-	ctx := NewContext(nil, j, e)
+	h := NewScheduler(&TestLogger{})
+	ctx := NewContext(h, j, e)
 	ctx.Start()
 
 	err := ctx.Next()
@@ -77,7 +78,8 @@ func (s *SuiteCommon) TestContextNextNested(c *C) {
 
 	e := NewExecution()
 
-	ctx := NewContext(nil, j, e)
+	h := NewScheduler(&TestLogger{})
+	ctx := NewContext(h, j, e)
 	ctx.Start()
 
 	err := ctx.Next()
@@ -94,7 +96,8 @@ func (s *SuiteCommon) TestContextNext(c *C) {
 
 	e := NewExecution()
 
-	ctx := NewContext(nil, j, e)
+	h := NewScheduler(&TestLogger{})
+	ctx := NewContext(h, j, e)
 	ctx.Start()
 
 	err := ctx.Next()
@@ -187,3 +190,11 @@ func (j *TestJob) Run(ctx *Context) error {
 
 	return nil
 }
+
+type TestLogger struct{}
+
+func (*TestLogger) Critical(format string, args ...interface{}) {}
+func (*TestLogger) Debug(format string, args ...interface{})    {}
+func (*TestLogger) Error(format string, args ...interface{})    {}
+func (*TestLogger) Notice(format string, args ...interface{})   {}
+func (*TestLogger) Warning(format string, args ...interface{})  {}

@@ -2,7 +2,8 @@
 PROJECT = ofelia
 COMMANDS = ofelia
 DEPENDENCIES = golang.org/x/tools/cmd/cover
-PACKAGES = github.com/mcuadros/ofelia/core
+PACKAGES = github.com/mcuadros/ofelia/core \
+	github.com/mcuadros/ofelia/middlewares
 
 # Environment
 BASE_PATH := $(shell pwd)
@@ -46,8 +47,11 @@ test: dependencies
 	done;
 
 test-coverage: dependencies
+	echo "mode: $(COVERAGE_MODE)" > $(COVERAGE_REPORT); \
 	for p in $(PACKAGES); do \
-		$(GOTEST) $${p} -coverprofile=$(COVERAGE_REPORT) -covermode=$(COVERAGE_MODE); \
+		$(GOTEST) $${p} -coverprofile=tmp_$(COVERAGE_REPORT) -covermode=$(COVERAGE_MODE); \
+		cat tmp_$(COVERAGE_REPORT) | grep -v "mode: $(COVERAGE_MODE)" >> $(COVERAGE_REPORT); \
+		rm tmp_$(COVERAGE_REPORT); \
 	done;
 
 packages: dependencies
