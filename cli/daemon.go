@@ -8,7 +8,6 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/mcuadros/ofelia/core"
-	"github.com/mcuadros/ofelia/middlewares"
 	"github.com/op/go-logging"
 )
 
@@ -18,6 +17,7 @@ type DaemonCommand struct {
 
 	config    *Config
 	scheduler *core.Scheduler
+	logger    *logging.Logger
 	signals   chan os.Signal
 	done      chan bool
 }
@@ -40,23 +40,21 @@ func (c *DaemonCommand) Execute(args []string) error {
 }
 
 func (c *DaemonCommand) boot() error {
+	c.buildLogger()
+
 	c.config = &Config{}
 	if err := c.config.LoadFile(c.ConfigFile); err != nil {
 		return err
 	}
-
-	fmt.Printf("Loaded %d job(s) from %s\n", len(c.config.Jobs), c.ConfigFile)
 
 	d, err := docker.NewClientFromEnv()
 	if err != nil {
 		return err
 	}
 
-	logger := c.buildLogger()
-	c.scheduler = core.NewScheduler()
+	c.scheduler = core.NewScheduler(c.logger)
 	for _, j := range c.config.Jobs {
 		j.Client = d
-		j.Use(logger)
 		c.scheduler.AddJob(j)
 	}
 
@@ -80,7 +78,7 @@ func (c *DaemonCommand) setSignals() {
 
 	go func() {
 		sig := <-c.signals
-		fmt.Printf("Signal recieved: %s, shuting down the process\n", sig)
+		c.logger.Warning("Signal recieved: %s, shuting down the process\n", sig)
 
 		c.done <- true
 	}()
@@ -96,11 +94,11 @@ func (c *DaemonCommand) shutdown() error {
 	return c.scheduler.Stop()
 }
 
-const logFormat = "%{color}%{shortfile} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}"
+const logFormat = "%{color}%{shortfile} ▶ %{level}%{color:reset} %{message}"
 
-func (c *DaemonCommand) buildLogger() *middlewares.Logger {
+func (c *DaemonCommand) buildLogger() {
 	logging.SetFormatter(logging.MustStringFormatter(logFormat))
 
-	return middlewares.NewLogger(logging.MustGetLogger("ofelia"))
+	c.logger = logging.MustGetLogger("ofelia")
 
 }

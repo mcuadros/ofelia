@@ -24,6 +24,7 @@ type Job interface {
 
 type Context struct {
 	Scheduler *Scheduler
+	Logger    Logger
 	Job       Job
 	Execution *Execution
 
@@ -35,6 +36,7 @@ type Context struct {
 func NewContext(s *Scheduler, j Job, e *Execution) *Context {
 	return &Context{
 		Scheduler:   s,
+		Logger:      s.Logger,
 		Job:         j,
 		Execution:   e,
 		middlewares: j.Middlewares(),
@@ -115,6 +117,14 @@ func (e *Execution) Stop(err error) {
 		e.Error = err
 		e.Failed = true
 	}
+}
+
+type Logger interface {
+	Critical(format string, args ...interface{})
+	Debug(format string, args ...interface{})
+	Error(format string, args ...interface{})
+	Notice(format string, args ...interface{})
+	Warning(format string, args ...interface{})
 }
 
 func randomID() string {

@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/robfig/cron"
@@ -11,20 +12,24 @@ var ErrEmptyScheduler error = errors.New("unable to start a empty scheduler.")
 var ErrEmptySchedule error = errors.New("unable to add a job with a empty schedule.")
 
 type Scheduler struct {
-	Jobs []Job
+	Jobs   []Job
+	Logger Logger
 
 	cron      *cron.Cron
 	wg        sync.WaitGroup
 	isRunning bool
 }
 
-func NewScheduler() *Scheduler {
+func NewScheduler(l Logger) *Scheduler {
 	return &Scheduler{
-		cron: cron.New(),
+		Logger: l,
+		cron:   cron.New(),
 	}
 }
 
 func (s *Scheduler) AddJob(j Job) error {
+	s.Logger.Notice("New job registered %q - %q - %q", j.GetName(), j.GetCommand(), j.GetSchedule())
+
 	if j.GetSchedule() == "" {
 		return ErrEmptySchedule
 	}
@@ -42,6 +47,8 @@ func (s *Scheduler) Start() error {
 	if len(s.Jobs) == 0 {
 		return ErrEmptyScheduler
 	}
+
+	s.Logger.Debug("Starting scheduler with %d jobs", len(s.Jobs))
 
 	s.isRunning = true
 	s.cron.Start()
@@ -70,9 +77,38 @@ func (w *jobWrapper) Run() {
 	defer w.s.wg.Done()
 
 	e := NewExecution()
-
 	ctx := NewContext(w.s, w.j, e)
-	ctx.Start()
+
+	w.start(ctx)
 	err := ctx.Next()
+	w.stop(ctx, err)
+}
+
+func (w *jobWrapper) start(ctx *Context) {
+	ctx.Start()
+
+	ctx.Logger.Debug(
+		"%s - Job started %q - %q",
+		ctx.Job.GetName(), ctx.Execution.ID, ctx.Job.GetCommand(),
+	)
+}
+
+func (w *jobWrapper) stop(ctx *Context, err error) {
 	ctx.Stop(err)
+
+	errText := "none"
+	if ctx.Execution.Error != nil {
+		errText = ctx.Execution.Error.Error()
+	}
+
+	msg := fmt.Sprintf(
+		"%s - Job finished %q in %q, failed: %t, error: %s",
+		ctx.Job.GetName(), ctx.Execution.ID, ctx.Execution.Duration, ctx.Execution.Failed, errText,
+	)
+
+	if ctx.Execution.Error != nil {
+		ctx.Logger.Warning(msg)
+	} else {
+		ctx.Logger.Notice(msg)
+	}
 }
