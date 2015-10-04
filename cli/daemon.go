@@ -55,6 +55,7 @@ func (c *DaemonCommand) boot() error {
 	c.scheduler = core.NewScheduler(c.logger)
 	for _, j := range c.config.Jobs {
 		j.Client = d
+		j.Build()
 		c.scheduler.AddJob(j)
 	}
 

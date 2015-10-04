@@ -3,7 +3,8 @@ PROJECT = ofelia
 COMMANDS = ofelia
 DEPENDENCIES = golang.org/x/tools/cmd/cover
 PACKAGES = github.com/mcuadros/ofelia/core \
-	github.com/mcuadros/ofelia/middlewares
+	github.com/mcuadros/ofelia/middlewares \
+	github.com/mcuadros/ofelia/cli
 
 # Environment
 BASE_PATH := $(shell pwd)

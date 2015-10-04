@@ -15,14 +15,16 @@ func (s *SuiteOverlap) TestRun(c *C) {
 
 func (s *SuiteOverlap) TestRunOverlap(c *C) {
 	s.ctx.Job.NotifyStart()
+	s.ctx.Job.NotifyStart()
 
 	m := &Overlap{}
+	m.NoOverlap = true
 	c.Assert(m.Run(s.ctx), Equals, ErrSkippedExecution)
 }
 
 func (s *SuiteOverlap) TestRunAllowOverlap(c *C) {
 	s.ctx.Job.NotifyStart()
 
-	m := &Overlap{AllowOverlap: true}
+	m := &Overlap{}
 	c.Assert(m.Run(s.ctx), IsNil)
 }
