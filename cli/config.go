@@ -35,12 +35,14 @@ func (c *Config) loadDefaults() {
 type ExecJobConfig struct {
 	core.ExecJob
 	middlewares.OverlapConfig
+	middlewares.SlackConfig
 }
 
 // Build instanciates all the middlewares configured
 func (c *ExecJobConfig) Build() {
 	var ms []core.Middleware
 	ms = append(ms, middlewares.NewOverlap(&c.OverlapConfig))
+	ms = append(ms, middlewares.NewSlack(&c.SlackConfig))
 
 	for _, m := range ms {
 		if m == nil {

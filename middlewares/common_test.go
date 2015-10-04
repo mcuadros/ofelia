@@ -29,14 +29,15 @@ func (s *SuiteCommon) TestIsEmpty(c *C) {
 
 type BaseSuite struct {
 	ctx *core.Context
+	job *TestJob
 }
 
 func (s *BaseSuite) SetUpTest(c *C) {
-	job := &TestJob{}
+	s.job = &TestJob{}
 	sh := core.NewScheduler(&TestLogger{})
 	e := core.NewExecution()
 
-	s.ctx = core.NewContext(sh, job, e)
+	s.ctx = core.NewContext(sh, s.job, e)
 }
 
 type TestConfig struct {
