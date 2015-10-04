@@ -47,3 +47,20 @@ func (s *SuiteScheduler) TestStartStop(c *C) {
 	c.Assert(h[1].IsRunning, Equals, false)
 	c.Assert(h[1].Date.IsZero(), Equals, false)
 }
+
+func (s *SuiteScheduler) TestMergeMiddlewaresSame(c *C) {
+	mA, mB, mC := &TestMiddleware{}, &TestMiddleware{}, &TestMiddleware{}
+
+	job := &TestJob{}
+	job.Schedule = "@every 1s"
+	job.Use(mB, mC)
+
+	sc := NewScheduler(&TestLogger{})
+	sc.Use(mA)
+	sc.AddJob(job)
+	sc.mergeMiddlewares()
+
+	m := job.Middlewares()
+	c.Assert(m, HasLen, 1)
+	c.Assert(m[0], Equals, mB)
+}

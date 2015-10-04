@@ -15,6 +15,7 @@ type Scheduler struct {
 	Jobs   []Job
 	Logger Logger
 
+	middlewareContainer
 	cron      *cron.Cron
 	wg        sync.WaitGroup
 	isRunning bool
@@ -50,9 +51,16 @@ func (s *Scheduler) Start() error {
 
 	s.Logger.Debug("Starting scheduler with %d jobs", len(s.Jobs))
 
+	s.mergeMiddlewares()
 	s.isRunning = true
 	s.cron.Start()
 	return nil
+}
+
+func (s *Scheduler) mergeMiddlewares() {
+	for _, j := range s.Jobs {
+		j.Use(s.Middlewares()...)
+	}
 }
 
 func (s *Scheduler) Stop() error {

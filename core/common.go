@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"reflect"
 	"time"
 )
 
@@ -80,10 +81,6 @@ func (c *Context) Stop(err error) {
 	c.Job.NotifyStop()
 }
 
-type Middleware interface {
-	Run(*Context) error
-}
-
 type Execution struct {
 	ID        string
 	Date      time.Time
@@ -117,6 +114,44 @@ func (e *Execution) Stop(err error) {
 		e.Error = err
 		e.Failed = true
 	}
+}
+
+type Middleware interface {
+	Run(*Context) error
+}
+
+type middlewareContainer struct {
+	m     map[string]Middleware
+	order []string
+}
+
+func (c *middlewareContainer) Use(ms ...Middleware) {
+	if c.m == nil {
+		c.m = make(map[string]Middleware, 0)
+	}
+
+	for _, m := range ms {
+		if m == nil {
+			continue
+		}
+
+		t := reflect.TypeOf(m).String()
+		if _, ok := c.m[t]; ok {
+			continue
+		}
+
+		c.order = append(c.order, t)
+		c.m[t] = m
+	}
+}
+
+func (c *middlewareContainer) Middlewares() []Middleware {
+	var ms []Middleware
+	for _, t := range c.order {
+		ms = append(ms, c.m[t])
+	}
+
+	return ms
 }
 
 type Logger interface {

@@ -18,19 +18,6 @@ func (s *SuiteBareJob) TestGetters(c *C) {
 	c.Assert(job.GetCommand(), Equals, "qux")
 }
 
-func (s *SuiteBareJob) TestMiddlewares(c *C) {
-	mA := &TestMiddleware{}
-	mB := &TestMiddleware{}
-
-	job := &BareJob{}
-	job.Use(mA, mB)
-
-	m := job.Middlewares()
-	c.Assert(m, HasLen, 2)
-	c.Assert(m[0], DeepEquals, mA)
-	c.Assert(m[1], DeepEquals, mB)
-}
-
 func (s *SuiteBareJob) TestHistory(c *C) {
 	eA := NewExecution()
 	eB := NewExecution()

@@ -10,10 +10,10 @@ type BareJob struct {
 	Name     string
 	Command  string
 
-	running     int32
-	lock        sync.Mutex
-	history     []*Execution
-	middlewares []Middleware
+	middlewareContainer
+	running int32
+	lock    sync.Mutex
+	history []*Execution
 }
 
 func (j *BareJob) GetName() string {
@@ -26,14 +26,6 @@ func (j *BareJob) GetSchedule() string {
 
 func (j *BareJob) GetCommand() string {
 	return j.Command
-}
-
-func (j *BareJob) Middlewares() []Middleware {
-	return j.middlewares
-}
-
-func (j *BareJob) Use(m ...Middleware) {
-	j.middlewares = append(j.middlewares, m...)
 }
 
 func (j *BareJob) History() []*Execution {

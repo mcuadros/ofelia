@@ -1,14 +1,11 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/fsouza/go-dockerclient"
 	"github.com/mcuadros/ofelia/core"
-	"github.com/op/go-logging"
 )
 
 // DaemonCommand daemon process
@@ -17,7 +14,6 @@ type DaemonCommand struct {
 
 	config    *Config
 	scheduler *core.Scheduler
-	logger    *logging.Logger
 	signals   chan os.Signal
 	done      chan bool
 }
@@ -40,25 +36,12 @@ func (c *DaemonCommand) Execute(args []string) error {
 }
 
 func (c *DaemonCommand) boot() error {
-	c.buildLogger()
-
-	c.config = &Config{}
-	if err := c.config.LoadFile(c.ConfigFile); err != nil {
-		return err
-	}
-
-	d, err := docker.NewClientFromEnv()
+	sh, err := BuildFromFile(c.ConfigFile)
 	if err != nil {
 		return err
 	}
 
-	c.scheduler = core.NewScheduler(c.logger)
-	for _, j := range c.config.Jobs {
-		j.Client = d
-		j.Build()
-		c.scheduler.AddJob(j)
-	}
-
+	c.scheduler = sh
 	return nil
 }
 
@@ -79,7 +62,9 @@ func (c *DaemonCommand) setSignals() {
 
 	go func() {
 		sig := <-c.signals
-		c.logger.Warning("Signal recieved: %s, shuting down the process\n", sig)
+		c.scheduler.Logger.Warning(
+			"Signal recieved: %s, shuting down the process\n", sig,
+		)
 
 		c.done <- true
 	}()
@@ -91,15 +76,6 @@ func (c *DaemonCommand) shutdown() error {
 		return nil
 	}
 
-	fmt.Println("Waiting running jobs.")
+	c.scheduler.Logger.Warning("Waiting running jobs.")
 	return c.scheduler.Stop()
-}
-
-const logFormat = "%{color}%{shortfile} ▶ %{level}%{color:reset} %{message}"
-
-func (c *DaemonCommand) buildLogger() {
-	logging.SetFormatter(logging.MustStringFormatter(logFormat))
-
-	c.logger = logging.MustGetLogger("ofelia")
-
 }

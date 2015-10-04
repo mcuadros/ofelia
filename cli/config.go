@@ -1,34 +1,83 @@
 package cli
 
 import (
-	"github.com/mcuadros/go-defaults"
+	"github.com/fsouza/go-dockerclient"
 	"github.com/mcuadros/ofelia/core"
 	"github.com/mcuadros/ofelia/middlewares"
+	"github.com/op/go-logging"
+
+	"github.com/mcuadros/go-defaults"
 	"gopkg.in/gcfg.v1"
 )
 
+const logFormat = "%{color}%{shortfile} ▶ %{level}%{color:reset} %{message}"
+
 // Config contains the configuration
 type Config struct {
+	Global struct {
+		middlewares.SlackConfig
+	}
 	Jobs map[string]*ExecJobConfig `gcfg:"Job"`
 }
 
-// LoadFile loads the content into the Config struct
-func (c *Config) LoadFile(filename string) error {
-	err := gcfg.ReadFileInto(c, filename)
-	if err != nil {
-		return err
+// BuildFromFile buils a scheduler using the config from a file
+func BuildFromFile(filename string) (*core.Scheduler, error) {
+	c := &Config{}
+	if err := gcfg.ReadFileInto(c, filename); err != nil {
+		return nil, err
 	}
 
-	c.loadDefaults()
-	return nil
+	return c.build()
 }
 
-func (c *Config) loadDefaults() {
-	defaults.SetDefaults(c)
-	for name, j := range c.Jobs {
-		j.Name = name
-		defaults.SetDefaults(j)
+// BuildFromString buils a scheduler using the config from a string
+func BuildFromString(config string) (*core.Scheduler, error) {
+	c := &Config{}
+	if err := gcfg.ReadStringInto(c, config); err != nil {
+		return nil, err
 	}
+
+	return c.build()
+}
+
+func (c *Config) build() (*core.Scheduler, error) {
+	defaults.SetDefaults(c)
+
+	d, err := c.buildDockerClient()
+	if err != nil {
+		return nil, err
+	}
+
+	sh := core.NewScheduler(c.buildLogger())
+	c.buildSchedulerMiddlewares(sh)
+
+	for name, j := range c.Jobs {
+		j.Client = d
+		j.Name = name
+		j.buildMiddlewares()
+		sh.AddJob(j)
+	}
+
+	return sh, nil
+}
+
+func (c *Config) buildDockerClient() (*docker.Client, error) {
+	d, err := docker.NewClientFromEnv()
+	if err != nil {
+		return nil, err
+	}
+
+	return d, nil
+}
+
+func (c *Config) buildLogger() core.Logger {
+	logging.SetFormatter(logging.MustStringFormatter(logFormat))
+
+	return logging.MustGetLogger("ofelia")
+}
+
+func (c *Config) buildSchedulerMiddlewares(sh *core.Scheduler) {
+	sh.Use(middlewares.NewSlack(&c.Global.SlackConfig))
 }
 
 // ExecJobConfig contains all configuration params needed to build a ExecJob
@@ -38,17 +87,7 @@ type ExecJobConfig struct {
 	middlewares.SlackConfig
 }
 
-// Build instanciates all the middlewares configured
-func (c *ExecJobConfig) Build() {
-	var ms []core.Middleware
-	ms = append(ms, middlewares.NewOverlap(&c.OverlapConfig))
-	ms = append(ms, middlewares.NewSlack(&c.SlackConfig))
-
-	for _, m := range ms {
-		if m == nil {
-			continue
-		}
-
-		c.ExecJob.Use(m)
-	}
+func (c *ExecJobConfig) buildMiddlewares() {
+	c.ExecJob.Use(middlewares.NewOverlap(&c.OverlapConfig))
+	c.ExecJob.Use(middlewares.NewSlack(&c.SlackConfig))
 }

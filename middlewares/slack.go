@@ -21,7 +21,7 @@ type SlackConfig struct {
 }
 
 func NewSlack(c *SlackConfig) core.Middleware {
-	var m *Slack
+	var m core.Middleware
 	if !IsEmpty(c) {
 		m = &Slack{*c}
 	}

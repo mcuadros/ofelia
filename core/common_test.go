@@ -18,7 +18,7 @@ var _ = Suite(&SuiteCommon{})
 func (s *SuiteCommon) TestNewContext(c *C) {
 	h := NewScheduler(&TestLogger{})
 	j := &TestJob{}
-	j.Use(&TestMiddleware{}, &TestMiddleware{})
+	j.Use(&TestMiddleware{})
 
 	e := NewExecution()
 
@@ -26,13 +26,14 @@ func (s *SuiteCommon) TestNewContext(c *C) {
 	c.Assert(ctx.Scheduler, DeepEquals, h)
 	c.Assert(ctx.Job, DeepEquals, j)
 	c.Assert(ctx.Execution, DeepEquals, e)
-	c.Assert(ctx.middlewares, HasLen, 2)
+	c.Assert(ctx.middlewares, HasLen, 1)
 }
 
 func (s *SuiteCommon) TestContextNextError(c *C) {
-	mA := &TestMiddleware{}
-	mB := &TestMiddleware{Error: fmt.Errorf("foo")}
-	mC := &TestMiddleware{Error: fmt.Errorf("bar")}
+	mA := &TestMiddlewareAltA{}
+	mB := &TestMiddlewareAltB{}
+	mC := &TestMiddlewareAltC{}
+	mB.Error, mC.Error = fmt.Errorf("foo"), fmt.Errorf("foo")
 
 	j := &TestJob{}
 	j.Use(mA, mB, mC)
@@ -69,9 +70,10 @@ func (s *SuiteCommon) TestContextNextError(c *C) {
 }
 
 func (s *SuiteCommon) TestContextNextNested(c *C) {
-	mA := &TestMiddleware{Nested: true}
-	mB := &TestMiddleware{Nested: true}
-	mC := &TestMiddleware{Nested: true}
+	mA := &TestMiddlewareAltA{}
+	mB := &TestMiddlewareAltB{}
+	mC := &TestMiddlewareAltC{}
+	mA.Nested, mB.Nested, mC.Nested = true, true, true
 
 	j := &TestJob{}
 	j.Use(mA, mB, mC)
@@ -87,9 +89,9 @@ func (s *SuiteCommon) TestContextNextNested(c *C) {
 }
 
 func (s *SuiteCommon) TestContextNext(c *C) {
-	mA := &TestMiddleware{}
-	mB := &TestMiddleware{}
-	mC := &TestMiddleware{}
+	mA := &TestMiddlewareAltA{}
+	mB := &TestMiddlewareAltB{}
+	mC := &TestMiddlewareAltC{}
 
 	j := &TestJob{}
 	j.Use(mA, mB, mC)
@@ -163,6 +165,43 @@ func (s *SuiteCommon) TestExecutionStopError(c *C) {
 	c.Assert(exe.Duration.Seconds() > .0, Equals, true)
 }
 
+func (s *SuiteCommon) TestMiddlewareContainerUseTwice(c *C) {
+	mA := &TestMiddleware{}
+	mB := &TestMiddleware{}
+
+	container := &middlewareContainer{}
+	container.Use(mA)
+	container.Use(mB)
+
+	ms := container.Middlewares()
+	c.Assert(ms, HasLen, 1)
+	c.Assert(ms[0], Equals, mA)
+}
+
+func (s *SuiteCommon) TestMiddlewareContainerUseNil(c *C) {
+	var m Middleware
+
+	container := &middlewareContainer{}
+	container.Use(m)
+
+	ms := container.Middlewares()
+	c.Assert(ms, HasLen, 0)
+}
+
+func (s *SuiteCommon) TestMiddlewareContainerUseOder(c *C) {
+	mA := &TestMiddleware{}
+	mB := &TestMiddlewareAltA{}
+
+	container := &middlewareContainer{}
+	container.Use(mB)
+	container.Use(mA)
+
+	ms := container.Middlewares()
+	c.Assert(ms, HasLen, 2)
+	c.Assert(ms[0], Equals, mB)
+	c.Assert(ms[1], Equals, mA)
+}
+
 type TestMiddleware struct {
 	Called int
 	Nested bool
@@ -178,6 +217,10 @@ func (m *TestMiddleware) Run(ctx *Context) error {
 
 	return m.Error
 }
+
+type TestMiddlewareAltA struct{ TestMiddleware }
+type TestMiddlewareAltB struct{ TestMiddleware }
+type TestMiddlewareAltC struct{ TestMiddleware }
 
 type TestJob struct {
 	BareJob
