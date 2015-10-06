@@ -19,6 +19,10 @@ type Overlap struct {
 	OverlapConfig
 }
 
+func (m *Overlap) ContinueOnStop() bool {
+	return false
+}
+
 func (m *Overlap) Run(ctx *core.Context) error {
 	if m.NoOverlap && ctx.Job.Running() > 1 {
 		return core.ErrSkippedExecution

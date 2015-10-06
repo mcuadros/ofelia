@@ -56,10 +56,6 @@ func (c *Context) Start() {
 }
 
 func (c *Context) Next() error {
-	if !c.Execution.IsRunning {
-		return nil
-	}
-
 	if err := c.doNext(); err != nil || c.executed {
 		c.Stop(err)
 	}
@@ -68,13 +64,34 @@ func (c *Context) Next() error {
 }
 
 func (c *Context) doNext() error {
+	for {
+		m, end := c.getNext()
+		if end {
+			break
+		}
+
+		if !c.Execution.IsRunning && !m.ContinueOnStop() {
+			continue
+		}
+
+		return m.Run(c)
+	}
+
+	if !c.Execution.IsRunning {
+		return nil
+	}
+
+	c.executed = true
+	return c.Job.Run(c)
+}
+
+func (c *Context) getNext() (Middleware, bool) {
 	if c.current >= len(c.middlewares) {
-		c.executed = true
-		return c.Job.Run(c)
+		return nil, true
 	}
 
 	c.current++
-	return c.middlewares[c.current-1].Run(c)
+	return c.middlewares[c.current-1], false
 }
 
 func (c *Context) Stop(err error) {
@@ -86,7 +103,7 @@ func (c *Context) Stop(err error) {
 	c.Job.NotifyStop()
 }
 
-// Exections contains all the information relative to a Job execution.
+// Execution contains all the information relative to a Job execution.
 type Execution struct {
 	ID        string
 	Date      time.Time
@@ -129,8 +146,16 @@ func (e *Execution) Stop(err error) {
 	}
 }
 
+// Middleware can wrap any job execution, allowing to execution code before
+// or/and after of each `Job.Run`
 type Middleware interface {
+	// Run is called instead of the original `Job.Run`, you MUST call to `ctx.Run`
+	// inside of the middleware `Run` function otherwise you will broken the
+	// Job workflow.
 	Run(*Context) error
+	// ContinueOnStop,  If return true the Run function will be called even if
+	// the execution is stopped
+	ContinueOnStop() bool
 }
 
 type middlewareContainer struct {

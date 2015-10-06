@@ -86,6 +86,59 @@ func (s *SuiteCommon) TestContextNextNested(c *C) {
 
 	err := ctx.Next()
 	c.Assert(err, IsNil)
+	c.Assert(mA.Called, Equals, 1)
+	c.Assert(mB.Called, Equals, 1)
+	c.Assert(mC.Called, Equals, 1)
+	c.Assert(j.Called, Equals, 1)
+}
+
+func (s *SuiteCommon) TestContextNextNestedError(c *C) {
+	mA := &TestMiddlewareAltA{}
+	mB := &TestMiddlewareAltB{}
+	mC := &TestMiddlewareAltC{}
+	mA.Nested, mB.Nested, mC.Nested = true, true, true
+	mA.Stop = errors.New("foo")
+
+	j := &TestJob{}
+	j.Use(mA, mB, mC)
+
+	e := NewExecution()
+
+	h := NewScheduler(&TestLogger{})
+	ctx := NewContext(h, j, e)
+	ctx.Start()
+
+	err := ctx.Next()
+	c.Assert(err, IsNil)
+	c.Assert(mA.Called, Equals, 1)
+	c.Assert(mB.Called, Equals, 0)
+	c.Assert(mC.Called, Equals, 0)
+	c.Assert(j.Called, Equals, 0)
+}
+
+func (s *SuiteCommon) TestContextNextContinueOnStop(c *C) {
+	mA := &TestMiddlewareAltA{}
+	mB := &TestMiddlewareAltB{}
+	mC := &TestMiddlewareAltC{}
+	mA.Nested, mB.Nested, mC.Nested = true, true, true
+	mA.Stop = errors.New("foo")
+	mC.OnStop = true
+
+	j := &TestJob{}
+	j.Use(mA, mB, mC)
+
+	e := NewExecution()
+
+	h := NewScheduler(&TestLogger{})
+	ctx := NewContext(h, j, e)
+	ctx.Start()
+
+	err := ctx.Next()
+	c.Assert(err, IsNil)
+	c.Assert(mA.Called, Equals, 1)
+	c.Assert(mB.Called, Equals, 0)
+	c.Assert(mC.Called, Equals, 1)
+	c.Assert(j.Called, Equals, 0)
 }
 
 func (s *SuiteCommon) TestContextNext(c *C) {
@@ -217,11 +270,21 @@ func (s *SuiteCommon) TestMiddlewareContainerUseOder(c *C) {
 type TestMiddleware struct {
 	Called int
 	Nested bool
+	OnStop bool
 	Error  error
+	Stop   error
+}
+
+func (m *TestMiddleware) ContinueOnStop() bool {
+	return m.OnStop
 }
 
 func (m *TestMiddleware) Run(ctx *Context) error {
 	m.Called++
+
+	if m.Stop != nil {
+		ctx.Execution.Stop(m.Stop)
+	}
 
 	if m.Nested {
 		ctx.Next()

@@ -33,6 +33,11 @@ type Slack struct {
 	SlackConfig
 }
 
+// ContinueOnStop return allways true, we want alloways report the final status
+func (m *Slack) ContinueOnStop() bool {
+	return true
+}
+
 // Run sends a message to the slack channel, its close stop the exection to
 // collect the metrics
 func (m *Slack) Run(ctx *core.Context) error {
