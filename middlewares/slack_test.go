@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 
@@ -44,7 +45,7 @@ func (s *SuiteSlack) TestRunSuccessFailed(c *C) {
 	defer ts.Close()
 
 	s.ctx.Start()
-	s.ctx.Stop(ErrSkippedExecution)
+	s.ctx.Stop(errors.New("foo"))
 
 	m := NewSlack(&SlackConfig{URL: ts.URL})
 	c.Assert(m.Run(s.ctx), IsNil)

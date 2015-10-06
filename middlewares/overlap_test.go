@@ -1,6 +1,9 @@
 package middlewares
 
-import . "gopkg.in/check.v1"
+import (
+	"github.com/mcuadros/ofelia/core"
+	. "gopkg.in/check.v1"
+)
 
 type SuiteOverlap struct {
 	BaseSuite
@@ -22,7 +25,7 @@ func (s *SuiteOverlap) TestRunOverlap(c *C) {
 	s.ctx.Job.NotifyStart()
 
 	m := NewOverlap(&OverlapConfig{NoOverlap: true})
-	c.Assert(m.Run(s.ctx), Equals, ErrSkippedExecution)
+	c.Assert(m.Run(s.ctx), Equals, core.ErrSkippedExecution)
 }
 
 func (s *SuiteOverlap) TestRunAllowOverlap(c *C) {

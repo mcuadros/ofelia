@@ -1,12 +1,6 @@
 package middlewares
 
-import (
-	"errors"
-
-	"github.com/mcuadros/ofelia/core"
-)
-
-var ErrSkippedExecution = errors.New("skipped execution")
+import "github.com/mcuadros/ofelia/core"
 
 type OverlapConfig struct {
 	NoOverlap bool `gcfg:"no-overlap"`
@@ -27,7 +21,7 @@ type Overlap struct {
 
 func (m *Overlap) Run(ctx *core.Context) error {
 	if m.NoOverlap && ctx.Job.Running() > 1 {
-		return ErrSkippedExecution
+		return core.ErrSkippedExecution
 	}
 
 	return ctx.Next()

@@ -3,11 +3,16 @@ package core
 import (
 	"bytes"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
 	"time"
 )
+
+// ErrSkippedExecution pass this error to `Execution.Stop` if you wish to mark
+// it as skipped.
+var ErrSkippedExecution = errors.New("skipped execution")
 
 type Job interface {
 	GetName() string
@@ -81,6 +86,7 @@ func (c *Context) Stop(err error) {
 	c.Job.NotifyStop()
 }
 
+// Exections contains all the information relative to a Job execution.
 type Execution struct {
 	ID        string
 	Date      time.Time
@@ -93,6 +99,7 @@ type Execution struct {
 	OutputStream, ErrorStream io.ReadWriter
 }
 
+// NewExecution returns a new Execution, with a random ID
 func NewExecution() *Execution {
 	return &Execution{
 		ID:           randomID(),
@@ -101,18 +108,24 @@ func NewExecution() *Execution {
 	}
 }
 
+// Start start the exection, initialize the running flags and the start date.
 func (e *Execution) Start() {
 	e.IsRunning = true
 	e.Date = time.Now()
 }
 
+// Stop stops the executions, if a ErrSkippedExecution is given the exection
+// is mark as skipped, if any other error is given the exection is mark as
+// failed. Also mark the exection as IsRunning false and save the duration time
 func (e *Execution) Stop(err error) {
 	e.IsRunning = false
 	e.Duration = time.Since(e.Date)
 
-	if err != nil {
+	if err != nil && err != ErrSkippedExecution {
 		e.Error = err
 		e.Failed = true
+	} else if err == ErrSkippedExecution {
+		e.Skipped = true
 	}
 }
 
