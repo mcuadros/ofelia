@@ -110,11 +110,13 @@ func (w *jobWrapper) stop(ctx *Context, err error) {
 	}
 
 	msg := fmt.Sprintf(
-		"%s - Job finished %q in %q, failed: %t, error: %s",
-		ctx.Job.GetName(), ctx.Execution.ID, ctx.Execution.Duration, ctx.Execution.Failed, errText,
+		"%s - Job finished %q in %q, failed: %t, skipped: %t, error: %s",
+		ctx.Job.GetName(), ctx.Execution.ID, ctx.Execution.Duration, ctx.Execution.Failed, ctx.Execution.Skipped, errText,
 	)
 
-	if ctx.Execution.Error != nil {
+	if ctx.Execution.Failed {
+		ctx.Logger.Error(msg)
+	} else if ctx.Execution.Skipped {
 		ctx.Logger.Warning(msg)
 	} else {
 		ctx.Logger.Notice(msg)

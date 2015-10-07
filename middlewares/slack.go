@@ -16,8 +16,8 @@ var (
 )
 
 type SlackConfig struct {
-	URL     string `gcfg:"slack-webhook"`
-	OnError bool   `gcfg:"slack-on-error"`
+	URL         string `gcfg:"slack-webhook"`
+	OnlyOnError bool   `gcfg:"slack-only-on-error"`
 }
 
 func NewSlack(c *SlackConfig) core.Middleware {
@@ -44,7 +44,7 @@ func (m *Slack) Run(ctx *core.Context) error {
 	err := ctx.Next()
 	ctx.Stop(err)
 
-	if ctx.Execution.Failed || !m.OnError {
+	if ctx.Execution.Failed || !m.OnlyOnError {
 		m.pushMessage(ctx)
 	}
 
@@ -80,6 +80,11 @@ func (m *Slack) buildMessage(ctx *core.Context) *slackMessage {
 			Title: "Execution failed",
 			Text:  ctx.Execution.Error.Error(),
 			Color: "#F35A00",
+		})
+	} else if ctx.Execution.Skipped {
+		msg.Attachments = append(msg.Attachments, slackAttachment{
+			Title: "Execution skipped",
+			Color: "#FFA500",
 		})
 	} else {
 		msg.Attachments = append(msg.Attachments, slackAttachment{

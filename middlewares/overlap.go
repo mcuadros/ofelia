@@ -25,7 +25,7 @@ func (m *Overlap) ContinueOnStop() bool {
 
 func (m *Overlap) Run(ctx *core.Context) error {
 	if m.NoOverlap && ctx.Job.Running() > 1 {
-		return core.ErrSkippedExecution
+		ctx.Stop(core.ErrSkippedExecution)
 	}
 
 	return ctx.Next()

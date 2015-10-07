@@ -61,6 +61,6 @@ func (s *SuiteSlack) TestRunSuccessOnError(c *C) {
 	s.ctx.Start()
 	s.ctx.Stop(nil)
 
-	m := NewSlack(&SlackConfig{URL: ts.URL, OnError: true})
+	m := NewSlack(&SlackConfig{URL: ts.URL, OnlyOnError: true})
 	c.Assert(m.Run(s.ctx), IsNil)
 }
