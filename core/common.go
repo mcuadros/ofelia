@@ -113,7 +113,7 @@ type Execution struct {
 	Skipped   bool
 	Error     error
 
-	OutputStream, ErrorStream io.ReadWriter
+	OutputStream, ErrorStream io.ReadWriter `json:"-"`
 }
 
 // NewExecution returns a new Execution, with a random ID

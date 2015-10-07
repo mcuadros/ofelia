@@ -31,7 +31,7 @@ func (s *SuiteSlack) TestRunSuccess(c *C) {
 	s.ctx.Start()
 	s.ctx.Stop(nil)
 
-	m := NewSlack(&SlackConfig{URL: ts.URL})
+	m := NewSlack(&SlackConfig{SlackWebhook: ts.URL})
 	c.Assert(m.Run(s.ctx), IsNil)
 }
 
@@ -47,7 +47,7 @@ func (s *SuiteSlack) TestRunSuccessFailed(c *C) {
 	s.ctx.Start()
 	s.ctx.Stop(errors.New("foo"))
 
-	m := NewSlack(&SlackConfig{URL: ts.URL})
+	m := NewSlack(&SlackConfig{SlackWebhook: ts.URL})
 	c.Assert(m.Run(s.ctx), IsNil)
 }
 
@@ -61,6 +61,6 @@ func (s *SuiteSlack) TestRunSuccessOnError(c *C) {
 	s.ctx.Start()
 	s.ctx.Stop(nil)
 
-	m := NewSlack(&SlackConfig{URL: ts.URL, OnlyOnError: true})
+	m := NewSlack(&SlackConfig{SlackWebhook: ts.URL, SlackOnlyOnError: true})
 	c.Assert(m.Run(s.ctx), IsNil)
 }

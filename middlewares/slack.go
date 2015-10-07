@@ -15,11 +15,13 @@ var (
 	slackPayloadVar = "payload"
 )
 
+// SlackConfig configuration for the Slack middleware
 type SlackConfig struct {
-	URL         string `gcfg:"slack-webhook"`
-	OnlyOnError bool   `gcfg:"slack-only-on-error"`
+	SlackWebhook     string `gcfg:"slack-webhook"`
+	SlackOnlyOnError bool   `gcfg:"slack-only-on-error"`
 }
 
+// NewSlack returns a Slack middleware if the given configuration is not empty
 func NewSlack(c *SlackConfig) core.Middleware {
 	var m core.Middleware
 	if !IsEmpty(c) {
@@ -29,6 +31,7 @@ func NewSlack(c *SlackConfig) core.Middleware {
 	return m
 }
 
+// Slack middleware calls to a Slack input-hook after every execution of a job
 type Slack struct {
 	SlackConfig
 }
@@ -44,7 +47,7 @@ func (m *Slack) Run(ctx *core.Context) error {
 	err := ctx.Next()
 	ctx.Stop(err)
 
-	if ctx.Execution.Failed || !m.OnlyOnError {
+	if ctx.Execution.Failed || !m.SlackOnlyOnError {
 		m.pushMessage(ctx)
 	}
 
@@ -56,11 +59,11 @@ func (m *Slack) pushMessage(ctx *core.Context) {
 	content, _ := json.Marshal(m.buildMessage(ctx))
 	values.Add(slackPayloadVar, string(content))
 
-	r, err := http.PostForm(m.URL, values)
+	r, err := http.PostForm(m.SlackWebhook, values)
 	if err != nil {
-		ctx.Logger.Error("Slack error calling %q error: %q", m.URL, err)
+		ctx.Logger.Error("Slack error calling %q error: %q", m.SlackWebhook, err)
 	} else if r.StatusCode != 200 {
-		ctx.Logger.Error("Slack error non-200 status code calling %q", m.URL)
+		ctx.Logger.Error("Slack error non-200 status code calling %q", m.SlackWebhook)
 	}
 }
 

@@ -16,6 +16,7 @@ const logFormat = "%{color}%{shortfile} ▶ %{level}%{color:reset} %{message}"
 type Config struct {
 	Global struct {
 		middlewares.SlackConfig
+		middlewares.SaveConfig
 	}
 	Jobs map[string]*ExecJobConfig `gcfg:"Job"`
 }
@@ -78,6 +79,7 @@ func (c *Config) buildLogger() core.Logger {
 
 func (c *Config) buildSchedulerMiddlewares(sh *core.Scheduler) {
 	sh.Use(middlewares.NewSlack(&c.Global.SlackConfig))
+	sh.Use(middlewares.NewSave(&c.Global.SaveConfig))
 }
 
 // ExecJobConfig contains all configuration params needed to build a ExecJob
@@ -85,9 +87,11 @@ type ExecJobConfig struct {
 	core.ExecJob
 	middlewares.OverlapConfig
 	middlewares.SlackConfig
+	middlewares.SaveConfig
 }
 
 func (c *ExecJobConfig) buildMiddlewares() {
 	c.ExecJob.Use(middlewares.NewOverlap(&c.OverlapConfig))
 	c.ExecJob.Use(middlewares.NewSlack(&c.SlackConfig))
+	c.ExecJob.Use(middlewares.NewSave(&c.SaveConfig))
 }
