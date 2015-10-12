@@ -17,6 +17,7 @@ type Config struct {
 	Global struct {
 		middlewares.SlackConfig
 		middlewares.SaveConfig
+		middlewares.MailConfig
 	}
 	Jobs map[string]*ExecJobConfig `gcfg:"Job"`
 }
@@ -53,6 +54,8 @@ func (c *Config) build() (*core.Scheduler, error) {
 	c.buildSchedulerMiddlewares(sh)
 
 	for name, j := range c.Jobs {
+		defaults.SetDefaults(j)
+
 		j.Client = d
 		j.Name = name
 		j.buildMiddlewares()
@@ -80,6 +83,7 @@ func (c *Config) buildLogger() core.Logger {
 func (c *Config) buildSchedulerMiddlewares(sh *core.Scheduler) {
 	sh.Use(middlewares.NewSlack(&c.Global.SlackConfig))
 	sh.Use(middlewares.NewSave(&c.Global.SaveConfig))
+	sh.Use(middlewares.NewMail(&c.Global.MailConfig))
 }
 
 // ExecJobConfig contains all configuration params needed to build a ExecJob
@@ -88,10 +92,12 @@ type ExecJobConfig struct {
 	middlewares.OverlapConfig
 	middlewares.SlackConfig
 	middlewares.SaveConfig
+	middlewares.MailConfig
 }
 
 func (c *ExecJobConfig) buildMiddlewares() {
 	c.ExecJob.Use(middlewares.NewOverlap(&c.OverlapConfig))
 	c.ExecJob.Use(middlewares.NewSlack(&c.SlackConfig))
 	c.ExecJob.Use(middlewares.NewSave(&c.SaveConfig))
+	c.ExecJob.Use(middlewares.NewMail(&c.MailConfig))
 }
