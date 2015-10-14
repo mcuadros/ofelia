@@ -3,22 +3,22 @@
 <img src="https://weirdspace.dk/FranciscoIbanez/Graphics/Ofelia.gif" align="right" width="180px" height="300px" vspace="20" />
 
 
-**Ofelia** is a moderm and low footprint job scheduler for __docker__ environments, build on Go. Ofelia aims to be a replacement for the old fashioned [cron](https://en.wikipedia.org/wiki/Cron)
+**Ofelia** is a moderm and low footprint job scheduler for __docker__ environments, built on Go. Ofelia aims to be a replacement for the old fashioned [cron](https://en.wikipedia.org/wiki/Cron).
 
 ### Why?
 
-It has been a long time since [`cron`](https://en.wikipedia.org/wiki/Cron) was released, actually more than 28 years. The world has changed a lot and especially since the `Docker` revolution. **Vixie's cron** works great but not is extensible and is hard to debug when something is going wrong.
+It has been a long time since [`cron`](https://en.wikipedia.org/wiki/Cron) was released, actually more than 28 years. The world has changed a lot and especially since the `Docker` revolution. **Vixie's cron** works great but it's not extensible and it's hard to debug when something goes wrong.
 
-Many solutions are available: ready to go containerized `crons`, wrappers for your commands, etc. but at the end simple tasks become complex.   
+Many solutions are available: ready to go containerized `crons`, wrappers for your commands, etc. but in the end simple tasks become complex.   
 
 ### How?
 
-The main feature of **Ofelia** is the ability to execute commands directly on Docker containers. Using the Docker's API Ofelia emulates the behavior of [`exec`](https://docs.docker.com/reference/commandline/exec/) having full control of the process runing inside of the container.
+The main feature of **Ofelia** is the ability to execute commands directly on Docker containers. Using Docker's API Ofelia emulates the behavior of [`exec`](https://docs.docker.com/reference/commandline/exec/), having full control of the process running inside of the container.
 
 
 ## Configuration
 
-The configuration is done using a INI-style config file and the [sceduling format](https://godoc.org/github.com/robfig/cron) is exactly the same from the original `cron`:
+It uses a INI-style config file and the [scheduling format](https://godoc.org/github.com/robfig/cron) is exactly the same from the original `cron`:
 
 ```ini
 [job "your-cron-name"]
