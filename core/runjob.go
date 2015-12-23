@@ -2,19 +2,26 @@ package core
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gobs/args"
 )
 
+var dockercfg *docker.AuthConfigurations
+
+func init() {
+	dockercfg, _ = docker.NewAuthConfigurationsFromDockerCfg()
+}
+
 type RunJob struct {
 	BareJob
 	Client *docker.Client `json:"-"`
+	User   string         `default:"root"`
+	TTY    bool           `default:"false"`
+	Delete bool           `default:"true"`
 	Image  string
-	User   string `default:"root"`
-	TTY    bool   `default:"false"`
-	Delete bool   `default:"true"`
 }
 
 func NewRunJob(c *docker.Client) *RunJob {
@@ -22,6 +29,10 @@ func NewRunJob(c *docker.Client) *RunJob {
 }
 
 func (j *RunJob) Run(ctx *Context) error {
+	if err := j.pullImage(); err != nil {
+		return err
+	}
+
 	container, err := j.buildContainer()
 	if err != nil {
 		return err
@@ -36,6 +47,15 @@ func (j *RunJob) Run(ctx *Context) error {
 	}
 
 	return j.deleteContainer(container.ID)
+}
+
+func (j *RunJob) pullImage() error {
+	o, a := buildPullOptions(j.Image)
+	if err := j.Client.PullImage(o, a); err != nil {
+		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
+	}
+
+	return nil
 }
 
 func (j *RunJob) buildContainer() (*docker.Container, error) {
@@ -107,4 +127,36 @@ func (j *RunJob) deleteContainer(containerID string) error {
 	return j.Client.RemoveContainer(docker.RemoveContainerOptions{
 		ID: containerID,
 	})
+}
+
+func buildPullOptions(image string) (docker.PullImageOptions, docker.AuthConfiguration) {
+	tag := "latest"
+	registry := ""
+
+	parts := strings.Split(image, ":")
+	if len(parts) == 2 {
+		tag = parts[1]
+	}
+
+	name := parts[0]
+	parts = strings.Split(name, "/")
+	if len(parts) > 2 {
+		registry = parts[0]
+	}
+
+	return docker.PullImageOptions{
+		Repository: name,
+		Registry:   registry,
+		Tag:        tag,
+	}, buildAuthConfiguration(registry)
+}
+
+func buildAuthConfiguration(registry string) docker.AuthConfiguration {
+	var auth docker.AuthConfiguration
+	if dockercfg == nil {
+		return auth
+	}
+
+	auth, _ = dockercfg.Configs[registry]
+	return auth
 }

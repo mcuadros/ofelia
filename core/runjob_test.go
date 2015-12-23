@@ -68,6 +68,27 @@ func (s *SuiteRunJob) TestRun(c *C) {
 	c.Assert(containers, HasLen, 0)
 }
 
+func (s *SuiteRunJob) TestBuildPullImageOptionsBareImage(c *C) {
+	o, _ := buildPullOptions("foo")
+	c.Assert(o.Repository, Equals, "foo")
+	c.Assert(o.Tag, Equals, "latest")
+	c.Assert(o.Registry, Equals, "")
+}
+
+func (s *SuiteRunJob) TestBuildPullImageOptionsVersion(c *C) {
+	o, _ := buildPullOptions("foo:qux")
+	c.Assert(o.Repository, Equals, "foo")
+	c.Assert(o.Tag, Equals, "qux")
+	c.Assert(o.Registry, Equals, "")
+}
+
+func (s *SuiteRunJob) TestBuildPullImageOptionsRegistry(c *C) {
+	o, _ := buildPullOptions("quay.io/srcd/rest:qux")
+	c.Assert(o.Repository, Equals, "quay.io/srcd/rest")
+	c.Assert(o.Tag, Equals, "qux")
+	c.Assert(o.Registry, Equals, "quay.io")
+}
+
 func (s *SuiteRunJob) buildImage(c *C) {
 	inputbuf := bytes.NewBuffer(nil)
 	tr := tar.NewWriter(inputbuf)
