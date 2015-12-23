@@ -13,7 +13,7 @@ Many solutions are available: ready to go containerized `crons`, wrappers for yo
 
 ### How?
 
-The main feature of **Ofelia** is the ability to execute commands directly on Docker containers. Using Docker's API Ofelia emulates the behavior of [`exec`](https://docs.docker.com/reference/commandline/exec/), having full control of the process running inside of the container.
+The main feature of **Ofelia** is the ability to execute commands directly on Docker containers. Using Docker's API Ofelia emulates the behavior of [`exec`](https://docs.docker.com/reference/commandline/exec/), be in able to run a command inside of a running container. Also you can run the command in a new container destroying it at the end of the execution.
 
 
 ## Configuration
@@ -21,12 +21,16 @@ The main feature of **Ofelia** is the ability to execute commands directly on Do
 It uses a INI-style config file and the [scheduling format](https://godoc.org/github.com/robfig/cron) is exactly the same from the original `cron`:
 
 ```ini
-[job "your-cron-name"]
+[job-exec "job-executed-on-running-container"]
 schedule = @hourly
 container = my-container
 command = touch /tmp/example
-```
 
+[job-run "job-executed-on-new-container"]
+schedule = @hourly
+image = ubuntu:latest
+command = touch /tmp/example
+```
 
 
 > Why the project is named Ofelia? Ofelia is the name of the office assistant from the Spanish comic [Mortadelo y Filemón](https://en.wikipedia.org/wiki/Mort_%26_Phil)

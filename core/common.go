@@ -10,9 +10,13 @@ import (
 	"time"
 )
 
-// ErrSkippedExecution pass this error to `Execution.Stop` if you wish to mark
-// it as skipped.
-var ErrSkippedExecution = errors.New("skipped execution")
+var (
+	// ErrSkippedExecution pass this error to `Execution.Stop` if you wish to mark
+	// it as skipped.
+	ErrSkippedExecution = errors.New("skipped execution")
+	ErrUnexpected       = errors.New("error unexpected, docker has returned exit code -1, maybe wrong user?")
+	ErrMaxTimeRunning   = errors.New("the job has exceed the maximum allowed time running.")
+)
 
 type Job interface {
 	GetName() string

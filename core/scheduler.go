@@ -8,8 +8,10 @@ import (
 	"github.com/robfig/cron"
 )
 
-var ErrEmptyScheduler error = errors.New("unable to start a empty scheduler.")
-var ErrEmptySchedule error = errors.New("unable to add a job with a empty schedule.")
+var (
+	ErrEmptyScheduler = errors.New("unable to start a empty scheduler.")
+	ErrEmptySchedule  = errors.New("unable to add a job with a empty schedule.")
+)
 
 type Scheduler struct {
 	Jobs   []Job

@@ -19,7 +19,8 @@ type Config struct {
 		middlewares.SaveConfig
 		middlewares.MailConfig
 	}
-	Jobs map[string]*ExecJobConfig `gcfg:"Job"`
+	ExecJobs map[string]*ExecJobConfig `gcfg:"job-exec"`
+	RunJobs  map[string]*RunJobConfig  `gcfg:"job-run"`
 }
 
 // BuildFromFile buils a scheduler using the config from a file
@@ -53,7 +54,16 @@ func (c *Config) build() (*core.Scheduler, error) {
 	sh := core.NewScheduler(c.buildLogger())
 	c.buildSchedulerMiddlewares(sh)
 
-	for name, j := range c.Jobs {
+	for name, j := range c.ExecJobs {
+		defaults.SetDefaults(j)
+
+		j.Client = d
+		j.Name = name
+		j.buildMiddlewares()
+		sh.AddJob(j)
+	}
+
+	for name, j := range c.RunJobs {
 		defaults.SetDefaults(j)
 
 		j.Client = d
@@ -100,4 +110,20 @@ func (c *ExecJobConfig) buildMiddlewares() {
 	c.ExecJob.Use(middlewares.NewSlack(&c.SlackConfig))
 	c.ExecJob.Use(middlewares.NewSave(&c.SaveConfig))
 	c.ExecJob.Use(middlewares.NewMail(&c.MailConfig))
+}
+
+// RunJobConfig contains all configuration params needed to build a RunJob
+type RunJobConfig struct {
+	core.RunJob
+	middlewares.OverlapConfig
+	middlewares.SlackConfig
+	middlewares.SaveConfig
+	middlewares.MailConfig
+}
+
+func (c *RunJobConfig) buildMiddlewares() {
+	c.RunJob.Use(middlewares.NewOverlap(&c.OverlapConfig))
+	c.RunJob.Use(middlewares.NewSlack(&c.SlackConfig))
+	c.RunJob.Use(middlewares.NewSave(&c.SaveConfig))
+	c.RunJob.Use(middlewares.NewMail(&c.MailConfig))
 }

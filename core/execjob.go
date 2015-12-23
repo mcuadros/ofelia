@@ -1,14 +1,11 @@
 package core
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gobs/args"
 )
-
-var ErrUnexpected = errors.New("error unexpected, docker has returned exit code -1, maybe wrong user?")
 
 type ExecJob struct {
 	BareJob
