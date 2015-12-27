@@ -18,7 +18,12 @@ The main feature of **Ofelia** is the ability to execute commands directly on Do
 
 ## Configuration
 
-It uses a INI-style config file and the [scheduling format](https://godoc.org/github.com/robfig/cron) is exactly the same from the original `cron`:
+It uses a INI-style config file and the [scheduling format](https://godoc.org/github.com/robfig/cron) is exactly the same from the original `cron`, you can configure three different kind of jobs:
+
+- `job-exec`: this job is executed inside of a running container.
+- `job-run`: runs a command inside of a new container, using a specific image.
+- `job-local`: runs the command inside of the host running ofelia.
+
 
 ```ini
 [job-exec "job-executed-on-running-container"]
@@ -29,6 +34,10 @@ command = touch /tmp/example
 [job-run "job-executed-on-new-container"]
 schedule = @hourly
 image = ubuntu:latest
+command = touch /tmp/example
+
+[job-local "job-executed-on-current-host"]
+schedule = @hourly
 command = touch /tmp/example
 ```
 

@@ -16,22 +16,19 @@ func (s *SuiteConfig) TestBuildFromString(c *C) {
 	sh, err := BuildFromString(`
 		[job-exec "foo"]
 		schedule = @every 10s
-		container = test
 
 		[job-exec "bar"]
 		schedule = @every 10s
-		container = test
 
 		[job-run "qux"]
 		schedule = @every 10s
-		image = test
+
+		[job-local "baz"]
+		schedule = @every 10s
   `)
 
 	c.Assert(err, IsNil)
-	c.Assert(sh.Jobs, HasLen, 3)
-	c.Assert(sh.Jobs[0].GetName(), Equals, "foo")
-	c.Assert(sh.Jobs[1].GetName(), Equals, "bar")
-	c.Assert(sh.Jobs[2].GetName(), Equals, "qux")
+	c.Assert(sh.Jobs, HasLen, 4)
 }
 
 func (s *SuiteConfig) TestExecJobBuildEmpty(c *C) {
