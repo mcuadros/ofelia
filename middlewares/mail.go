@@ -21,7 +21,7 @@ type MailConfig struct {
 	SMTPUser        string `gcfg:"smtp-user"`
 	SMTPPassword    string `gcfg:"smtp-password"`
 	EmailTo         string `gcfg:"email-to"`
-	EmailFrom       string `gcfg:"email-from" default:"ofelia@%s"`
+	EmailFrom       string `gcfg:"email-from"`
 	MailOnlyOnError bool   `gcfg:"mail-only-on-error"`
 }
 
