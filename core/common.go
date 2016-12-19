@@ -197,11 +197,11 @@ func (c *middlewareContainer) Middlewares() []Middleware {
 }
 
 type Logger interface {
-	Critical(format string, args ...interface{})
-	Debug(format string, args ...interface{})
-	Error(format string, args ...interface{})
-	Notice(format string, args ...interface{})
-	Warning(format string, args ...interface{})
+	Critical(args ...interface{})
+	Debug(args ...interface{})
+	Error(args ...interface{})
+	Notice(args ...interface{})
+	Warning(args ...interface{})
 }
 
 func randomID() string {
