@@ -31,7 +31,7 @@ func NewScheduler(l Logger) *Scheduler {
 }
 
 func (s *Scheduler) AddJob(j Job) error {
-	s.Logger.Notice("New job registered %q - %q - %q", j.GetName(), j.GetCommand(), j.GetSchedule())
+	s.Logger.Noticef("New job registered %q - %q - %q", j.GetName(), j.GetCommand(), j.GetSchedule())
 
 	if j.GetSchedule() == "" {
 		return ErrEmptySchedule
@@ -51,7 +51,7 @@ func (s *Scheduler) Start() error {
 		return ErrEmptyScheduler
 	}
 
-	s.Logger.Debug("Starting scheduler with %d jobs", len(s.Jobs))
+	s.Logger.Debugf("Starting scheduler with %d jobs", len(s.Jobs))
 
 	s.mergeMiddlewares()
 	s.isRunning = true
@@ -97,7 +97,7 @@ func (w *jobWrapper) Run() {
 func (w *jobWrapper) start(ctx *Context) {
 	ctx.Start()
 
-	ctx.Logger.Debug(
+	ctx.Logger.Debugf(
 		"%s - Job started %q - %q",
 		ctx.Job.GetName(), ctx.Execution.ID, ctx.Job.GetCommand(),
 	)
@@ -117,10 +117,10 @@ func (w *jobWrapper) stop(ctx *Context, err error) {
 	)
 
 	if ctx.Execution.Failed {
-		ctx.Logger.Error(msg)
+		ctx.Logger.Errorf(msg)
 	} else if ctx.Execution.Skipped {
-		ctx.Logger.Warning(msg)
+		ctx.Logger.Warningf(msg)
 	} else {
-		ctx.Logger.Notice(msg)
+		ctx.Logger.Noticef(msg)
 	}
 }

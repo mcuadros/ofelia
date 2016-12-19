@@ -54,7 +54,7 @@ func (m *Mail) Run(ctx *core.Context) error {
 	if ctx.Execution.Failed || !m.MailOnlyOnError {
 		err := m.sendMail(ctx)
 		if err != nil {
-			ctx.Logger.Error("Mail error: %q", err)
+			ctx.Logger.Errorf("Mail error: %q", err)
 		}
 	}
 

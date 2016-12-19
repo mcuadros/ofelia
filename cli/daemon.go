@@ -62,7 +62,7 @@ func (c *DaemonCommand) setSignals() {
 
 	go func() {
 		sig := <-c.signals
-		c.scheduler.Logger.Warning(
+		c.scheduler.Logger.Warningf(
 			"Signal recieved: %s, shuting down the process\n", sig,
 		)
 
@@ -76,6 +76,6 @@ func (c *DaemonCommand) shutdown() error {
 		return nil
 	}
 
-	c.scheduler.Logger.Warning("Waiting running jobs.")
+	c.scheduler.Logger.Warningf("Waiting running jobs.")
 	return c.scheduler.Stop()
 }
