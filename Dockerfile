@@ -1,4 +1,4 @@
-FROM golang:1.7
+FROM golang:1.7-alpine
 MAINTAINER Máximo Cuadros <mcuadros@gmail.com>
 
 ADD . ${GOPATH}/src/github.com/mcuadros/ofelia
