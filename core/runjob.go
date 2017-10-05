@@ -17,11 +17,12 @@ func init() {
 
 type RunJob struct {
 	BareJob
-	Client *docker.Client `json:"-"`
-	User   string         `default:"root"`
-	TTY    bool           `default:"false"`
-	Delete bool           `default:"true"`
-	Image  string
+	Client  *docker.Client `json:"-"`
+	User    string         `default:"root"`
+	TTY     bool           `default:"false"`
+	Delete  bool           `default:"true"`
+	Image   string
+	Network string
 }
 
 func NewRunJob(c *docker.Client) *RunJob {
@@ -69,10 +70,26 @@ func (j *RunJob) buildContainer() (*docker.Container, error) {
 			Cmd:          args.GetArgs(j.Command),
 			User:         j.User,
 		},
+		NetworkingConfig: &docker.NetworkingConfig{},
 	})
 
 	if err != nil {
 		return c, fmt.Errorf("error creating exec: %s", err)
+	}
+
+	if j.Network != "" {
+		networkOpts := docker.NetworkFilterOpts{}
+		networkOpts["name"] = map[string]bool{}
+		networkOpts["name"][j.Network] = true
+		if networks, err := j.Client.FilteredListNetworks(networkOpts); err == nil {
+			for _, network := range networks {
+				if err := j.Client.ConnectNetwork(network.ID, docker.NetworkConnectionOptions{
+					Container: c.ID,
+				}); err != nil {
+					return c, fmt.Errorf("error connecting container to network: %s", err)
+				}
+			}
+		}
 	}
 
 	return c, nil
