@@ -29,6 +29,7 @@ func (s *SuiteRunJob) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	s.buildImage(c)
+	s.createNetwork(c)
 }
 
 func (s *SuiteRunJob) TestRun(c *C) {
@@ -38,6 +39,7 @@ func (s *SuiteRunJob) TestRun(c *C) {
 	job.User = "foo"
 	job.TTY = true
 	job.Delete = true
+	job.Network = "foo"
 
 	e := NewExecution()
 
@@ -100,6 +102,14 @@ func (s *SuiteRunJob) buildImage(c *C) {
 		Name:         ImageFixture,
 		InputStream:  inputbuf,
 		OutputStream: bytes.NewBuffer(nil),
+	})
+	c.Assert(err, IsNil)
+}
+
+func (s *SuiteRunJob) createNetwork(c *C) {
+	_, err := s.client.CreateNetwork(docker.CreateNetworkOptions{
+		Name: "foo",
+		Driver: "bridge",
 	})
 	c.Assert(err, IsNil)
 }
