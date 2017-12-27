@@ -17,6 +17,7 @@ The main feature of **Ofelia** is the ability to execute commands directly on Do
 
 ## Configuration
 
+### Jobs
 It uses a INI-style config file and the [scheduling format](https://godoc.org/github.com/robfig/cron) is exactly the same from the original `cron`, you can configure three different kind of jobs:
 
 - `job-exec`: this job is executed inside of a running container.
@@ -39,6 +40,30 @@ command = touch /tmp/example
 schedule = @hourly
 command = touch /tmp/example
 ```
+
+### Logging
+**Ofelia** comes with three different logging drivers that can be configured in the `[global]` section:
+- `mail` to send mails
+- `save` to save structured execution reports to a directory
+- `slack` to send messages via a slack webhook
+
+#### Options
+- `smtp-host` - address of the SMTP server.
+- `smtp-port` - port number of the SMTP server.
+- `smtp-user` - user name used to connect to the SMTP server.
+- `smtp-password` - password used to connect to the SMTP server.
+- `email-to` - mail address of the receiver of the mail.
+- `email-from` - mail address of the sender of the mail.
+- `mail-only-on-error` - only send a mail if the execution was not successful.
+
+- `save-folder` - directory in which the reports shall be written.
+- `save-only-on-error` - only save a report if the execution was not successful.
+
+- `slack-webhook` - URL of the slack webhook.
+- `slack-only-on-error` - only send a slack message if the execution was not successful.
+
+### Overlap
+**Ofelia** can prevent that a job is run twice in parallel (e.g. if the first execution didn't complete before a second execution was scheduled. If a job has the option `no-overlap` set, it will not be run concurrently. 
 
 ## Installation
 
