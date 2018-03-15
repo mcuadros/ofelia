@@ -37,13 +37,13 @@ func (j *RunServiceJob) Run(ctx *Context) error {
 		return err
 	}
 
-	fmt.Printf("Created service %s for job %s\n", svc.ID, j.Name)
+	ctx.Logger.Noticef("Created service %s for job %s\n", svc.ID, j.Name)
 
-	if err := j.watchContainer(svc.ID); err != nil {
+	if err := j.watchContainer(ctx, svc.ID); err != nil {
 		return err
 	}
 
-	return j.deleteService(svc.ID)
+	return j.deleteService(ctx, svc.ID)
 }
 
 func (j *RunServiceJob) pullImage() error {
@@ -105,49 +105,46 @@ const (
 
 var svcChecker = time.NewTicker(watchDuration)
 
-func (j *RunServiceJob) watchContainer(svcID string) error {
-	svcFilters := make(map[string][]string)
-	svcFilters["id"] = []string{svcID}
+func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 
 	exitCode := swarmError
 
-	var listSvcOpts docker.ListServicesOptions
-	listSvcOpts.Filters = svcFilters
+	ctx.Logger.Noticef("Checking for service ID %s (%s) termination\n", svcID, j.Name)
 
-	list, _ := j.Client.ListServices(listSvcOpts)
-
-	fmt.Printf("Checking for service ID %s (%s) termination\n", svcID, j.Name)
+	svc, err := j.Client.InspectService(svcID)
+	if err != nil {
+		return fmt.Errorf("Failed to inspect service %s: %s", svcID, err.Error())
+	}
 
 	// On every tick, check if all the services have completed, or have error out
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	var err error
 	go func() {
 		defer wg.Done()
 		for _ = range svcChecker.C {
-			for _, svc := range list {
-				if svc.CreatedAt.After(time.Now().Add(maxProcessDuration)) {
-					err = ErrMaxTimeRunning
-					return
-				}
 
-				taskExitCode, found := j.findtaskstatus(svc.ID)
-				if found {
-					exitCode = taskExitCode
-					return
-				}
+			if svc.CreatedAt.After(time.Now().Add(maxProcessDuration)) {
+				err = ErrMaxTimeRunning
+				return
+			}
+
+			taskExitCode, found := j.findtaskstatus(ctx, svc.ID)
+
+			if found {
+				exitCode = taskExitCode
+				return
 			}
 		}
 	}()
 
 	wg.Wait()
 
-	fmt.Printf("Service ID %s (%s) has completed\n", svcID, j.Name)
+	ctx.Logger.Noticef("Service ID %s (%s) has completed\n", svcID, j.Name)
 	return err
 }
 
-func (j *RunServiceJob) findtaskstatus(taskID string) (int, bool) {
+func (j *RunServiceJob) findtaskstatus(ctx *Context, taskID string) (int, bool) {
 	taskFilters := make(map[string][]string)
 	taskFilters["service"] = []string{taskID}
 
@@ -156,8 +153,13 @@ func (j *RunServiceJob) findtaskstatus(taskID string) (int, bool) {
 	})
 
 	if err != nil {
-		fmt.Printf("Failed to find task ID %s: %s\n", taskID, err.Error())
+		ctx.Logger.Errorf("Failed to find task ID %s. Considering the task terminated: %s\n", taskID, err.Error())
 		return 0, false
+	}
+
+	if len(tasks) == 0 {
+		// That task is gone now (maybe someone else removed it. Our work here is done
+		return 0, true
 	}
 
 	exitCode := 1
@@ -192,12 +194,21 @@ func (j *RunServiceJob) findtaskstatus(taskID string) (int, bool) {
 	return exitCode, done
 }
 
-func (j *RunServiceJob) deleteService(svcID string) error {
+func (j *RunServiceJob) deleteService(ctx *Context, svcID string) error {
 	if !j.Delete {
 		return nil
 	}
 
-	return j.Client.RemoveService(docker.RemoveServiceOptions{
+	err := j.Client.RemoveService(docker.RemoveServiceOptions{
 		ID: svcID,
 	})
+
+	if _, is := err.(*docker.NoSuchService); is {
+		ctx.Logger.Warningf("Service %s cannot be removed. An error may have happened, "+
+			"or it might have been removed by another process", svcID)
+		return nil
+	}
+
+	return err
+
 }

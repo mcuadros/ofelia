@@ -21,7 +21,7 @@ type Config struct {
 	}
 	ExecJobs    map[string]*ExecJobConfig    `gcfg:"job-exec"`
 	RunJobs     map[string]*RunJobConfig     `gcfg:"job-run"`
-	ServiceJobs map[string]*RunServiceConfig `gcfg:"service-run"`
+	ServiceJobs map[string]*RunServiceConfig `gcfg:"job-service-run"`
 	LocalJobs   map[string]*LocalJobConfig   `gcfg:"job-local"`
 }
 
