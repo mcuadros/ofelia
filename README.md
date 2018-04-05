@@ -23,6 +23,7 @@ It uses a INI-style config file and the [scheduling format](https://godoc.org/gi
 - `job-exec`: this job is executed inside of a running container.
 - `job-run`: runs a command inside of a new container, using a specific image.
 - `job-local`: runs the command inside of the host running ofelia.
+- `job-service-run`: runs the command inside a new "run-once" service, for running inside a swarm
 
 
 ```ini
@@ -39,6 +40,13 @@ command = touch /tmp/example
 [job-local "job-executed-on-current-host"]
 schedule = @hourly
 command = touch /tmp/example
+
+
+[job-service-run "servie-executed-on-new-container"]
+schedule = 0,20,40 * * * *
+image = ubuntu
+network = swarm_network
+command =  touch /tmp/example
 ```
 
 ### Logging

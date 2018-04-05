@@ -25,10 +25,13 @@ func (s *SuiteConfig) TestBuildFromString(c *C) {
 
 		[job-local "baz"]
 		schedule = @every 10s
+
+		[job-service-run "bob"]
+		schedule = @every 10s
   `)
 
 	c.Assert(err, IsNil)
-	c.Assert(sh.Jobs, HasLen, 4)
+	c.Assert(sh.Jobs, HasLen, 5)
 }
 
 func (s *SuiteConfig) TestExecJobBuildEmpty(c *C) {

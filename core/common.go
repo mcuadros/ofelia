@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strings"
 	"time"
+
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 var (
@@ -211,4 +214,36 @@ func randomID() string {
 	}
 
 	return fmt.Sprintf("%x", b)
+}
+
+func buildPullOptions(image string) (docker.PullImageOptions, docker.AuthConfiguration) {
+	tag := "latest"
+	registry := ""
+
+	parts := strings.Split(image, ":")
+	if len(parts) == 2 {
+		tag = parts[1]
+	}
+
+	name := parts[0]
+	parts = strings.Split(name, "/")
+	if len(parts) > 2 {
+		registry = parts[0]
+	}
+
+	return docker.PullImageOptions{
+		Repository: name,
+		Registry:   registry,
+		Tag:        tag,
+	}, buildAuthConfiguration(registry)
+}
+
+func buildAuthConfiguration(registry string) docker.AuthConfiguration {
+	var auth docker.AuthConfiguration
+	if dockercfg == nil {
+		return auth
+	}
+
+	auth, _ = dockercfg.Configs[registry]
+	return auth
 }
