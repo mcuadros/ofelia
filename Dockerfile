@@ -1,12 +1,19 @@
-FROM golang:1.7
-MAINTAINER Máximo Cuadros <mcuadros@gmail.com>
+FROM golang:1.10.0 AS builder
 
-ADD . ${GOPATH}/src/github.com/mcuadros/ofelia
 WORKDIR ${GOPATH}/src/github.com/mcuadros/ofelia
+COPY . ${GOPATH}/src/github.com/mcuadros/ofelia
 
-RUN go get -v ./... \
- && go install -v ./... \
- && rm -rf $GOPATH/src/
+ENV CGO_ENABLED 0
+ENV GOOS linux
+
+RUN go get -v ./...
+RUN go build -a -installsuffix cgo -o app .
+
+FROM scratch
+
+COPY --from=builder /go/bin/ofelia /usr/bin/ofelia
 
 VOLUME /etc/ofelia/
-CMD ["ofelia", "daemon", "--config", "/etc/ofelia/config.ini"]
+ENTRYPOINT ["/usr/bin/ofelia"]
+
+CMD ["daemon", "--config", "/etc/ofelia/config.ini"]
