@@ -7,7 +7,7 @@ ENV CGO_ENABLED 0
 ENV GOOS linux
 
 RUN go get -v ./...
-RUN go build -a -installsuffix cgo -o app .
+RUN go build -a -installsuffix cgo -ldflags '-w  -extldflags "-static"' -o /go/bin/ofelia .
 
 FROM scratch
 
