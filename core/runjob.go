@@ -16,12 +16,13 @@ func init() {
 
 type RunJob struct {
 	BareJob
-	Client  *docker.Client `json:"-"`
-	User    string         `default:"root"`
-	TTY     bool           `default:"false"`
-	Delete  bool           `default:"true"`
-	Image   string
-	Network string
+	Client    *docker.Client `json:"-"`
+	User      string         `default:"root"`
+	TTY       bool           `default:"false"`
+	Delete    bool           `default:"true"`
+	Image     string
+	Network   string
+	Container string
 }
 
 func NewRunJob(c *docker.Client) *RunJob {
@@ -29,13 +30,22 @@ func NewRunJob(c *docker.Client) *RunJob {
 }
 
 func (j *RunJob) Run(ctx *Context) error {
-	if err := j.pullImage(); err != nil {
-		return err
-	}
+	var container *docker.Container
+	var err error
+	if j.Image != "" && j.Container == "" {
+		if err = j.pullImage(); err != nil {
+			return err
+		}
 
-	container, err := j.buildContainer()
-	if err != nil {
-		return err
+		container, err = j.buildContainer()
+		if err != nil {
+			return err
+		}
+	} else {
+		container, err = j.getContainer(j.Container)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := j.startContainer(ctx.Execution, container); err != nil {
@@ -46,7 +56,10 @@ func (j *RunJob) Run(ctx *Context) error {
 		return err
 	}
 
-	return j.deleteContainer(container.ID)
+	if j.Container == "" {
+		return j.deleteContainer(container.ID)
+	}
+	return nil
 }
 
 func (j *RunJob) pullImage() error {
@@ -96,6 +109,14 @@ func (j *RunJob) buildContainer() (*docker.Container, error) {
 
 func (j *RunJob) startContainer(e *Execution, c *docker.Container) error {
 	return j.Client.StartContainer(c.ID, &docker.HostConfig{})
+}
+
+func (j *RunJob) getContainer(id string) (*docker.Container, error) {
+	container, err := j.Client.InspectContainer(id)
+	if err != nil {
+		return nil, err
+	}
+	return container, nil
 }
 
 const (
