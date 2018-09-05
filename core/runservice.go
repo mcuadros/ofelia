@@ -143,6 +143,15 @@ func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 	wg.Wait()
 
 	ctx.Logger.Noticef("Service ID %s (%s) has completed\n", svcID, j.Name)
+
+	switch exitCode {
+	case 0:
+		return nil
+	case -1:
+		return ErrUnexpected
+	default:
+		return fmt.Errorf("error non-zero exit code: %d", exitCode)
+	}
 	return err
 }
 
