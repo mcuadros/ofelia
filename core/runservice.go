@@ -131,7 +131,7 @@ func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 				return
 			}
 
-			taskExitCode, found := j.findtaskstatus(ctx, svc.ID)
+			taskExitCode, found := j.findTaskStatus(ctx, svc.ID)
 
 			if found {
 				exitCode = taskExitCode
@@ -146,16 +146,16 @@ func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 	return err
 }
 
-func (j *RunServiceJob) findtaskstatus(ctx *Context, taskID string) (int, bool) {
+func (j *RunServiceJob) findTaskStatus(ctx *Context, svcID string) (int, bool) {
 	taskFilters := make(map[string][]string)
-	taskFilters["service"] = []string{taskID}
+	taskFilters["service"] = []string{svcID}
 
 	tasks, err := j.Client.ListTasks(docker.ListTasksOptions{
 		Filters: taskFilters,
 	})
 
 	if err != nil {
-		ctx.Logger.Errorf("Failed to find task ID %s. Considering the task terminated: %s\n", taskID, err.Error())
+		ctx.Logger.Errorf("Failed to find tasks fo service %s. Considering the task terminated: %s\n", svcID, err.Error())
 		return 0, false
 	}
 
