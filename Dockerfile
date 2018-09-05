@@ -15,7 +15,10 @@ ENV GOOS linux
 RUN go get -v ./...
 RUN go build -a -installsuffix cgo -ldflags '-w  -extldflags "-static"' -o /go/bin/ofelia .
 
-FROM scratch
+
+FROM alpine:latest
+
+RUN apk --update add ca-certificates tzdata
 
 COPY --from=builder /go/bin/ofelia /usr/bin/ofelia
 
