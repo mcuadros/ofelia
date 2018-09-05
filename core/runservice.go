@@ -189,6 +189,20 @@ func (j *RunServiceJob) findTaskStatus(ctx *Context, svcID string) (int, bool) {
 			if exitCode == 0 && task.Status.State == swarm.TaskStateRejected {
 				exitCode = 255 // force non-zero exit for task rejected
 			}
+
+			err = j.Client.GetServiceLogs(docker.LogsServiceOptions{
+				Service:      svcID,
+				Stderr:       true,
+				Stdout:       true,
+				Follow:       false,
+				ErrorStream:  ctx.Execution.ErrorStream,
+				OutputStream: ctx.Execution.OutputStream,
+			})
+			if err != nil {
+				ctx.Logger.Errorf("Error getting logs for service: %s - %s \n", svcID, err.Error())
+				return 0, false
+			}
+
 			done = true
 			break
 		}
