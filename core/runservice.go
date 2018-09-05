@@ -111,9 +111,9 @@ func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 
 	ctx.Logger.Noticef("Checking for service ID %s (%s) termination\n", svcID, j.Name)
 
-	svc, err := j.Client.InspectService(svcID)
+	svc, err := j.inspectService(ctx, j.Service)
 	if err != nil {
-		return fmt.Errorf("Failed to inspect service %s: %s", svcID, err.Error())
+		return err
 	}
 
 	// On every tick, check if all the services have completed, or have error out
@@ -236,4 +236,12 @@ func (j *RunServiceJob) deleteService(ctx *Context, svcID string) error {
 
 	return err
 
+}
+
+func (j *RunServiceJob) inspectService(ctx *Context, svcID string) (*swarm.Service, error) {
+	svc, err := j.Client.InspectService(j.Service)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to inspect service %s: %s", j.Service, err.Error())
+	}
+	return svc, err
 }
