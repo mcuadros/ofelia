@@ -124,6 +124,8 @@ func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 		defer wg.Done()
 		for _ = range svcChecker.C {
 
+			// TODO will not work with longer existing services
+			// TODO doesn't work
 			if svc.CreatedAt.After(time.Now().Add(maxProcessDuration)) {
 				err = ErrMaxTimeRunning
 				return
