@@ -20,6 +20,7 @@ type RunServiceJob struct {
 	Delete  bool           `default:"true"`
 	Image   string
 	Network string
+	Service string
 }
 
 func NewRunServiceJob(c *docker.Client) *RunServiceJob {
@@ -27,23 +28,51 @@ func NewRunServiceJob(c *docker.Client) *RunServiceJob {
 }
 
 func (j *RunServiceJob) Run(ctx *Context) error {
-	if err := j.pullImage(); err != nil {
+
+	if j.Image != "" {
+		if err := j.pullImage(); err != nil {
+			return err
+		}
+	}
+
+	var svcID string
+	if j.Service == "" {
+		svc, err := j.buildService()
+
+		if err != nil {
+			return err
+		}
+
+		svcID = svc.ID
+		ctx.Logger.Noticef("Created service %s for job %s\n", svcID, j.Name)
+	} else {
+		svc, err := j.inspectService(ctx, j.Service)
+		if err != nil {
+			return err
+		}
+		svcID = svc.ID
+		ctx.Logger.Noticef("Found service %s for job %s\n", svcID, j.Name)
+
+		_, err = j.scaleService(ctx, svcID, false)
+		if err != nil {
+			return err
+		}
+
+		_, err = j.scaleService(ctx, svcID, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := j.watchContainer(ctx, svcID); err != nil {
 		return err
 	}
 
-	svc, err := j.buildService()
-
-	if err != nil {
-		return err
+	if j.Service == "" {
+		return j.deleteService(ctx, svcID)
+	} else {
+		return nil
 	}
-
-	ctx.Logger.Noticef("Created service %s for job %s\n", svc.ID, j.Name)
-
-	if err := j.watchContainer(ctx, svc.ID); err != nil {
-		return err
-	}
-
-	return j.deleteService(ctx, svc.ID)
 }
 
 func (j *RunServiceJob) pullImage() error {
@@ -93,6 +122,43 @@ func (j *RunServiceJob) buildService() (*swarm.Service, error) {
 		return nil, err
 	}
 
+	return svc, err
+}
+
+func (j *RunServiceJob) scaleService(ctx *Context, svcID string, up bool) (*swarm.Service, error) {
+	svc, err := j.inspectService(ctx, j.Service)
+	if err != nil {
+		return nil, err
+	}
+
+	replicas := *svc.Spec.Mode.Replicated.Replicas
+	if up {
+		replicas += 1
+	} else {
+		if replicas == 0 {
+			return svc, err
+		}
+		replicas -= 1
+	}
+
+	updateSvcOpts := docker.UpdateServiceOptions{}
+
+	updateSvcOpts.Name = svc.Spec.Name
+	updateSvcOpts.Version = svc.Version.Index
+
+	updateSvcOpts.ServiceSpec = svc.Spec
+
+	updateSvcOpts.Mode.Replicated =
+		&swarm.ReplicatedService{
+			Replicas: &replicas,
+		}
+
+	err = j.Client.UpdateService(svcID, updateSvcOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	time.Sleep(time.Millisecond * 1000)
 	return svc, err
 }
 
