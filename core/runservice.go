@@ -27,6 +27,9 @@ func NewRunServiceJob(c *docker.Client) *RunServiceJob {
 	return &RunServiceJob{Client: c}
 }
 
+// Main method for running a service-based job
+// If the service has been provided it will start a new task for the existing service
+// Otherwise it will create a new service based on the image and other parameters
 func (j *RunServiceJob) Run(ctx *Context) error {
 
 	if j.Image != "" {
@@ -125,6 +128,7 @@ func (j *RunServiceJob) buildService() (*swarm.Service, error) {
 	return svc, err
 }
 
+// Scale an existing service one replica up or down
 func (j *RunServiceJob) scaleService(ctx *Context, svcID string, up bool) (*swarm.Service, error) {
 	svc, err := j.inspectService(ctx, j.Service)
 	if err != nil {
@@ -135,6 +139,7 @@ func (j *RunServiceJob) scaleService(ctx *Context, svcID string, up bool) (*swar
 	if up {
 		replicas += 1
 	} else {
+		// If there already 0 replicas of a service, there is no need to scale down
 		if replicas == 0 {
 			return svc, err
 		}
@@ -146,6 +151,7 @@ func (j *RunServiceJob) scaleService(ctx *Context, svcID string, up bool) (*swar
 	updateSvcOpts.Name = svc.Spec.Name
 	updateSvcOpts.Version = svc.Version.Index
 
+	// The old spec is required, otherwise defaults will override the service
 	updateSvcOpts.ServiceSpec = svc.Spec
 
 	updateSvcOpts.Mode.Replicated =
@@ -153,11 +159,13 @@ func (j *RunServiceJob) scaleService(ctx *Context, svcID string, up bool) (*swar
 			Replicas: &replicas,
 		}
 
+	// Do the actual scaling
 	err = j.Client.UpdateService(svcID, updateSvcOpts)
 	if err != nil {
 		return nil, err
 	}
 
+	// Give docker the time to do the scaling
 	time.Sleep(time.Millisecond * 1000)
 	return svc, err
 }
@@ -304,6 +312,7 @@ func (j *RunServiceJob) deleteService(ctx *Context, svcID string) error {
 
 }
 
+// Convenience method for inspecting a service
 func (j *RunServiceJob) inspectService(ctx *Context, svcID string) (*swarm.Service, error) {
 	svc, err := j.Client.InspectService(j.Service)
 	if err != nil {
