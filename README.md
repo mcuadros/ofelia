@@ -42,7 +42,7 @@ schedule = @hourly
 command = touch /tmp/example
 
 
-[job-service-run "servie-executed-on-new-container"]
+[job-service-run "service-executed-on-new-container"]
 schedule = 0,20,40 * * * *
 image = ubuntu
 network = swarm_network
