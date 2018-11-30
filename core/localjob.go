@@ -7,7 +7,7 @@ import (
 )
 
 type LocalJob struct {
-	BareJob
+	BareJob     `mapstructure:",squash"`
 	Dir         string
 	Environment []string
 }

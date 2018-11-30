@@ -18,13 +18,19 @@ The main feature of **Ofelia** is the ability to execute commands directly on Do
 ## Configuration
 
 ### Jobs
-It uses a INI-style config file and the [scheduling format](https://godoc.org/github.com/robfig/cron) is exactly the same from the original `cron`, you can configure three different kind of jobs:
+
+[Scheduling format](https://godoc.org/github.com/robfig/cron) is exactly the same from the original `cron`
+
+you can configure four different kind of jobs:
 
 - `job-exec`: this job is executed inside of a running container.
 - `job-run`: runs a command inside of a new container, using a specific image.
 - `job-local`: runs the command inside of the host running ofelia.
 - `job-service-run`: runs the command inside a new "run-once" service, for running inside a swarm
 
+#### INI-style config
+
+Run with `ofelia daemon --config=/path/to/config.ini`
 
 ```ini
 [job-exec "job-executed-on-running-container"]
@@ -52,6 +58,39 @@ schedule = 0,20,40 * * * *
 service =  my-service
 ```
 
+#### Docker labels configurations
+
+In order to use this type of configurations, ofelia need access to docker socket.
+
+```sh
+docker run -it --rm \
+    -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    --label ofelia.job-local.my-test-job.schedule="@every 5s" \
+    --label ofelia.job-local.my-test-job.command="date" \
+        mcuadros/ofelia:latest daemon --docker
+```
+
+Labels format: `ofelia.<JOB_TYPE>.<JOB_NAME>.<JOB_PARAMETER>=<PARAMETER_VALUE>.
+This type of configuration supports all the capabilities provided by INI files.
+
+Also, it is possible to configure `job-exec` by setting labels configurations on the target container. To do that, additional label `ofelia.enabled=true` need to be present on the target container.
+
+For example, we want `ofelia` to execute `uname -a` command in the existing container called `my_nginx`.
+To do that, we need to we need to start `my_nginx` container with next configurations:
+
+```sh
+docker run -it --rm \
+    --label ofelia.enabled=true \
+    --label ofelia.job-exec.test-exec-job.schedule="@every 5s" \
+    --label ofelia.job-exec.test-exec-job.command="uname -a" \
+        nginx
+```
+
+Now if we start `ofelia` container with the command provided above, it will pickup 2 jobs:
+
+- Local - `date`
+- Exec  - `uname -a`
+
 ### Logging
 **Ofelia** comes with three different logging drivers that can be configured in the `[global]` section:
 - `mail` to send mails
@@ -78,16 +117,8 @@ service =  my-service
 
 ## Installation
 
-The easiest way to deploy **ofelia** is using *Docker*.
-
-```sh
-docker run -it -v /etc/ofelia:/etc/ofelia -v /var/run/docker.sock:/var/run/docker.sock:ro mcuadros/ofelia:latest
-```
-
-Don't forget to place your `config.ini` at your host machine.
+The easiest way to deploy **ofelia** is using *Docker*. See examples above.
 
 If don't want to run **ofelia** using our *Docker* image you can download a binary from [releases](https://github.com/mcuadros/ofelia/releases) page.
-
-
 
 > Why the project is named Ofelia? Ofelia is the name of the office assistant from the Spanish comic [Mortadelo y Filemón](https://en.wikipedia.org/wiki/Mort_%26_Phil)

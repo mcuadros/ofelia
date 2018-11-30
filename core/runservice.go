@@ -13,7 +13,7 @@ import (
 // Note: The ServiceJob is loosely inspired by https://github.com/alexellis/jaas/
 
 type RunServiceJob struct {
-	BareJob
+	BareJob `mapstructure:",squash"`
 	Client  *docker.Client `json:"-"`
 	User    string         `default:"root"`
 	TTY     bool           `default:"false"`

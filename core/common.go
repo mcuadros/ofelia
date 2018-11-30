@@ -110,6 +110,18 @@ func (c *Context) Stop(err error) {
 	c.Job.NotifyStop()
 }
 
+func (c *Context) Log(msg string) {
+	msg = fmt.Sprintf("[Job %q (%s)] %s", c.Job.GetName(), c.Execution.ID, msg)
+	switch {
+	case c.Execution.Failed:
+		c.Logger.Errorf(msg)
+	case c.Execution.Skipped:
+		c.Logger.Warningf(msg)
+	default:
+		c.Logger.Noticef(msg)
+	}
+}
+
 // Execution contains all the information relative to a Job execution.
 type Execution struct {
 	ID        string
