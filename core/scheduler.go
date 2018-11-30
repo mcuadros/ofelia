@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"sync"
 
 	"github.com/robfig/cron"
@@ -96,11 +97,7 @@ func (w *jobWrapper) Run() {
 
 func (w *jobWrapper) start(ctx *Context) {
 	ctx.Start()
-
-	ctx.Logger.Debugf(
-		"%s - Job started %q - %q",
-		ctx.Job.GetName(), ctx.Execution.ID, ctx.Job.GetCommand(),
-	)
+	ctx.Log("Started - " + ctx.Job.GetCommand())
 }
 
 func (w *jobWrapper) stop(ctx *Context, err error) {
@@ -111,16 +108,19 @@ func (w *jobWrapper) stop(ctx *Context, err error) {
 		errText = ctx.Execution.Error.Error()
 	}
 
+	output, err := ioutil.ReadAll(ctx.Execution.OutputStream)
+	if err != nil {
+		ctx.Logger.Errorf("Couldn't read command output")
+	}
+
+	if len(output) > 0 {
+		ctx.Log("Output: " + string(output))
+	}
+
 	msg := fmt.Sprintf(
-		"%s - Job finished %q in %q, failed: %t, skipped: %t, error: %s",
-		ctx.Job.GetName(), ctx.Execution.ID, ctx.Execution.Duration, ctx.Execution.Failed, ctx.Execution.Skipped, errText,
+		"Finished in %q, failed: %t, skipped: %t, error: %s",
+		ctx.Execution.Duration, ctx.Execution.Failed, ctx.Execution.Skipped, errText,
 	)
 
-	if ctx.Execution.Failed {
-		ctx.Logger.Errorf(msg)
-	} else if ctx.Execution.Skipped {
-		ctx.Logger.Warningf(msg)
-	} else {
-		ctx.Logger.Noticef(msg)
-	}
+	ctx.Log(msg)
 }

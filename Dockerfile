@@ -1,28 +1,20 @@
-ARG ARCH=amd64
-
-FROM golang:1.10.0 AS builder-amd64
-
-FROM arm32v6/golang:1.10.0 AS builder-arm32v6
-
-FROM builder-${ARCH} AS builder
+FROM golang:1.11.2-alpine AS builder
 
 WORKDIR ${GOPATH}/src/github.com/mcuadros/ofelia
 COPY . ${GOPATH}/src/github.com/mcuadros/ofelia
 
-ENV CGO_ENABLED 0
-ENV GOOS linux
-
-RUN go get -v ./...
-RUN go build -a -installsuffix cgo -ldflags '-w  -extldflags "-static"' -o /go/bin/ofelia .
-
+RUN go build -o /go/bin/ofelia .
 
 FROM alpine:latest
 
-RUN apk --update add ca-certificates tzdata
+# this label is required to identify container with ofelia running
+LABEL ofelia.service=true 
+LABEL ofelia.enabled=true
+
+RUN apk --no-cache add ca-certificates tzdata
 
 COPY --from=builder /go/bin/ofelia /usr/bin/ofelia
 
-VOLUME /etc/ofelia/
 ENTRYPOINT ["/usr/bin/ofelia"]
 
 CMD ["daemon", "--config", "/etc/ofelia/config.ini"]
