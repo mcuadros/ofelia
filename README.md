@@ -56,44 +56,7 @@ schedule = 0,20,40 * * * *
 image = ubuntu
 network = swarm_network
 command =  touch /tmp/example
-
-[job-service-run "job-executed-on-existing-service"]
-schedule = 0,20,40 * * * *
-service =  my-service
 ```
-
-#### Docker labels configurations
-
-In order to use this type of configurations, ofelia need access to docker socket.
-
-```sh
-docker run -it --rm \
-    -v /var/run/docker.sock:/var/run/docker.sock:ro \
-    --label ofelia.job-local.my-test-job.schedule="@every 5s" \
-    --label ofelia.job-local.my-test-job.command="date" \
-        mcuadros/ofelia:latest daemon --docker
-```
-
-Labels format: `ofelia.<JOB_TYPE>.<JOB_NAME>.<JOB_PARAMETER>=<PARAMETER_VALUE>.
-This type of configuration supports all the capabilities provided by INI files.
-
-Also, it is possible to configure `job-exec` by setting labels configurations on the target container. To do that, additional label `ofelia.enabled=true` need to be present on the target container.
-
-For example, we want `ofelia` to execute `uname -a` command in the existing container called `my_nginx`.
-To do that, we need to we need to start `my_nginx` container with next configurations:
-
-```sh
-docker run -it --rm \
-    --label ofelia.enabled=true \
-    --label ofelia.job-exec.test-exec-job.schedule="@every 5s" \
-    --label ofelia.job-exec.test-exec-job.command="uname -a" \
-        nginx
-```
-
-Now if we start `ofelia` container with the command provided above, it will pickup 2 jobs:
-
-- Local - `date`
-- Exec  - `uname -a`
 
 ### Logging
 **Ofelia** comes with three different logging drivers that can be configured in the `[global]` section:
