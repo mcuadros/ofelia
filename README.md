@@ -19,7 +19,9 @@ The main feature of **Ofelia** is the ability to execute commands directly on Do
 
 ### Jobs
 
-[Scheduling format](https://godoc.org/github.com/robfig/cron) is exactly the same from the original `cron`
+[Scheduling format](https://godoc.org/github.com/robfig/cron) is the same as the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM).
+
+**Note**: the format starts with seconds, instead of minutes.
 
 you can configure four different kind of jobs:
 
@@ -27,6 +29,8 @@ you can configure four different kind of jobs:
 - `job-run`: runs a command inside of a new container, using a specific image.
 - `job-local`: runs the command inside of the host running ofelia.
 - `job-service-run`: runs the command inside a new "run-once" service, for running inside a swarm
+
+See [Jobs reference documentation](docs/jobs.md) for all available parameters.
 
 #### INI-style config
 
