@@ -51,15 +51,12 @@ command = touch /tmp/example
 schedule = @hourly
 command = touch /tmp/example
 
+
 [job-service-run "service-executed-on-new-container"]
 schedule = 0,20,40 * * * *
 image = ubuntu
 network = swarm_network
 command =  touch /tmp/example
-
-[job-service-run "job-executed-on-existing-service"]
-schedule = 0,20,40 * * * *
-service =  my-service
 ```
 
 #### Docker labels configurations
