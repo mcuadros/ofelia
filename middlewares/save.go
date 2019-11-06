@@ -13,8 +13,8 @@ import (
 
 // SaveConfig configuration for the Save middleware
 type SaveConfig struct {
-	SaveFolder      string `gcfg:"save-folder"`
-	SaveOnlyOnError bool   `gcfg:"save-only-on-error"`
+	SaveFolder      string `gcfg:"save-folder" mapstructure:"save-folder"`
+	SaveOnlyOnError bool   `gcfg:"save-only-on-error" mapstructure:"save-only-on-error"`
 }
 
 // NewSave returns a Save middleware if the given configuration is not empty

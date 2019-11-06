@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/mcuadros/ofelia/core"
+	"github.com/mcuadros/ofelia/middlewares"
 	. "gopkg.in/check.v1"
 )
 
@@ -179,11 +180,32 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 			},
 			Comment: "Exec jobs from non-service container, saves container name to be able to exect to",
 		},
+		{
+			Labels: map[string]map[string]string{
+				"some": map[string]string{
+					requiredLabel: "true",
+					serviceLabel:  "true",
+					labelPrefix + "." + jobExec + ".job1.schedule":   "schedule1",
+					labelPrefix + "." + jobExec + ".job1.command":    "command1",
+					labelPrefix + "." + jobExec + ".job1.no-overlap": "true",
+				},
+			},
+			ExpectedConfig: Config{
+				ExecJobs: map[string]*ExecJobConfig{
+					"job1": &ExecJobConfig{ExecJob: core.ExecJob{BareJob: core.BareJob{
+						Schedule: "schedule1",
+						Command:  "command1",
+					}},
+						OverlapConfig: middlewares.OverlapConfig{NoOverlap: true},
+					},
+				},
+			},
+			Comment: "Test job with 'no-overlap' set",
+		},
 	}
 
 	for _, t := range testcases {
 		var conf = Config{}
-
 		err := conf.buildFromDockerLabels(t.Labels)
 		c.Assert(err, IsNil)
 		c.Assert(conf, DeepEquals, t.ExpectedConfig)

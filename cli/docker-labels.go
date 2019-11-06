@@ -115,25 +115,25 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 	}
 
 	if len(execJobs) > 0 {
-		if err := mapstructure.Decode(execJobs, &c.ExecJobs); err != nil {
+		if err := mapstructure.WeakDecode(execJobs, &c.ExecJobs); err != nil {
 			return err
 		}
 	}
 
 	if len(localJobs) > 0 {
-		if err := mapstructure.Decode(localJobs, &c.LocalJobs); err != nil {
+		if err := mapstructure.WeakDecode(localJobs, &c.LocalJobs); err != nil {
 			return err
 		}
 	}
 
 	if len(serviceJobs) > 0 {
-		if err := mapstructure.Decode(serviceJobs, &c.ServiceJobs); err != nil {
+		if err := mapstructure.WeakDecode(serviceJobs, &c.ServiceJobs); err != nil {
 			return err
 		}
 	}
 
 	if len(runJobs) > 0 {
-		if err := mapstructure.Decode(runJobs, &c.RunJobs); err != nil {
+		if err := mapstructure.WeakDecode(runJobs, &c.RunJobs); err != nil {
 			return err
 		}
 	}

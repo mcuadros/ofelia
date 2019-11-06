@@ -29,10 +29,10 @@ type Config struct {
 		middlewares.SaveConfig  `mapstructure:",squash"`
 		middlewares.MailConfig  `mapstructure:",squash"`
 	}
-	ExecJobs    map[string]*ExecJobConfig    `gcfg:"job-exec" mapstructure:",squash"`
-	RunJobs     map[string]*RunJobConfig     `gcfg:"job-run" mapstructure:",squash"`
-	ServiceJobs map[string]*RunServiceConfig `gcfg:"job-service-run" mapstructure:",squash"`
-	LocalJobs   map[string]*LocalJobConfig   `gcfg:"job-local" mapstructure:",squash"`
+	ExecJobs    map[string]*ExecJobConfig    `gcfg:"job-exec" mapstructure:"job-exec,squash"`
+	RunJobs     map[string]*RunJobConfig     `gcfg:"job-run" mapstructure:"job-run,squash"`
+	ServiceJobs map[string]*RunServiceConfig `gcfg:"job-service-run" mapstructure:"job-service-run,squash"`
+	LocalJobs   map[string]*LocalJobConfig   `gcfg:"job-local" mapstructure:"job-local,squash"`
 }
 
 // BuildFromDockerLabels buils a scheduler using the config from a docker labels

@@ -17,8 +17,8 @@ var (
 
 // SlackConfig configuration for the Slack middleware
 type SlackConfig struct {
-	SlackWebhook     string `gcfg:"slack-webhook"`
-	SlackOnlyOnError bool   `gcfg:"slack-only-on-error"`
+	SlackWebhook     string `gcfg:"slack-webhook" mapstructure:"webhook"`
+	SlackOnlyOnError bool   `gcfg:"slack-only-on-error" mapstructure:"slack-only-on-error"`
 }
 
 // NewSlack returns a Slack middleware if the given configuration is not empty
