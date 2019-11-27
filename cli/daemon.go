@@ -67,7 +67,7 @@ func (c *DaemonCommand) setSignals() {
 	go func() {
 		sig := <-c.signals
 		c.scheduler.Logger.Warningf(
-			"Signal recieved: %s, shuting down the process\n", sig,
+			"Signal received: %s, shutting down the process\n", sig,
 		)
 
 		c.done <- true

@@ -65,7 +65,7 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 	serviceJobs := make(map[string]map[string]string)
 
 	for c, l := range labels {
-		isServiceContaienr := func() bool {
+		isServiceContainer := func() bool {
 			for k, v := range l {
 				if k == serviceLabel {
 					return v == "true"
@@ -90,20 +90,20 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 
 				// since this label was placed not on the service container
 				// this means we need to `exec` command in this container
-				if !isServiceContaienr {
+				if !isServiceContainer {
 					execJobs[jobName]["container"] = c
 				}
-			case jobType == jobLocal && isServiceContaienr:
+			case jobType == jobLocal && isServiceContainer:
 				if _, ok := localJobs[jobName]; !ok {
 					localJobs[jobName] = make(map[string]string)
 				}
 				localJobs[jobName][jopParam] = v
-			case jobType == jobServiceRun && isServiceContaienr:
+			case jobType == jobServiceRun && isServiceContainer:
 				if _, ok := serviceJobs[jobName]; !ok {
 					serviceJobs[jobName] = make(map[string]string)
 				}
 				serviceJobs[jobName][jopParam] = v
-			case jobType == jobRun && isServiceContaienr:
+			case jobType == jobRun && isServiceContainer:
 				if _, ok := runJobs[jobName]; !ok {
 					runJobs[jobName] = make(map[string]string)
 				}

@@ -35,7 +35,7 @@ type Config struct {
 	LocalJobs   map[string]*LocalJobConfig   `gcfg:"job-local" mapstructure:"job-local,squash"`
 }
 
-// BuildFromDockerLabels buils a scheduler using the config from a docker labels
+// BuildFromDockerLabels builds a scheduler using the config from a docker labels
 func BuildFromDockerLabels() (*core.Scheduler, error) {
 	c := &Config{}
 
@@ -56,7 +56,7 @@ func BuildFromDockerLabels() (*core.Scheduler, error) {
 	return c.build()
 }
 
-// BuildFromFile buils a scheduler using the config from a file
+// BuildFromFile builds a scheduler using the config from a file
 func BuildFromFile(filename string) (*core.Scheduler, error) {
 	c := &Config{}
 	if err := gcfg.ReadFileInto(c, filename); err != nil {
@@ -66,7 +66,7 @@ func BuildFromFile(filename string) (*core.Scheduler, error) {
 	return c.build()
 }
 
-// BuildFromString buils a scheduler using the config from a string
+// BuildFromString builds a scheduler using the config from a string
 func BuildFromString(config string) (*core.Scheduler, error) {
 	c := &Config{}
 	if err := gcfg.ReadStringInto(c, config); err != nil {
