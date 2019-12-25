@@ -315,8 +315,7 @@ func (j *RunServiceJob) deleteService(ctx *Context, svcID string) error {
 func (j *RunServiceJob) inspectService(ctx *Context, svcID string) (*swarm.Service, error) {
 	if j.Service == "" {
     	  svc, err := j.Client.InspectService(svcID)
-	}
-	else {
+	} else {
     	  svc, err := j.Client.InspectService(j.Service)
 	}
 	if err != nil {
