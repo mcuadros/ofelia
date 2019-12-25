@@ -73,6 +73,18 @@ docker run -it --rm \
         mcuadros/ofelia:latest daemon --docker
 ```
 
+#### Docker labels configurations
+
+In order to use this type of configurations, ofelia need access to docker socket.
+
+```sh
+docker run -it --rm \
+    -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    --label ofelia.job-local.my-test-job.schedule="@every 5s" \
+    --label ofelia.job-local.my-test-job.command="date" \
+        mcuadros/ofelia:latest daemon --docker
+```
+
 Labels format: `ofelia.<JOB_TYPE>.<JOB_NAME>.<JOB_PARAMETER>=<PARAMETER_VALUE>.
 This type of configuration supports all the capabilities provided by INI files.
 
