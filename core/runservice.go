@@ -320,7 +320,7 @@ func (j *RunServiceJob) inspectService(ctx *Context, svcID string) (*swarm.Servi
 	} else {
     	  svc, err := j.Client.InspectService(j.Service)
 	}
-	_, _ = error, svc
+	_, _ = err, svc
 	if err != nil {
 		return nil, fmt.Errorf("Failed to inspect service %s: %s", j.Service, err.Error())
 	}
