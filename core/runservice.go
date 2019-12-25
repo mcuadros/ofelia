@@ -313,7 +313,7 @@ func (j *RunServiceJob) deleteService(ctx *Context, svcID string) error {
 
 // Convenience method for inspecting a service
 func (j *RunServiceJob) inspectService(ctx *Context, svcID string) (*swarm.Service, error) {
-	var err error
+	var err error = nil
 	var svc *swarm.Service
 	if j.Service == "" {
     	  svc, err := j.Client.InspectService(svcID)
