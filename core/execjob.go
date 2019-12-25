@@ -8,7 +8,7 @@ import (
 )
 
 type ExecJob struct {
-	BareJob
+	BareJob   `mapstructure:",squash"`
 	Client    *docker.Client `json:"-"`
 	Container string
 	User      string `default:"root"`

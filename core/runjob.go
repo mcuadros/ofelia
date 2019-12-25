@@ -15,7 +15,7 @@ func init() {
 }
 
 type RunJob struct {
-	BareJob
+	BareJob   `mapstructure:",squash"`
 	Client    *docker.Client `json:"-"`
 	User      string         `default:"root"`
 	TTY       bool           `default:"false"`

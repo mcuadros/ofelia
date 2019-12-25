@@ -3,6 +3,8 @@ package cli
 import (
 	"testing"
 
+	"github.com/mcuadros/ofelia/core"
+	"github.com/mcuadros/ofelia/middlewares"
 	. "gopkg.in/check.v1"
 )
 
@@ -47,4 +49,165 @@ func (s *SuiteConfig) TestExecJobBuild(c *C) {
 	j.buildMiddlewares()
 
 	c.Assert(j.Middlewares(), HasLen, 1)
+}
+
+func (s *SuiteConfig) TestLabelsConfig(c *C) {
+	testcases := []struct {
+		Labels         map[string]map[string]string
+		ExpectedConfig Config
+		Comment        string
+	}{
+		{
+			Labels:         map[string]map[string]string{},
+			ExpectedConfig: Config{},
+			Comment:        "No labels, no config",
+		},
+		{
+			Labels: map[string]map[string]string{
+				"some": map[string]string{
+					"label1": "1",
+					"label2": "2",
+				},
+			},
+			ExpectedConfig: Config{},
+			Comment:        "No required label, no config",
+		},
+		{
+			Labels: map[string]map[string]string{
+				"some": map[string]string{
+					requiredLabel: "true",
+					"label2":      "2",
+				},
+			},
+			ExpectedConfig: Config{},
+			Comment:        "No prefixed labels, no config",
+		},
+		{
+			Labels: map[string]map[string]string{
+				"some": map[string]string{
+					requiredLabel: "false",
+					labelPrefix + "." + jobLocal + ".job1.schedule": "everyday! yey!",
+				},
+			},
+			ExpectedConfig: Config{},
+			Comment:        "With prefixed labels, but without required label still no config",
+		},
+		{
+			Labels: map[string]map[string]string{
+				"some": map[string]string{
+					requiredLabel: "true",
+					labelPrefix + "." + jobLocal + ".job1.schedule": "everyday! yey!",
+					labelPrefix + "." + jobLocal + ".job1.command":  "rm -rf *test*",
+					labelPrefix + "." + jobLocal + ".job2.schedule": "everynanosecond! yey!",
+					labelPrefix + "." + jobLocal + ".job2.command":  "ls -al *test*",
+				},
+			},
+			ExpectedConfig: Config{},
+			Comment:        "No service label, no 'local' jobs",
+		},
+		{
+			Labels: map[string]map[string]string{
+				"some": map[string]string{
+					requiredLabel: "true",
+					serviceLabel:  "true",
+					labelPrefix + "." + jobLocal + ".job1.schedule":      "schedule1",
+					labelPrefix + "." + jobLocal + ".job1.command":       "command1",
+					labelPrefix + "." + jobRun + ".job2.schedule":        "schedule2",
+					labelPrefix + "." + jobRun + ".job2.command":         "command2",
+					labelPrefix + "." + jobServiceRun + ".job3.schedule": "schedule3",
+					labelPrefix + "." + jobServiceRun + ".job3.command":  "command3",
+				},
+				"other": map[string]string{
+					requiredLabel: "true",
+					labelPrefix + "." + jobLocal + ".job4.schedule":      "schedule4",
+					labelPrefix + "." + jobLocal + ".job4.command":       "command4",
+					labelPrefix + "." + jobRun + ".job5.schedule":        "schedule5",
+					labelPrefix + "." + jobRun + ".job5.command":         "command5",
+					labelPrefix + "." + jobServiceRun + ".job6.schedule": "schedule6",
+					labelPrefix + "." + jobServiceRun + ".job6.command":  "command6",
+				},
+			},
+			ExpectedConfig: Config{
+				LocalJobs: map[string]*LocalJobConfig{
+					"job1": &LocalJobConfig{LocalJob: core.LocalJob{BareJob: core.BareJob{
+						Schedule: "schedule1",
+						Command:  "command1",
+					}}},
+				},
+				RunJobs: map[string]*RunJobConfig{
+					"job2": &RunJobConfig{RunJob: core.RunJob{BareJob: core.BareJob{
+						Schedule: "schedule2",
+						Command:  "command2",
+					}}},
+				},
+				ServiceJobs: map[string]*RunServiceConfig{
+					"job3": &RunServiceConfig{RunServiceJob: core.RunServiceJob{BareJob: core.BareJob{
+						Schedule: "schedule3",
+						Command:  "command3",
+					}}},
+				},
+			},
+			Comment: "Local/Run/Service jobs from non-service container ignored",
+		},
+		{
+			Labels: map[string]map[string]string{
+				"some": map[string]string{
+					requiredLabel: "true",
+					serviceLabel:  "true",
+					labelPrefix + "." + jobExec + ".job1.schedule": "schedule1",
+					labelPrefix + "." + jobExec + ".job1.command":  "command1",
+				},
+				"other": map[string]string{
+					requiredLabel: "true",
+					labelPrefix + "." + jobExec + ".job2.schedule": "schedule2",
+					labelPrefix + "." + jobExec + ".job2.command":  "command2",
+				},
+			},
+			ExpectedConfig: Config{
+				ExecJobs: map[string]*ExecJobConfig{
+					"job1": &ExecJobConfig{ExecJob: core.ExecJob{BareJob: core.BareJob{
+						Schedule: "schedule1",
+						Command:  "command1",
+					}}},
+					"job2": &ExecJobConfig{ExecJob: core.ExecJob{
+						BareJob: core.BareJob{
+							Schedule: "schedule2",
+							Command:  "command2",
+						},
+						Container: "other",
+					}},
+				},
+			},
+			Comment: "Exec jobs from non-service container, saves container name to be able to exect to",
+		},
+		{
+			Labels: map[string]map[string]string{
+				"some": map[string]string{
+					requiredLabel: "true",
+					serviceLabel:  "true",
+					labelPrefix + "." + jobExec + ".job1.schedule":   "schedule1",
+					labelPrefix + "." + jobExec + ".job1.command":    "command1",
+					labelPrefix + "." + jobExec + ".job1.no-overlap": "true",
+				},
+			},
+			ExpectedConfig: Config{
+				ExecJobs: map[string]*ExecJobConfig{
+					"job1": &ExecJobConfig{ExecJob: core.ExecJob{BareJob: core.BareJob{
+						Schedule: "schedule1",
+						Command:  "command1",
+					}},
+						OverlapConfig: middlewares.OverlapConfig{NoOverlap: true},
+					},
+				},
+			},
+			Comment: "Test job with 'no-overlap' set",
+		},
+	}
+
+	for _, t := range testcases {
+		var conf = Config{}
+		err := conf.buildFromDockerLabels(t.Labels)
+		c.Assert(err, IsNil)
+		c.Assert(conf, DeepEquals, t.ExpectedConfig)
+	}
 }

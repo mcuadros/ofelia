@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/swarm"
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 // Note: The ServiceJob is loosely inspired by https://github.com/alexellis/jaas/
 
 type RunServiceJob struct {
-	BareJob
+	BareJob `mapstructure:",squash"`
 	Client  *docker.Client `json:"-"`
 	User    string         `default:"root"`
 	TTY     bool           `default:"false"`
@@ -180,7 +180,6 @@ const (
 var svcChecker = time.NewTicker(watchDuration)
 
 func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
-
 	exitCode := swarmError
 
 	ctx.Logger.Noticef("Checking for service ID %s (%s) termination\n", svcID, j.Name)
@@ -216,7 +215,7 @@ func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 
 	wg.Wait()
 
-	ctx.Logger.Noticef("Service ID %s (%s) has completed\n", svcID, j.Name)
+	ctx.Logger.Noticef("Service ID %s (%s) has completed with exit code %d\n", svcID, j.Name, exitCode)
 
 	switch exitCode {
 	case 0:
