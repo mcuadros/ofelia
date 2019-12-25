@@ -49,7 +49,7 @@ func (j *RunServiceJob) Run(ctx *Context) error {
 		svcID = svc.ID
 		ctx.Logger.Noticef("Created service %s for job %s\n", svcID, j.Name)
 	} else {
-		svc, err := j.inspectService(ctx, nil)
+		svc, err := j.inspectService(ctx, j.Service)
 		if err != nil {
 			return err
 		}
@@ -130,7 +130,7 @@ func (j *RunServiceJob) buildService() (*swarm.Service, error) {
 
 // Scale an existing service one replica up or down
 func (j *RunServiceJob) scaleService(ctx *Context, svcID string, up bool) (*swarm.Service, error) {
-	svc, err := j.inspectService(ctx, nil)
+	svc, err := j.inspectService(ctx, j.Service)
 	if err != nil {
 		return nil, err
 	}
