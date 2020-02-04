@@ -111,14 +111,16 @@ func (c *Context) Stop(err error) {
 }
 
 func (c *Context) Log(msg string) {
-	msg = fmt.Sprintf("[Job %q (%s)] %s", c.Job.GetName(), c.Execution.ID, msg)
+	format := "[Job %q (%s)] %s"
+	args := []interface{}{c.Job.GetName(), c.Execution.ID, msg}
+
 	switch {
 	case c.Execution.Failed:
-		c.Logger.Errorf(msg)
+		c.Logger.Errorf(format, args...)
 	case c.Execution.Skipped:
-		c.Logger.Warningf(msg)
+		c.Logger.Warningf(format, args...)
 	default:
-		c.Logger.Noticef(msg)
+		c.Logger.Noticef(format, args...)
 	}
 }
 
