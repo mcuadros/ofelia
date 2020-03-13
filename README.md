@@ -12,7 +12,7 @@ Many solutions are available: ready to go containerized `crons`, wrappers for yo
 
 ### How?
 
-The main feature of **Ofelia** is the ability to execute commands directly on Docker containers. Using Docker's API Ofelia emulates the behavior of [`exec`](https://docs.docker.com/reference/commandline/exec/), be in able to run a command inside of a running container. Also you can run the command in a new container destroying it at the end of the execution.
+The main feature of **Ofelia** is the ability to execute commands directly on Docker containers. Using Docker's API Ofelia emulates the behavior of [`exec`](https://docs.docker.com/reference/commandline/exec/), being able to run a command inside of a running container. Also you can run the command in a new container destroying it at the end of the execution.
 
 ## Configuration
 
