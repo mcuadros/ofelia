@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/fsouza/go-dockerclient/testing"
+	logging "github.com/op/go-logging"
 	. "gopkg.in/check.v1"
 )
 
@@ -40,8 +41,13 @@ func (s *SuiteRunJob) TestRun(c *C) {
 	job.TTY = true
 	job.Delete = true
 	job.Network = "foo"
+	job.Name = "test"
 
-	e := NewExecution()
+	ctx := &Context{}
+	ctx.Execution = NewExecution()
+	logging.SetFormatter(logging.MustStringFormatter(logFormat))
+	ctx.Logger = logging.MustGetLogger("ofelia")
+	ctx.Job = job
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -59,7 +65,7 @@ func (s *SuiteRunJob) TestRun(c *C) {
 		wg.Done()
 	}()
 
-	err := job.Run(&Context{Execution: e})
+	err := job.Run(ctx)
 	c.Assert(err, IsNil)
 	wg.Wait()
 
@@ -108,7 +114,7 @@ func (s *SuiteRunJob) buildImage(c *C) {
 
 func (s *SuiteRunJob) createNetwork(c *C) {
 	_, err := s.client.CreateNetwork(docker.CreateNetworkOptions{
-		Name: "foo",
+		Name:   "foo",
 		Driver: "bridge",
 	})
 	c.Assert(err, IsNil)

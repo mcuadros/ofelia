@@ -16,9 +16,10 @@ import (
 var (
 	// ErrSkippedExecution pass this error to `Execution.Stop` if you wish to mark
 	// it as skipped.
-	ErrSkippedExecution = errors.New("skipped execution")
-	ErrUnexpected       = errors.New("error unexpected, docker has returned exit code -1, maybe wrong user?")
-	ErrMaxTimeRunning   = errors.New("the job has exceed the maximum allowed time running.")
+	ErrSkippedExecution   = errors.New("skipped execution")
+	ErrUnexpected         = errors.New("error unexpected, docker has returned exit code -1, maybe wrong user?")
+	ErrMaxTimeRunning     = errors.New("the job has exceed the maximum allowed time running.")
+	ErrLocalImageNotFound = errors.New("couldn't find image on the host")
 )
 
 type Job interface {
@@ -228,6 +229,14 @@ func randomID() string {
 	}
 
 	return fmt.Sprintf("%x", b)
+}
+
+func buildFindLocalImageOptions(image string) docker.ListImagesOptions {
+	return docker.ListImagesOptions{
+		Filters: map[string][]string{
+			"reference": []string{image},
+		},
+	}
 }
 
 func buildPullOptions(image string) (docker.PullImageOptions, docker.AuthConfiguration) {
