@@ -145,9 +145,9 @@ dir = /tmp/sandbox/
 ```
 
 ## Job-service-run
-This job can be used in 2 situations:
-1. To run a command inside a new "run-once" service, for running inside a swarm.
-2. To run a command inside an existing service, for running inside a swarm.
+This job can be used to:
+
+-  To run a command inside a new "run-once" service, for running inside a swarm.
 
 ### Parameters
 - **Schedule** * (1,2)
@@ -170,10 +170,6 @@ This job can be used in 2 situations:
   - *description*: Delete the container after the job is finished.
   - *value*: Boolean, either `true` or `false`
   - *default*: `true`
-- **Service** (2)
-  - *description*: Name of the service you want to run the command in.
-  - *value*: String, e.g. `nginx-proxy`
-  - *default*: If not specified, Ofelia creates a new service for this job
 - **User** (1,2)
   - *description*: User as which the command should be executed.
   - *value*: String, e.g. `www-data`
@@ -190,8 +186,4 @@ schedule = 0,20,40 * * * *
 image = ubuntu
 network = swarm_network
 command =  touch /tmp/example
-
-[job-service-run "job-executed-on-existing-service"]
-schedule = 0,20,40 * * * *
-service =  my-service
 ```
