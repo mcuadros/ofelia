@@ -91,6 +91,30 @@ Now if we start `ofelia` container with the command provided above, it will pick
 - Local - `date`
 - Exec  - `uname -a`
 
+Or with docker-compose:
+
+```yaml
+version: "3"
+services:
+  ofelia:
+    image: mcuadros/ofelia:latest
+    depends_on:
+      - nginx
+    command: daemon --docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      ofelia.job-local.my-test-job.schedule: "@every 5s"
+      ofelia.job-local.my-test-job.command: "date"
+
+  nginx:
+    image: nginx
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.datecron.schedule: "@every 5s"
+      ofelia.job-exec.datecron.command: "uname -a"
+```
+
 ### Logging
 **Ofelia** comes with three different logging drivers that can be configured in the `[global]` section:
 - `mail` to send mails
