@@ -1,4 +1,4 @@
-FROM golang:1.13.3-alpine AS builder
+FROM golang:1.13.10-alpine AS builder
 
 WORKDIR ${GOPATH}/src/github.com/mcuadros/ofelia
 COPY . ${GOPATH}/src/github.com/mcuadros/ofelia
