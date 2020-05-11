@@ -27,7 +27,7 @@ func getLabels(d *docker.Client) (map[string]map[string]string, error) {
 
 	conts, err := d.ListContainers(docker.ListContainersOptions{
 		Filters: map[string][]string{
-			"label": []string{requiredLabelFilter},
+			"label": {requiredLabelFilter},
 		},
 	})
 	if err != nil {
@@ -63,6 +63,7 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 	localJobs := make(map[string]map[string]string)
 	runJobs := make(map[string]map[string]string)
 	serviceJobs := make(map[string]map[string]string)
+	globalConfigs := make(map[string]string)
 
 	for c, l := range labels {
 		isServiceContainer := func() bool {
@@ -77,6 +78,10 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 		for k, v := range l {
 			parts := strings.Split(k, ".")
 			if len(parts) < 4 {
+				if isServiceContainer {
+					globalConfigs[parts[1]] = v
+				}
+
 				continue
 			}
 
@@ -111,6 +116,12 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 			default:
 				// TODO: warn about unknown parameter
 			}
+		}
+	}
+
+	if len(globalConfigs) > 0 {
+		if err := mapstructure.WeakDecode(globalConfigs, &c.Global); err != nil {
+			return err
 		}
 	}
 
