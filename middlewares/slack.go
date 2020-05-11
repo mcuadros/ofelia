@@ -74,7 +74,7 @@ func (m *Slack) buildMessage(ctx *core.Context) *slackMessage {
 	}
 
 	msg.Text = fmt.Sprintf(
-		"Job *%s* finished in *%s*, command _%q_",
+		"Job *%q* finished in *%s*, command `%s`",
 		ctx.Job.GetName(), ctx.Execution.Duration, ctx.Job.GetCommand(),
 	)
 
