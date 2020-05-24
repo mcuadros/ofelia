@@ -1,0 +1,32 @@
+name: Docker Push
+on:
+  release:
+    types:
+      - created
+  push:
+    branches:
+      - master
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Build image
+      uses: mr-smithers-excellent/docker-build-push@v2
+      with:
+        image: mcuadros/ofelia
+        registry: docker.io
+        username: mcuadros
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Tag image
+      if: github.event_name == 'release'
+      uses: mr-smithers-excellent/docker-build-push@v2
+      with:
+        image: mcuadros/ofelia
+        registry: docker.io
+        tag: latest
+        username: mcuadros
+        password: ${{ secrets.DOCKER_PASSWORD }}
