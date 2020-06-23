@@ -1,4 +1,4 @@
-FROM golang:1.13.10-buster AS builder
+FROM golang:1.13-buster AS builder
 
 LABEL MAINTAINER='Simone M. Zucchi<simone.zucchi@gmail.com>'
 
