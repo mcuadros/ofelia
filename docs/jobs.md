@@ -138,7 +138,7 @@ Runs the command on the host running Ofelia.
 
 ### INI-file example
 ```ini
-[job-run "touch-test-file"]
+[job-local "touch-test-file"]
 schedule = @every 15s
 command = touch test.txt
 dir = /tmp/sandbox/
