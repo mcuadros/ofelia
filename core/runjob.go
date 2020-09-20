@@ -86,6 +86,16 @@ func (j *RunJob) Run(ctx *Context) error {
 		return err
 	}
 
+	if err := j.Client.Logs(docker.LogsOptions{
+		Container:    container.ID,
+		OutputStream: ctx.Execution.OutputStream,
+		ErrorStream:  ctx.Execution.ErrorStream,
+		Stdout:       true,
+		Stderr:       true,
+	}); err != nil {
+		return err
+	}
+
 	if j.Container == "" {
 		return j.deleteContainer(container.ID)
 	}
