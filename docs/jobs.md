@@ -67,7 +67,7 @@ This job can be used in 2 situations:
   - *description*: Command you want to run inside the container.
   - *value*: String, e.g. `touch /tmp/example`
   - *default*: Default container command
-- **Image** * (1)
+- **Image*** (1)
   - *description*: Image you want to use for the job.
   - *value*: String, e.g. `nginx:latest`
   - *default*: No default. If left blank, Ofelia assumes you will specify a container to start (situation 2).
@@ -91,14 +91,23 @@ This job can be used in 2 situations:
   - *description*: Allocate a pseudo-tty, similar to `docker exec -t`. See this [Stack Overflow answer](https://stackoverflow.com/questions/30137135/confused-about-docker-t-option-to-allocate-a-pseudo-tty) for more info.
   - *value*: Boolean, either `true` or `false`
   - *default*: `false`
+- **Volume**
+  - *description*: Mount host machine directory into container as a [bind mount](https://docs.docker.com/storage/bind-mounts/#start-a-container-with-a-bind-mount)
+  - *value*: Same format as used with `-v` flag within `docker run`. For example: `/tmp/test:/tmp/test:ro`
+    - **INI config**: `Volume` setting can be provided multiple times for multiple mounts.
+    - **Labels config**: multiple mounts has to be provided as JSON array: `["/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"]`
+  - *default*: Optional field, no default.
   
 ### INI-file example
 ```ini
-[job-run "print-date"]
-schedule = @daily
+[job-run "print-write-date"]
+schedule = @every 5s
 image = alpine:latest
-command = date
+command = sh -c 'date | tee -a /tmp/test/date'
+volume = /tmp/test:/tmp/test:rw
 ```
+
+Then you can check output in host machine file `/tmp/test/date`
 
 ### Docker labels example
 Docker run job has to be configured as labels on the `ofelia` container itself, because it is going to start new container:
@@ -106,9 +115,10 @@ Docker run job has to be configured as labels on the `ofelia` container itself, 
 docker run -it --rm \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
     --label ofelia.enabled=true \
-    --label ofelia.job-run.print-date.schedule="@daily" \
+    --label ofelia.job-run.print-w-date.schedule="@daily" \
     --label ofelia.job-run.print-date.image="alpine:latest" \
-    --label ofelia.job-run.print-date.command="date" \
+    --label ofelia.job-run.print-date.volume="/tmp/test:/tmp/test:rw" \
+    --label ofelia.job-run.print-date.command="sh -c 'date | tee -a /tmp/test/date'" \
         mcuadros/ofelia:latest daemon --docker
 ```
 
