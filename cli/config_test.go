@@ -202,6 +202,39 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 			},
 			Comment: "Test job with 'no-overlap' set",
 		},
+		{
+			Labels: map[string]map[string]string{
+				"some": {
+					requiredLabel: "true",
+					serviceLabel:  "true",
+					labelPrefix + "." + jobRun + ".job1.schedule": "schedule1",
+					labelPrefix + "." + jobRun + ".job1.command":  "command1",
+					labelPrefix + "." + jobRun + ".job1.volume":   "/test/tmp:/test/tmp:ro",
+					labelPrefix + "." + jobRun + ".job2.schedule": "schedule2",
+					labelPrefix + "." + jobRun + ".job2.command":  "command2",
+					labelPrefix + "." + jobRun + ".job2.volume":   `["/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"]`,
+				},
+			},
+			ExpectedConfig: Config{
+				RunJobs: map[string]*RunJobConfig{
+					"job1": {RunJob: core.RunJob{BareJob: core.BareJob{
+						Schedule: "schedule1",
+						Command:  "command1",
+					},
+						Volume: []string{"/test/tmp:/test/tmp:ro"},
+					},
+					},
+					"job2": {RunJob: core.RunJob{BareJob: core.BareJob{
+						Schedule: "schedule2",
+						Command:  "command2",
+					},
+						Volume: []string{"/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"},
+					},
+					},
+				},
+			},
+			Comment: "Test run job with volumes",
+		},
 	}
 
 	for _, t := range testcases {

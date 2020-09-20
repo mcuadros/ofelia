@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -59,11 +60,11 @@ func getLabels(d *docker.Client) (map[string]map[string]string, error) {
 }
 
 func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) error {
-	execJobs := make(map[string]map[string]string)
-	localJobs := make(map[string]map[string]string)
-	runJobs := make(map[string]map[string]string)
-	serviceJobs := make(map[string]map[string]string)
-	globalConfigs := make(map[string]string)
+	execJobs := make(map[string]map[string]interface{})
+	localJobs := make(map[string]map[string]interface{})
+	runJobs := make(map[string]map[string]interface{})
+	serviceJobs := make(map[string]map[string]interface{})
+	globalConfigs := make(map[string]interface{})
 
 	for c, l := range labels {
 		isServiceContainer := func() bool {
@@ -89,10 +90,10 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 			switch {
 			case jobType == jobExec: // only job exec can be provided on the non-service container
 				if _, ok := execJobs[jobName]; !ok {
-					execJobs[jobName] = make(map[string]string)
+					execJobs[jobName] = make(map[string]interface{})
 				}
-				execJobs[jobName][jopParam] = v
 
+				setJobParam(execJobs[jobName], jopParam, v)
 				// since this label was placed not on the service container
 				// this means we need to `exec` command in this container
 				if !isServiceContainer {
@@ -100,19 +101,19 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 				}
 			case jobType == jobLocal && isServiceContainer:
 				if _, ok := localJobs[jobName]; !ok {
-					localJobs[jobName] = make(map[string]string)
+					localJobs[jobName] = make(map[string]interface{})
 				}
-				localJobs[jobName][jopParam] = v
+				setJobParam(localJobs[jobName], jopParam, v)
 			case jobType == jobServiceRun && isServiceContainer:
 				if _, ok := serviceJobs[jobName]; !ok {
-					serviceJobs[jobName] = make(map[string]string)
+					serviceJobs[jobName] = make(map[string]interface{})
 				}
-				serviceJobs[jobName][jopParam] = v
+				setJobParam(serviceJobs[jobName], jopParam, v)
 			case jobType == jobRun && isServiceContainer:
 				if _, ok := runJobs[jobName]; !ok {
-					runJobs[jobName] = make(map[string]string)
+					runJobs[jobName] = make(map[string]interface{})
 				}
-				runJobs[jobName][jopParam] = v
+				setJobParam(runJobs[jobName], jopParam, v)
 			default:
 				// TODO: warn about unknown parameter
 			}
@@ -150,4 +151,17 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 	}
 
 	return nil
+}
+
+func setJobParam(params map[string]interface{}, paramName, paramVal string) {
+	switch paramName {
+	case "volume":
+		arr := []string{} // allow providing JSON arr of volume mounts
+		if err := json.Unmarshal([]byte(paramVal), &arr); err == nil {
+			params[paramName] = arr
+			return
+		}
+	}
+
+	params[paramName] = paramVal
 }

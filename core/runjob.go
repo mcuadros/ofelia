@@ -24,6 +24,7 @@ type RunJob struct {
 	Image     string
 	Network   string
 	Container string
+	Volume    []string
 }
 
 func NewRunJob(c *docker.Client) *RunJob {
@@ -125,6 +126,9 @@ func (j *RunJob) buildContainer() (*docker.Container, error) {
 			User:         j.User,
 		},
 		NetworkingConfig: &docker.NetworkingConfig{},
+		HostConfig: &docker.HostConfig{
+			Binds: j.Volume,
+		},
 	})
 
 	if err != nil {
