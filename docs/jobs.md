@@ -6,9 +6,11 @@
 - [job-service-run](#job-service-run)
 
 ## Job-exec
+
 This job is executed inside a running container. Similar to `docker exec`
 
 ### Parameters
+
 - **Schedule** *
   - *description*: When the job should be executed. E.g. every 10 seconds or every night at 1 AM.
   - *value*: String, see [Scheduling format](https://godoc.org/github.com/robfig/cron) of the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM). **Note**: the format starts with seconds, instead of minutes.
@@ -31,6 +33,7 @@ This job is executed inside a running container. Similar to `docker exec`
   - *default*: `false`
   
 ### INI-file example
+
 ```ini
 [job-exec "flush-nginx-logs"]
 schedule = @hourly
@@ -41,6 +44,7 @@ tty = false
 ```
 
 ### Docker labels example
+
 `ofelia` container should be started **after** nginx container, to be able to read its labels, because real time labels reading is not supported yet.
 
 ```sh
@@ -52,13 +56,16 @@ docker run -it --rm \
     --label ofelia.job-exec.flush-nginx-logs.tty="false" \
         nginx
 ```
- 
+
 ## Job-run
+
 This job can be used in 2 situations:
+
 1. To run a command inside of a new container, using a specific image. Similar to `docker run`
-2. To start a stopped container, similar to `docker start`
+1. To start a stopped container, similar to `docker start`
 
 ### Parameters
+
 - **Schedule** * (1,2)
   - *description*: When the job should be executed. E.g. every 10 seconds or every night at 1 AM.
   - *value*: String, see [Scheduling format](https://godoc.org/github.com/robfig/cron) of the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM). **Note**: the format starts with seconds, instead of minutes.
@@ -67,7 +74,7 @@ This job can be used in 2 situations:
   - *description*: Command you want to run inside the container.
   - *value*: String, e.g. `touch /tmp/example`
   - *default*: Default container command
-- **Image*** (1)
+- **Image** (1)
   - *description*: Image you want to use for the job.
   - *value*: String, e.g. `nginx:latest`
   - *default*: No default. If left blank, Ofelia assumes you will specify a container to start (situation 2).
@@ -99,6 +106,7 @@ This job can be used in 2 situations:
   - *default*: Optional field, no default.
   
 ### INI-file example
+
 ```ini
 [job-run "print-write-date"]
 schedule = @every 5s
@@ -110,24 +118,28 @@ volume = /tmp/test:/tmp/test:rw
 Then you can check output in host machine file `/tmp/test/date`
 
 ### Docker labels example
+
 Docker run job has to be configured as labels on the `ofelia` container itself, because it is going to start new container:
+
 ```sh
 docker run -it --rm \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
     --label ofelia.enabled=true \
-    --label ofelia.job-run.print-w-date.schedule="@daily" \
-    --label ofelia.job-run.print-date.image="alpine:latest" \
-    --label ofelia.job-run.print-date.volume="/tmp/test:/tmp/test:rw" \
-    --label ofelia.job-run.print-date.command="sh -c 'date | tee -a /tmp/test/date'" \
+    --label ofelia.job-run.print-write-date.schedule="@every 5s" \
+    --label ofelia.job-run.print-write-date.image="alpine:latest" \
+    --label ofelia.job-run.print-write-date.volume="/tmp/test:/tmp/test:rw" \
+    --label ofelia.job-run.print-write-date.command="sh -c 'date | tee -a /tmp/test/date'" \
         mcuadros/ofelia:latest daemon --docker
 ```
 
 ## Job-local
+
 Runs the command on the host running Ofelia.
 
 **Note**: In case Ofelia is running inside a container, the command is executed inside the container. Not on the Docker host.
 
 ### Parameters
+
 - **Schedule** *
   - *description*: When the job should be executed. E.g. every 10 seconds or every night at 1 AM.
   - *value*: String, see [Scheduling format](https://godoc.org/github.com/robfig/cron) of the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM). **Note**: the format starts with seconds, instead of minutes.
@@ -146,6 +158,7 @@ Runs the command on the host running Ofelia.
   - *default*: Optional field, no default.
 
 ### INI-file example
+
 ```ini
 [job-local "create-file"]
 schedule = @every 15s
@@ -154,7 +167,9 @@ dir = /tmp/
 ```
 
 ### Docker labels example
+
 Docker run job has to be configured as labels on the `ofelia` container itself, because it will be executed inside `ofelia` container
+
 ```sh
 docker run -it --rm \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
@@ -167,11 +182,13 @@ docker run -it --rm \
 ```
 
 ## Job-service-run
+
 This job can be used to:
 
--  To run a command inside a new "run-once" service, for running inside a swarm.
+- To run a command inside a new "run-once" service, for running inside a swarm.
 
 ### Parameters
+
 - **Schedule** * (1,2)
   - *description*: When the job should be executed. E.g. every 10 seconds or every night at 1 AM.
   - *value*: String, see [Scheduling format](https://godoc.org/github.com/robfig/cron) of the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM). **Note**: the format starts with seconds, instead of minutes.
@@ -202,6 +219,7 @@ This job can be used to:
   - *default*: `false`
   
 ### INI-file example
+
 ```ini
 [job-service-run "service-executed-on-new-container"]
 schedule = 0,20,40 * * * *
