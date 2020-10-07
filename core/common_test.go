@@ -316,3 +316,26 @@ func (*TestLogger) Debugf(format string, args ...interface{})    {}
 func (*TestLogger) Errorf(format string, args ...interface{})    {}
 func (*TestLogger) Noticef(format string, args ...interface{})   {}
 func (*TestLogger) Warningf(format string, args ...interface{})  {}
+
+func (s *SuiteCommon) TestBuildPullOptions(c *C) {
+       var cases = map[string]docker.PullImageOptions{
+		"dir/image:tag": docker.PullImageOptions{Repository: "dir/image", Registry: "", Tag: "tag",},
+		"dir/image": docker.PullImageOptions{Repository: "dir/image", Registry: "", Tag: "latest",},
+		"image:tag": docker.PullImageOptions{Repository: "image", Registry: "", Tag: "tag",},
+		"image": docker.PullImageOptions{Repository: "image", Registry: "", Tag: "latest",},
+	 	"example.com/dir/image:tag": docker.PullImageOptions{Repository: "example.com/dir/image", Registry: "example.com", Tag: "tag",},
+	 	"example.com/dir/image": docker.PullImageOptions{Repository: "example.com/dir/image", Registry: "example.com", Tag: "latest",},
+	 	"example.com/image:tag": docker.PullImageOptions{Repository: "example.com/image", Registry: "example.com", Tag: "tag",},
+	 	"example.com/image": docker.PullImageOptions{Repository: "example.com/image", Registry: "example.com", Tag: "latest",},
+		"example.com:port/dir/image:tag": docker.PullImageOptions{Repository: "example.com:port/dir/image", Registry: "example.com:port", Tag: "tag",},
+		"example.com:port/dir/image": docker.PullImageOptions{Repository: "example.com:port/dir/image", Registry: "example.com:port", Tag: "latest",},
+		"example.com:port/image:tag": docker.PullImageOptions{Repository: "example.com:port/image", Registry: "example.com:port", Tag: "tag",},
+		"example.com:port/image": docker.PullImageOptions{Repository: "example.com:port/image", Registry: "example.com:port", Tag: "latest",},
+       }
+
+       for image, expected := range cases {
+	       o, _ := buildPullOptions(image)
+	       fmt.Println(image)
+	       c.Assert(o, Equals, expected)
+       }
+}
