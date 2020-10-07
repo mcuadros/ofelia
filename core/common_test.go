@@ -7,6 +7,7 @@ import (
 	"time"
 
 	. "gopkg.in/check.v1"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 func Test(t *testing.T) { TestingT(t) }
