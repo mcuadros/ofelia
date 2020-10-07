@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"strings"
+	"regexp"
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
@@ -240,25 +240,22 @@ func buildFindLocalImageOptions(image string) docker.ListImagesOptions {
 }
 
 func buildPullOptions(image string) (docker.PullImageOptions, docker.AuthConfiguration) {
-	tag := "latest"
-	registry := ""
+        re := regexp.MustCompile("((?:([^/]+)/)?[^:]+)(?::(.+))?")
+        matches := re.FindStringSubmatch(image)
 
-	parts := strings.Split(image, ":")
-	if len(parts) == 2 {
-		tag = parts[1]
-	}
+        repository := matches[1]
+        registry := matches[2]
+        tag := matches[3]
 
-	name := parts[0]
-	parts = strings.Split(name, "/")
-	if len(parts) > 2 {
-		registry = parts[0]
-	}
+        if tag == "" {
+                tag = "latest"
+        }
 
-	return docker.PullImageOptions{
-		Repository: name,
-		Registry:   registry,
-		Tag:        tag,
-	}, buildAuthConfiguration(registry)
+        return docker.PullImageOptions{
+                Repository: repository,
+                Registry:   registry,
+                Tag:        tag,
+        }, buildAuthConfiguration(registry)
 }
 
 func buildAuthConfiguration(registry string) docker.AuthConfiguration {
