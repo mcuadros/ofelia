@@ -240,7 +240,7 @@ func buildFindLocalImageOptions(image string) docker.ListImagesOptions {
 }
 
 func buildPullOptions(image string) (docker.PullImageOptions, docker.AuthConfiguration) {
-        re := regexp.MustCompile("((?:([^/]+)/)?[^:]+)(?::(.+))?")
+        re := regexp.MustCompile("((?:([^/]+\\.[^/]+)/)?[^:]+)(?::(.+))?")
         matches := re.FindStringSubmatch(image)
 
         repository := matches[1]
