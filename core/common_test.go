@@ -318,21 +318,9 @@ func (*TestLogger) Errorf(format string, args ...interface{})    {}
 func (*TestLogger) Noticef(format string, args ...interface{})   {}
 func (*TestLogger) Warningf(format string, args ...interface{})  {}
 
-func (s *SuiteCommon) TestBuildPullOptions(c *C) {
-       var cases = map[string]docker.PullImageOptions{
-		"dir/image:tag": docker.PullImageOptions{Repository: "dir/image", Registry: "", Tag: "tag",},
-		"dir/image": docker.PullImageOptions{Repository: "dir/image", Registry: "", Tag: "latest",},
-		"image:tag": docker.PullImageOptions{Repository: "image", Registry: "", Tag: "tag",},
-		"image": docker.PullImageOptions{Repository: "image", Registry: "", Tag: "latest",},
-		"example.com:port/dir/image:tag": docker.PullImageOptions{Repository: "example.com:port/dir/image", Registry: "example.com:port", Tag: "tag",},
-		"example.com:port/dir/image": docker.PullImageOptions{Repository: "example.com:port/dir/image", Registry: "example.com:port", Tag: "latest",},
-		"example.com:port/image:tag": docker.PullImageOptions{Repository: "example.com:port/image", Registry: "example.com:port", Tag: "tag",},
-		"example.com:port/image": docker.PullImageOptions{Repository: "example.com:port/image", Registry: "example.com:port", Tag: "latest",},
-       }
-
-       for image, expected := range cases {
-	       o, _ := buildPullOptions(image)
-	       fmt.Println(image)
-	       c.Assert(o, Equals, expected)
-       }
+func (s *SuiteCommon) TestParseRegistry(c *C) {
+	c.Assert(parseRegistry("example.com:port/dir/image"), Equals, "example.com:port")
+	c.Assert(parseRegistry("example.com:port/image"), Equals, "example.com:port")
+	c.Assert(parseRegistry("dir/image"), Equals, "")
+	c.Assert(parseRegistry("image"), Equals, "")
 }

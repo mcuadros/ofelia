@@ -242,11 +242,7 @@ func buildFindLocalImageOptions(image string) docker.ListImagesOptions {
 func buildPullOptions(image string) (docker.PullImageOptions, docker.AuthConfiguration) {
 	repository, tag := docker.ParseRepositoryTag(image)
 
-	registry := ""
-
-	if strings.Contains(repository, ":") {
-		registry = strings.Split(repository,"/")[0]
-	}
+	registry := parseRegistry(repository)
 
 	if tag == "" {
 		tag = "latest"
@@ -257,6 +253,13 @@ func buildPullOptions(image string) (docker.PullImageOptions, docker.AuthConfigu
 		Registry:   registry,
 		Tag:	tag,
 	}, buildAuthConfiguration(registry)
+}
+
+func parseRegistry(repository string) (string) {
+	if strings.Contains(repository, ":") {
+		return strings.Split(repository,"/")[0]
+	}
+	return ""
 }
 
 func buildAuthConfiguration(registry string) docker.AuthConfiguration {
