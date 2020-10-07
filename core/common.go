@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"string"
+	"strings"
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
