@@ -316,3 +316,10 @@ func (*TestLogger) Debugf(format string, args ...interface{})    {}
 func (*TestLogger) Errorf(format string, args ...interface{})    {}
 func (*TestLogger) Noticef(format string, args ...interface{})   {}
 func (*TestLogger) Warningf(format string, args ...interface{})  {}
+
+func (s *SuiteCommon) TestParseRegistry(c *C) {
+	c.Assert(parseRegistry("example.com:port/dir/image"), Equals, "example.com:port")
+	c.Assert(parseRegistry("example.com:port/image"), Equals, "example.com:port")
+	c.Assert(parseRegistry("dir/image"), Equals, "")
+	c.Assert(parseRegistry("image"), Equals, "")
+}
