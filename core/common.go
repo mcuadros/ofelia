@@ -255,10 +255,16 @@ func buildPullOptions(image string) (docker.PullImageOptions, docker.AuthConfigu
 	}, buildAuthConfiguration(registry)
 }
 
-func parseRegistry(repository string) (string) {
-	if strings.Contains(repository, ":") {
-		return strings.Split(repository,"/")[0]
+func parseRegistry(repository string) string {
+	parts := strings.Split(repository, "/")
+	if len(parts) < 2 {
+		return ""
 	}
+
+	if strings.ContainsAny(parts[0], ".:") || len(parts) > 2 {
+		return parts[0]
+	}
+
 	return ""
 }
 
