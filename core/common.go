@@ -1,11 +1,10 @@
 package core
 
 import (
-	"bytes"
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"io"
+	"github.com/armon/circbuf"
 	"reflect"
 	"strings"
 	"time"
@@ -21,6 +20,9 @@ var (
 	ErrMaxTimeRunning     = errors.New("the job has exceed the maximum allowed time running.")
 	ErrLocalImageNotFound = errors.New("couldn't find image on the host")
 )
+
+// maximum size of a stdout/stderr stream to be kept in memory and optional stored/sent via mail
+const maxStreamSize = 10 * 1024 * 1024
 
 type Job interface {
 	GetName() string
@@ -135,15 +137,17 @@ type Execution struct {
 	Skipped   bool
 	Error     error
 
-	OutputStream, ErrorStream io.ReadWriter `json:"-"`
+	OutputStream, ErrorStream *circbuf.Buffer `json:"-"`
 }
 
 // NewExecution returns a new Execution, with a random ID
 func NewExecution() *Execution {
+	bufOut, _ := circbuf.NewBuffer(maxStreamSize)
+	bufErr, _ := circbuf.NewBuffer(maxStreamSize)
 	return &Execution{
 		ID:           randomID(),
-		OutputStream: bytes.NewBuffer(nil),
-		ErrorStream:  bytes.NewBuffer(nil),
+		OutputStream: bufOut,
+		ErrorStream:  bufErr,
 	}
 }
 

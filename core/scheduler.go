@@ -3,7 +3,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"sync"
 
 	"github.com/robfig/cron"
@@ -108,10 +107,7 @@ func (w *jobWrapper) stop(ctx *Context, err error) {
 		errText = ctx.Execution.Error.Error()
 	}
 
-	output, err := ioutil.ReadAll(ctx.Execution.OutputStream)
-	if err != nil {
-		ctx.Logger.Errorf("Couldn't read command output")
-	}
+	output := ctx.Execution.OutputStream.Bytes()
 
 	if len(output) > 0 {
 		ctx.Log("Output: " + string(output))
