@@ -70,12 +70,12 @@ func (m *Mail) sendMail(ctx *core.Context) error {
 
 	base := fmt.Sprintf("%s_%s", ctx.Job.GetName(), ctx.Execution.ID)
 	msg.Attach(base+".stdout.log", gomail.SetCopyFunc(func(w io.Writer) error {
-		_, err := io.Copy(w, ctx.Execution.OutputStream)
+		_, err := w.Write(ctx.Execution.OutputStream.Bytes())
 		return err
 	}))
 
 	msg.Attach(base+".stderr.log", gomail.SetCopyFunc(func(w io.Writer) error {
-		_, err := io.Copy(w, ctx.Execution.ErrorStream)
+		_, err := w.Write(ctx.Execution.ErrorStream.Bytes())
 		return err
 	}))
 
