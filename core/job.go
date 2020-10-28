@@ -28,16 +28,6 @@ func (j *BareJob) GetCommand() string {
 	return j.Command
 }
 
-func (j *BareJob) History() []*Execution {
-	return j.history
-}
-
-func (j *BareJob) AddHistory(e ...*Execution) {
-	j.lock.Lock()
-	defer j.lock.Unlock()
-	j.history = append(j.history, e...)
-}
-
 func (j *BareJob) Running() int32 {
 	return atomic.LoadInt32(&j.running)
 }
