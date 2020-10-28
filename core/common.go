@@ -32,8 +32,6 @@ type Job interface {
 	Use(...Middleware)
 	Run(*Context) error
 	Running() int32
-	History() []*Execution
-	AddHistory(...*Execution)
 	NotifyStart()
 	NotifyStop()
 }
@@ -61,7 +59,6 @@ func NewContext(s *Scheduler, j Job, e *Execution) *Context {
 
 func (c *Context) Start() {
 	c.Execution.Start()
-	c.Job.AddHistory(c.Execution)
 	c.Job.NotifyStart()
 }
 

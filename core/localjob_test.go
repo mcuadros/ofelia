@@ -1,7 +1,7 @@
 package core
 
 import (
-	"bytes"
+	"github.com/armon/circbuf"
 
 	. "gopkg.in/check.v1"
 )
@@ -14,7 +14,7 @@ func (s *SuiteLocalJob) TestRun(c *C) {
 	job := &LocalJob{}
 	job.Command = `echo "foo bar"`
 
-	b := bytes.NewBuffer(nil)
+	b, _ := circbuf.NewBuffer(1000)
 	e := NewExecution()
 	e.OutputStream = b
 

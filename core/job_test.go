@@ -18,19 +18,6 @@ func (s *SuiteBareJob) TestGetters(c *C) {
 	c.Assert(job.GetCommand(), Equals, "qux")
 }
 
-func (s *SuiteBareJob) TestHistory(c *C) {
-	eA := NewExecution()
-	eB := NewExecution()
-
-	job := &BareJob{}
-	job.AddHistory(eA, eB)
-
-	h := job.History()
-	c.Assert(h, HasLen, 2)
-	c.Assert(h[0], DeepEquals, eA)
-	c.Assert(h[1], DeepEquals, eB)
-}
-
 func (s *SuiteBareJob) TestNotifyStartStop(c *C) {
 	job := &BareJob{}
 

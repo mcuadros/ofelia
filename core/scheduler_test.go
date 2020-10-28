@@ -39,13 +39,6 @@ func (s *SuiteScheduler) TestStartStop(c *C) {
 
 	sc.Stop()
 	c.Assert(sc.IsRunning(), Equals, false)
-
-	h := job.History()
-	c.Assert(h, HasLen, 2)
-	c.Assert(h[0].IsRunning, Equals, false)
-	c.Assert(h[0].Date.IsZero(), Equals, false)
-	c.Assert(h[1].IsRunning, Equals, false)
-	c.Assert(h[1].Date.IsZero(), Equals, false)
 }
 
 func (s *SuiteScheduler) TestMergeMiddlewaresSame(c *C) {
