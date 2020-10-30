@@ -78,6 +78,7 @@ func (j *RunJob) Run(ctx *Context) error {
 		}
 	}
 
+	startTime := time.Now()
 	if err := j.startContainer(ctx.Execution, container); err != nil {
 		return err
 	}
@@ -92,6 +93,7 @@ func (j *RunJob) Run(ctx *Context) error {
 		ErrorStream:  ctx.Execution.ErrorStream,
 		Stdout:       true,
 		Stderr:       true,
+		Since:        startTime.Unix(),
 		RawTerminal:  true,
 	}); err != nil {
 		return err
