@@ -3,6 +3,7 @@ package cli
 import (
 	"testing"
 
+	defaults "github.com/mcuadros/go-defaults"
 	"github.com/mcuadros/ofelia/core"
 	"github.com/mcuadros/ofelia/middlewares"
 	. "gopkg.in/check.v1"
@@ -36,9 +37,25 @@ func (s *SuiteConfig) TestBuildFromString(c *C) {
 	c.Assert(sh.Jobs, HasLen, 5)
 }
 
+func (s *SuiteConfig) TestJobDefaultsSet(c *C) {
+	j := &RunJobConfig{}
+	j.Pull = "false"
+
+	defaults.SetDefaults(j)
+
+	c.Assert(j.Pull, Equals, "false")
+}
+
+func (s *SuiteConfig) TestJobDefaultsNotSet(c *C) {
+	j := &RunJobConfig{}
+
+	defaults.SetDefaults(j)
+
+	c.Assert(j.Pull, Equals, "true")
+}
+
 func (s *SuiteConfig) TestExecJobBuildEmpty(c *C) {
 	j := &ExecJobConfig{}
-	j.buildMiddlewares()
 
 	c.Assert(j.Middlewares(), HasLen, 0)
 }

@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,7 +18,11 @@ type RunServiceJob struct {
 	Client  *docker.Client `json:"-"`
 	User    string         `default:"root"`
 	TTY     bool           `default:"false"`
-	Delete  bool           `default:"true"`
+	// do not use bool values with "default:true" because if
+	// user would set it to "false" explicitly, it still will be
+	// changed to "true" https://github.com/mcuadros/ofelia/issues/135
+	// so lets use strings here as workaround
+	Delete  string `default:"true"`
 	Image   string
 	Network string
 }
@@ -194,7 +199,7 @@ func (j *RunServiceJob) findtaskstatus(ctx *Context, taskID string) (int, bool) 
 }
 
 func (j *RunServiceJob) deleteService(ctx *Context, svcID string) error {
-	if !j.Delete {
+	if delete, _ := strconv.ParseBool(j.Delete); !delete {
 		return nil
 	}
 

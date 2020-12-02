@@ -39,7 +39,7 @@ func (s *SuiteRunJob) TestRun(c *C) {
 	job.Command = `echo -a "foo bar"`
 	job.User = "foo"
 	job.TTY = true
-	job.Delete = true
+	job.Delete = "true"
 	job.Network = "foo"
 	job.Name = "test"
 

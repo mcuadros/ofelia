@@ -3,7 +3,7 @@ package core
 import (
 	"fmt"
 
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gobs/args"
 )
 
