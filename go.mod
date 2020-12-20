@@ -15,7 +15,7 @@ require (
 	github.com/mcuadros/go-defaults v1.2.0
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
-	github.com/robfig/cron v1.2.0
+	github.com/robfig/cron/v3 v3.0.1
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/sys v0.0.0-20211002104244-808efd93c36d // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect

@@ -51,8 +51,6 @@ tty = false
 
 ### Docker labels example
 
-`ofelia` container should be started **after** nginx container, to be able to read its labels, because real time labels reading is not supported yet.
-
 ```sh
 docker run -it --rm \
     --label ofelia.enabled=true \
@@ -130,9 +128,7 @@ environment = FOO=bar
 
 Then you can check output in host machine file `/tmp/test/date`
 
-### Docker labels example
-
-Docker run job has to be configured as labels on the `ofelia` container itself, because it is going to start new container:
+### Running ofelia on Docker example
 
 ```sh
 docker run -it --rm \
@@ -180,21 +176,6 @@ Runs the command on the host running Ofelia.
 schedule = @every 15s
 command = touch test.txt
 dir = /tmp/
-```
-
-### Docker labels example
-
-Docker run job has to be configured as labels on the `ofelia` container itself, because it will be executed inside `ofelia` container
-
-```sh
-docker run -it --rm \
-    -v /var/run/docker.sock:/var/run/docker.sock:ro \
-    --label ofelia.enabled=true \
-    --label ofelia.job-local.create-file.schedule="@every 15s" \
-    --label ofelia.job-local.create-file.image="alpine:latest" \
-    --label ofelia.job-local.create-file.command="touch test.txt" \
-    --label ofelia.job-local.create-file.dir="/tmp/" \
-        mcuadros/ofelia:latest daemon --docker
 ```
 
 ## Job-service-run

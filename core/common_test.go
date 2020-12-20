@@ -209,13 +209,14 @@ func (s *SuiteCommon) TestExecutionStopError(c *C) {
 
 	exe := &Execution{}
 	exe.Start()
+	time.Sleep(50 * time.Millisecond)
 	exe.Stop(err)
 
 	c.Assert(exe.IsRunning, Equals, false)
 	c.Assert(exe.Failed, Equals, true)
 	c.Assert(exe.Skipped, Equals, false)
 	c.Assert(exe.Error, Equals, err)
-	c.Assert(exe.Duration.Seconds() > .0, Equals, true)
+	c.Assert(exe.Duration.Milliseconds() >= 50, Equals, true)
 }
 
 func (s *SuiteCommon) TestExecutionStopErrorSkip(c *C) {
@@ -227,7 +228,6 @@ func (s *SuiteCommon) TestExecutionStopErrorSkip(c *C) {
 	c.Assert(exe.Failed, Equals, false)
 	c.Assert(exe.Skipped, Equals, true)
 	c.Assert(exe.Error, Equals, nil)
-	c.Assert(exe.Duration.Seconds() > .0, Equals, true)
 }
 
 func (s *SuiteCommon) TestMiddlewareContainerUseTwice(c *C) {
