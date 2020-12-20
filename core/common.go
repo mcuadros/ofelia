@@ -4,10 +4,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/armon/circbuf"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/armon/circbuf"
 
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -34,6 +35,8 @@ type Job interface {
 	Running() int32
 	NotifyStart()
 	NotifyStop()
+	GetCronJobID() int
+	SetCronJobID(int)
 }
 
 type Context struct {

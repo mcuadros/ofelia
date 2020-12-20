@@ -3,7 +3,6 @@ package cli
 import (
 	"os"
 
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/mcuadros/ofelia/core"
 	"github.com/mcuadros/ofelia/middlewares"
 	logging "github.com/op/go-logging"
@@ -20,8 +19,6 @@ const (
 	jobLocal      = "job-local"
 )
 
-var IsDockerEnv bool
-
 // Config contains the configuration
 type Config struct {
 	Global struct {
@@ -29,36 +26,33 @@ type Config struct {
 		middlewares.SaveConfig  `mapstructure:",squash"`
 		middlewares.MailConfig  `mapstructure:",squash"`
 	}
-	ExecJobs    map[string]*ExecJobConfig    `gcfg:"job-exec" mapstructure:"job-exec,squash"`
-	RunJobs     map[string]*RunJobConfig     `gcfg:"job-run" mapstructure:"job-run,squash"`
-	ServiceJobs map[string]*RunServiceConfig `gcfg:"job-service-run" mapstructure:"job-service-run,squash"`
-	LocalJobs   map[string]*LocalJobConfig   `gcfg:"job-local" mapstructure:"job-local,squash"`
+	ExecJobs      map[string]*ExecJobConfig    `gcfg:"job-exec" mapstructure:"job-exec,squash"`
+	RunJobs       map[string]*RunJobConfig     `gcfg:"job-run" mapstructure:"job-run,squash"`
+	ServiceJobs   map[string]*RunServiceConfig `gcfg:"job-service-run" mapstructure:"job-service-run,squash"`
+	LocalJobs     map[string]*LocalJobConfig   `gcfg:"job-local" mapstructure:"job-local,squash"`
+	sh            *core.Scheduler
+	dockerHandler *DockerHandler
+}
+
+func NewConfig() *Config {
+	// Initialize
+	c := &Config{}
+	c.ExecJobs = make(map[string]*ExecJobConfig)
+	c.RunJobs = make(map[string]*RunJobConfig)
+	c.ServiceJobs = make(map[string]*RunServiceConfig)
+	c.LocalJobs = make(map[string]*LocalJobConfig)
+	return c
 }
 
 // BuildFromDockerLabels builds a scheduler using the config from a docker labels
 func BuildFromDockerLabels() (*core.Scheduler, error) {
-	c := &Config{}
-
-	d, err := c.buildDockerClient()
-	if err != nil {
-		return nil, err
-	}
-
-	labels, err := getLabels(d)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := c.buildFromDockerLabels(labels); err != nil {
-		return nil, err
-	}
-
+	c := NewConfig()
 	return c.build()
 }
 
 // BuildFromFile builds a scheduler using the config from a file
 func BuildFromFile(filename string) (*core.Scheduler, error) {
-	c := &Config{}
+	c := NewConfig()
 	if err := gcfg.ReadFileInto(c, filename); err != nil {
 		return nil, err
 	}
@@ -79,30 +73,31 @@ func BuildFromString(config string) (*core.Scheduler, error) {
 func (c *Config) build() (*core.Scheduler, error) {
 	defaults.SetDefaults(c)
 
-	d, err := c.buildDockerClient()
+	c.sh = core.NewScheduler(c.buildLogger())
+	c.buildSchedulerMiddlewares(c.sh)
+
+	var err error
+	c.dockerHandler, err = NewDockerHandler(c)
 	if err != nil {
 		return nil, err
 	}
 
-	sh := core.NewScheduler(c.buildLogger())
-	c.buildSchedulerMiddlewares(sh)
-
 	for name, j := range c.ExecJobs {
 		defaults.SetDefaults(j)
 
-		j.Client = d
+		j.Client = c.dockerHandler.GetInternalDockerClient()
 		j.Name = name
 		j.buildMiddlewares()
-		sh.AddJob(j)
+		c.sh.AddJob(j)
 	}
 
 	for name, j := range c.RunJobs {
 		defaults.SetDefaults(j)
 
-		j.Client = d
+		j.Client = c.dockerHandler.GetInternalDockerClient()
 		j.Name = name
 		j.buildMiddlewares()
-		sh.AddJob(j)
+		c.sh.AddJob(j)
 	}
 
 	for name, j := range c.LocalJobs {
@@ -110,27 +105,18 @@ func (c *Config) build() (*core.Scheduler, error) {
 
 		j.Name = name
 		j.buildMiddlewares()
-		sh.AddJob(j)
+		c.sh.AddJob(j)
 	}
 
 	for name, j := range c.ServiceJobs {
 		defaults.SetDefaults(j)
 		j.Name = name
-		j.Client = d
+		j.Client = c.dockerHandler.GetInternalDockerClient()
 		j.buildMiddlewares()
-		sh.AddJob(j)
+		c.sh.AddJob(j)
 	}
 
-	return sh, nil
-}
-
-func (c *Config) buildDockerClient() (*docker.Client, error) {
-	d, err := docker.NewClientFromEnv()
-	if err != nil {
-		return nil, err
-	}
-
-	return d, nil
+	return c.sh, nil
 }
 
 func (c *Config) buildLogger() core.Logger {
@@ -146,6 +132,59 @@ func (c *Config) buildSchedulerMiddlewares(sh *core.Scheduler) {
 	sh.Use(middlewares.NewSlack(&c.Global.SlackConfig))
 	sh.Use(middlewares.NewSave(&c.Global.SaveConfig))
 	sh.Use(middlewares.NewMail(&c.Global.MailConfig))
+}
+
+func (c *Config) dockerLabelsUpdate(labels map[string]map[string]string) {
+	// Get the current labels
+	var parsedLabelConfig Config
+	parsedLabelConfig.buildFromDockerLabels(labels)
+
+	// Calculate the delta
+	for name, j := range c.ExecJobs {
+		found := false
+		for newJobsName, newJob := range parsedLabelConfig.ExecJobs {
+			// Check if the schedule has changed
+			if name == newJobsName {
+				found = true
+				// There is a slight race condition were a job can be canceled / restarted with a different schedule
+				// so, lets take care of it by simply restarting
+				if newJob.GetSchedule() != j.GetSchedule() {
+					// Restart the job
+					// Remove from the scheduler
+					c.sh.RemoveJob(j)
+					// Update the job config
+					c.ExecJobs[name] = newJob
+					c.sh.AddJob(j)
+				}
+				break
+			}
+		}
+		if !found {
+			// Remove the job
+			c.sh.RemoveJob(j)
+			delete(c.ExecJobs, name)
+		}
+	}
+
+	// Check for aditions
+	for newJobsName, newJob := range parsedLabelConfig.ExecJobs {
+		found := false
+		for name := range c.ExecJobs {
+			if name == newJobsName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			defaults.SetDefaults(newJob)
+			newJob.Client = c.dockerHandler.GetInternalDockerClient()
+			newJob.Name = newJobsName
+			newJob.buildMiddlewares()
+			c.sh.AddJob(newJob)
+			c.ExecJobs[newJobsName] = newJob
+		}
+	}
+
 }
 
 // ExecJobConfig contains all configuration params needed to build a ExecJob

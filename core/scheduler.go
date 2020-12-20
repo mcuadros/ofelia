@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 )
 
 var (
@@ -24,9 +24,10 @@ type Scheduler struct {
 }
 
 func NewScheduler(l Logger) *Scheduler {
+	cronUtils := NewCronUtils(l)
 	return &Scheduler{
 		Logger: l,
-		cron:   cron.New(),
+		cron:   cron.New(cron.WithChain(cron.SkipIfStillRunning(cronUtils), cron.Recover(cronUtils), cronUtils.ApplyMiddleware())),
 	}
 }
 
@@ -37,32 +38,25 @@ func (s *Scheduler) AddJob(j Job) error {
 		return ErrEmptySchedule
 	}
 
-	err := s.cron.AddJob(j.GetSchedule(), &jobWrapper{s, j})
+	id, err := s.cron.AddJob(j.GetSchedule(), &jobWrapper{s, j})
 	if err != nil {
 		return err
 	}
+	j.SetCronJobID(int(id)) // Cast to int in order to avoid pushing cron external to common
+	return nil
+}
 
-	s.Jobs = append(s.Jobs, j)
+func (s *Scheduler) RemoveJob(j Job) error {
+	s.Logger.Noticef("Job deregistered (will not fire again) %q - %q - %q", j.GetName(), j.GetCommand(), j.GetSchedule())
+	s.cron.Remove(cron.EntryID(j.GetCronJobID()))
 	return nil
 }
 
 func (s *Scheduler) Start() error {
-	if len(s.Jobs) == 0 {
-		return ErrEmptyScheduler
-	}
-
-	s.Logger.Debugf("Starting scheduler with %d jobs", len(s.Jobs))
-
-	s.mergeMiddlewares()
+	s.Logger.Debugf("Starting scheduler")
 	s.isRunning = true
 	s.cron.Start()
 	return nil
-}
-
-func (s *Scheduler) mergeMiddlewares() {
-	for _, j := range s.Jobs {
-		j.Use(s.Middlewares()...)
-	}
 }
 
 func (s *Scheduler) Stop() error {
