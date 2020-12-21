@@ -1,18 +1,14 @@
 package cli
 
 import (
-	"os"
-
 	"github.com/mcuadros/ofelia/core"
 	"github.com/mcuadros/ofelia/middlewares"
-	logging "github.com/op/go-logging"
 
 	defaults "github.com/mcuadros/go-defaults"
 	gcfg "gopkg.in/gcfg.v1"
 )
 
 const (
-	logFormat     = "%{color}%{shortfile} ▶ %{level}%{color:reset} %{message}"
 	jobExec       = "job-exec"
 	jobRun        = "job-run"
 	jobServiceRun = "job-service-run"
@@ -32,59 +28,50 @@ type Config struct {
 	LocalJobs     map[string]*LocalJobConfig   `gcfg:"job-local" mapstructure:"job-local,squash"`
 	sh            *core.Scheduler
 	dockerHandler *DockerHandler
+	logger        core.Logger
 }
 
-func NewConfig() *Config {
+func NewConfig(logger core.Logger) *Config {
 	// Initialize
 	c := &Config{}
 	c.ExecJobs = make(map[string]*ExecJobConfig)
 	c.RunJobs = make(map[string]*RunJobConfig)
 	c.ServiceJobs = make(map[string]*RunServiceConfig)
 	c.LocalJobs = make(map[string]*LocalJobConfig)
+	c.logger = logger
+	defaults.SetDefaults(c)
 	return c
 }
 
-// BuildFromDockerLabels builds a scheduler using the config from a docker labels
-func BuildFromDockerLabels() (*core.Scheduler, error) {
-	c := NewConfig()
-	return c.build()
-}
-
 // BuildFromFile builds a scheduler using the config from a file
-func BuildFromFile(filename string) (*core.Scheduler, error) {
-	c := NewConfig()
-	if err := gcfg.ReadFileInto(c, filename); err != nil {
-		return nil, err
-	}
-
-	return c.build()
+func BuildFromFile(filename string, logger core.Logger) (*Config, error) {
+	c := NewConfig(logger)
+	err := gcfg.ReadFileInto(c, filename)
+	return c, err
 }
 
 // BuildFromString builds a scheduler using the config from a string
-func BuildFromString(config string) (*core.Scheduler, error) {
-	c := &Config{}
+func BuildFromString(config string, logger core.Logger) (*Config, error) {
+	c := NewConfig(logger)
 	if err := gcfg.ReadStringInto(c, config); err != nil {
 		return nil, err
 	}
-
-	return c.build()
+	return c, nil
 }
 
-func (c *Config) build() (*core.Scheduler, error) {
-	defaults.SetDefaults(c)
-
-	c.sh = core.NewScheduler(c.buildLogger())
+// Call this only once at app init
+func (c *Config) InitializeApp() error {
+	c.sh = core.NewScheduler(c.logger)
 	c.buildSchedulerMiddlewares(c.sh)
 
 	var err error
-	c.dockerHandler, err = NewDockerHandler(c)
+	c.dockerHandler, err = NewDockerHandler(c, c.logger)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for name, j := range c.ExecJobs {
 		defaults.SetDefaults(j)
-
 		j.Client = c.dockerHandler.GetInternalDockerClient()
 		j.Name = name
 		j.buildMiddlewares()
@@ -93,7 +80,6 @@ func (c *Config) build() (*core.Scheduler, error) {
 
 	for name, j := range c.RunJobs {
 		defaults.SetDefaults(j)
-
 		j.Client = c.dockerHandler.GetInternalDockerClient()
 		j.Name = name
 		j.buildMiddlewares()
@@ -102,7 +88,6 @@ func (c *Config) build() (*core.Scheduler, error) {
 
 	for name, j := range c.LocalJobs {
 		defaults.SetDefaults(j)
-
 		j.Name = name
 		j.buildMiddlewares()
 		c.sh.AddJob(j)
@@ -116,16 +101,7 @@ func (c *Config) build() (*core.Scheduler, error) {
 		c.sh.AddJob(j)
 	}
 
-	return c.sh, nil
-}
-
-func (c *Config) buildLogger() core.Logger {
-	stdout := logging.NewLogBackend(os.Stdout, "", 0)
-	// Set the backends to be used.
-	logging.SetBackend(stdout)
-	logging.SetFormatter(logging.MustStringFormatter(logFormat))
-
-	return logging.MustGetLogger("ofelia")
+	return nil
 }
 
 func (c *Config) buildSchedulerMiddlewares(sh *core.Scheduler) {

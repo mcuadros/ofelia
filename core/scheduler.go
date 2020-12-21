@@ -27,13 +27,11 @@ func NewScheduler(l Logger) *Scheduler {
 	cronUtils := NewCronUtils(l)
 	return &Scheduler{
 		Logger: l,
-		cron:   cron.New(cron.WithChain(cron.SkipIfStillRunning(cronUtils), cron.Recover(cronUtils), cronUtils.ApplyMiddleware())),
+		cron:   cron.New(cron.WithLogger(cronUtils), cron.WithChain(cron.Recover(cronUtils))),
 	}
 }
 
 func (s *Scheduler) AddJob(j Job) error {
-	s.Logger.Noticef("New job registered %q - %q - %q", j.GetName(), j.GetCommand(), j.GetSchedule())
-
 	if j.GetSchedule() == "" {
 		return ErrEmptySchedule
 	}
@@ -43,6 +41,8 @@ func (s *Scheduler) AddJob(j Job) error {
 		return err
 	}
 	j.SetCronJobID(int(id)) // Cast to int in order to avoid pushing cron external to common
+	j.Use(s.Middlewares()...)
+	s.Logger.Noticef("New job registered %q - %q - %q - %v", j.GetName(), j.GetCommand(), j.GetSchedule(), id)
 	return nil
 }
 

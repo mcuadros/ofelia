@@ -6,11 +6,15 @@ import (
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/mcuadros/ofelia/core"
 )
+
+var ErrNoContainerWithOfeliaEnabled = errors.New("Couldn't find containers with label 'ofelia.enabled=true'")
 
 type DockerHandler struct {
 	dockerClient *docker.Client
 	notifier     dockerLabelsUpdate
+	logger       core.Logger
 }
 
 type dockerLabelsUpdate interface {
@@ -31,14 +35,21 @@ func (c *DockerHandler) buildDockerClient() (*docker.Client, error) {
 	return d, nil
 }
 
-func NewDockerHandler(notifier dockerLabelsUpdate) (*DockerHandler, error) {
+func NewDockerHandler(notifier dockerLabelsUpdate, logger core.Logger) (*DockerHandler, error) {
 	c := &DockerHandler{}
 	var err error
 	c.dockerClient, err = c.buildDockerClient()
 	c.notifier = notifier
+	c.logger = logger
 	if err != nil {
 		return nil, err
 	}
+	// Do a sanity check on docker
+	_, err = c.dockerClient.Info()
+	if err != nil {
+		return nil, err
+	}
+
 	go c.watch()
 	return c, nil
 }
@@ -50,9 +61,9 @@ func (c *DockerHandler) watch() {
 		select {
 		case <-tick:
 			labels, err := c.GetDockerLabels()
-			if err != nil {
-				// TODO: Log here
-
+			// Do not print or care if there is no container up right now
+			if err != nil && !errors.Is(err, ErrNoContainerWithOfeliaEnabled) {
+				c.logger.Debugf("%v", err)
 			}
 			c.notifier.dockerLabelsUpdate(labels)
 		}
@@ -70,7 +81,7 @@ func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) 
 	}
 
 	if len(conts) == 0 {
-		return nil, errors.New("Couldn't find containers with label 'ofelia.enabled=true'")
+		return nil, ErrNoContainerWithOfeliaEnabled
 	}
 
 	var labels = make(map[string]map[string]string)
