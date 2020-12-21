@@ -123,8 +123,6 @@ such as:
 - job-local
 - job-run
 
-##### Typical example:
-
 **Use the INI file to:**
 
 - Configure the slack or other middleware integration
@@ -140,6 +138,8 @@ schedule = @hourly
 image = ubuntu:latest
 command = touch /tmp/example
 ```
+
+**Use docker to:**
 
 ```sh
 docker run -it --rm \
