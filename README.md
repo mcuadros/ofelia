@@ -65,8 +65,6 @@ In order to use this type of configurations, ofelia need access to docker socket
 ```sh
 docker run -it --rm \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
-    --label ofelia.job-local.my-test-job.schedule="@every 5s" \
-    --label ofelia.job-local.my-test-job.command="date" \
         mcuadros/ofelia:latest daemon --docker
 ```
 
@@ -86,9 +84,8 @@ docker run -it --rm \
         nginx
 ```
 
-Now if we start `ofelia` container with the command provided above, it will pickup 2 jobs:
+Now if we start `ofelia` container with the command provided above, it will execute the task:
 
-- Local - `date`
 - Exec  - `uname -a`
 
 Or with docker-compose:
@@ -103,9 +100,6 @@ services:
     command: daemon --docker
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    labels:
-      ofelia.job-local.my-test-job.schedule: "@every 5s"
-      ofelia.job-local.my-test-job.command: "date"
 
   nginx:
     image: nginx
@@ -113,6 +107,46 @@ services:
       ofelia.enabled: "true"
       ofelia.job-exec.datecron.schedule: "@every 5s"
       ofelia.job-exec.datecron.command: "uname -a"
+```
+
+#### Dynamic docker configuration
+
+You can start ofelia in its own container or on the host itself, and it will magically pick up any container that starts, stops or is modified on the fly.
+In order to achieve this, you simply have to use docker containers with the labels described above and let ofelia take care of the rest. 
+
+#### Hybrid configuration (INI files + Docker)
+
+You can specify part of the configuration on the INI files, such as globals for the middlewares or even declare tasks in there but also merge them with docker.
+The docker labels will be parsed, added and removed on the fly but also, the file config can be used to execute tasks that are not possible using just docker labels 
+such as:
+
+- job-local
+- job-run
+
+##### Typical example:
+
+**Use the INI file to:**
+
+- Configure the slack or other middleware integration
+- Configure any global setting
+- Create a job-run so it executes on a new container each time
+
+```ini
+[global]
+slack-webhook = https://myhook.com/auth
+
+[job-run "job-executed-on-new-container"]
+schedule = @hourly
+image = ubuntu:latest
+command = touch /tmp/example
+```
+
+```sh
+docker run -it --rm \
+    --label ofelia.enabled=true \
+    --label ofelia.job-exec.test-exec-job.schedule="@every 5s" \
+    --label ofelia.job-exec.test-exec-job.command="uname -a" \
+        nginx
 ```
 
 ### Logging
