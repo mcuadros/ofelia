@@ -6,9 +6,9 @@ import (
 )
 
 type BareJob struct {
-	Schedule string
-	Name     string
-	Command  string
+	Schedule string `hash:"true"`
+	Name     string `hash:"true"`
+	Command  string `hash:"true"`
 
 	middlewareContainer
 	running int32

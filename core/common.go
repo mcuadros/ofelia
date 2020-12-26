@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -294,4 +295,32 @@ func buildAuthConfiguration(registry string) docker.AuthConfiguration {
 	}
 
 	return auth
+}
+
+const HashmeTagName = "hash"
+
+func getHash(t reflect.Type, v reflect.Value, hash *string) {
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		fieldv := v.Field(i)
+		kind := field.Type.Kind()
+
+		if kind == reflect.Struct {
+			getHash(field.Type, fieldv, hash)
+			continue
+		}
+
+		hashmeTag := field.Tag.Get(HashmeTagName)
+		if hashmeTag == "true" {
+			if kind == reflect.String {
+				*hash += fieldv.String()
+			} else if kind == reflect.Int32 || kind == reflect.Int || kind == reflect.Int64 || kind == reflect.Int16 || kind == reflect.Int8 {
+				*hash += strconv.FormatInt(fieldv.Int(), 10)
+			} else if kind == reflect.Bool {
+				*hash += strconv.FormatBool(fieldv.Bool())
+			} else {
+				panic("Unsupported field type")
+			}
+		}
+	}
 }

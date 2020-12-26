@@ -42,12 +42,12 @@ func (s *Scheduler) AddJob(j Job) error {
 	}
 	j.SetCronJobID(int(id)) // Cast to int in order to avoid pushing cron external to common
 	j.Use(s.Middlewares()...)
-	s.Logger.Noticef("New job registered %q - %q - %q - %v", j.GetName(), j.GetCommand(), j.GetSchedule(), id)
+	s.Logger.Noticef("New job registered %q - %q - %q - ID: %v", j.GetName(), j.GetCommand(), j.GetSchedule(), id)
 	return nil
 }
 
 func (s *Scheduler) RemoveJob(j Job) error {
-	s.Logger.Noticef("Job deregistered (will not fire again) %q - %q - %q", j.GetName(), j.GetCommand(), j.GetSchedule())
+	s.Logger.Noticef("Job deregistered (will not fire again) %q - %q - %q - ID: %v", j.GetName(), j.GetCommand(), j.GetSchedule(), j.GetCronJobID())
 	s.cron.Remove(cron.EntryID(j.GetCronJobID()))
 	return nil
 }

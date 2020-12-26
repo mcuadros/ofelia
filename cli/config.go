@@ -122,15 +122,20 @@ func (c *Config) dockerLabelsUpdate(labels map[string]map[string]string) {
 			// Check if the schedule has changed
 			if name == newJobsName {
 				found = true
-				// There is a slight race condition were a job can be canceled / restarted with a different schedule
+				// There is a slight race condition were a job can be canceled / restarted with different params
 				// so, lets take care of it by simply restarting
-				if newJob.GetSchedule() != j.GetSchedule() {
-					// Restart the job
+				// For the hash to work properly, we must fill the fields before calling it
+				defaults.SetDefaults(newJob)
+				newJob.Client = c.dockerHandler.GetInternalDockerClient()
+				newJob.Name = newJobsName
+				if newJob.Hash() != j.Hash() {
 					// Remove from the scheduler
 					c.sh.RemoveJob(j)
+					// Add the job back to the scheduler
+					newJob.buildMiddlewares()
+					c.sh.AddJob(newJob)
 					// Update the job config
 					c.ExecJobs[name] = newJob
-					c.sh.AddJob(j)
 				}
 				break
 			}
