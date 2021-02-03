@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	logFormat     = "%{color}%{shortfile} ▶ %{level}%{color:reset} %{message}"
+	logFormat     = "%{time} %{color} %{shortfile} ▶ %{level}%{color:reset} %{message}"
 	jobExec       = "job-exec"
 	jobRun        = "job-run"
 	jobServiceRun = "job-service-run"
