@@ -102,26 +102,32 @@ func (j *RunJob) Run(ctx *Context) error {
 		return err
 	}
 
-	if err := j.watchContainer(container.ID); err != nil {
+	err = j.watchContainer(container.ID)
+	if err == ErrUnexpected {
 		return err
 	}
 
-	if err := j.Client.Logs(docker.LogsOptions{
+	if logsErr := j.Client.Logs(docker.LogsOptions{
 		Container:    container.ID,
 		OutputStream: ctx.Execution.OutputStream,
 		ErrorStream:  ctx.Execution.ErrorStream,
 		Stdout:       true,
 		Stderr:       true,
 		Since:        startTime.Unix(),
-		RawTerminal:  true,
-	}); err != nil {
-		return err
+		RawTerminal:  j.TTY,
+	}); logsErr != nil {
+		ctx.Warn("failed to fetch container logs: " + logsErr.Error())
 	}
 
 	if j.Container == "" {
-		return j.deleteContainer(container.ID)
+		defer func() {
+			if delErr := j.deleteContainer(container.ID); delErr != nil {
+				ctx.Warn("failed to delete container: " + delErr.Error())
+			}
+		}()
 	}
-	return nil
+
+	return err
 }
 
 func (j *RunJob) searchLocalImage() error {
