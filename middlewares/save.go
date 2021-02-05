@@ -1,11 +1,9 @@
 package middlewares
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
+	"io/ioutil"
 	"path/filepath"
 
 	"github.com/mcuadros/ofelia/core"
@@ -60,12 +58,12 @@ func (m *Save) saveToDisk(ctx *core.Context) error {
 	))
 
 	e := ctx.Execution
-	err := m.saveReaderToDisk(bytes.NewReader(e.ErrorStream.Bytes()), fmt.Sprintf("%s.stderr.log", root))
+	err := m.writeFile(e.ErrorStream.Bytes(), fmt.Sprintf("%s.stderr.log", root))
 	if err != nil {
 		return err
 	}
 
-	err = m.saveReaderToDisk(bytes.NewReader(e.OutputStream.Bytes()), fmt.Sprintf("%s.stdout.log", root))
+	err = m.writeFile(e.OutputStream.Bytes(), fmt.Sprintf("%s.stdout.log", root))
 	if err != nil {
 		return err
 	}
@@ -84,19 +82,9 @@ func (m *Save) saveContextToDisk(ctx *core.Context, filename string) error {
 		"Execution": ctx.Execution,
 	}, "", "  ")
 
-	return m.saveReaderToDisk(bytes.NewBuffer(js), filename)
+	return m.writeFile(js, filename)
 }
 
-func (m *Save) saveReaderToDisk(r io.Reader, filename string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-	if _, err := io.Copy(f, r); err != nil {
-		return err
-	}
-
-	return nil
+func (m *Save) writeFile(data []byte, filename string) error {
+	return ioutil.WriteFile(filename, data, 0644)
 }

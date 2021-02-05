@@ -23,8 +23,11 @@ var (
 	ErrLocalImageNotFound = errors.New("couldn't find image on the host")
 )
 
-// maximum size of a stdout/stderr stream to be kept in memory and optional stored/sent via mail
-const maxStreamSize = 10 * 1024 * 1024
+const (
+	// maximum size of a stdout/stderr stream to be kept in memory and optional stored/sent via mail
+	maxStreamSize = 10 * 1024 * 1024
+	logPrefix     = "[Job %q (%s)] %s"
+)
 
 type Job interface {
 	GetName() string
@@ -115,17 +118,21 @@ func (c *Context) Stop(err error) {
 }
 
 func (c *Context) Log(msg string) {
-	format := "[Job %q (%s)] %s"
 	args := []interface{}{c.Job.GetName(), c.Execution.ID, msg}
 
 	switch {
 	case c.Execution.Failed:
-		c.Logger.Errorf(format, args...)
+		c.Logger.Errorf(logPrefix, args...)
 	case c.Execution.Skipped:
-		c.Logger.Warningf(format, args...)
+		c.Logger.Warningf(logPrefix, args...)
 	default:
-		c.Logger.Noticef(format, args...)
+		c.Logger.Noticef(logPrefix, args...)
 	}
+}
+
+func (c *Context) Warn(msg string) {
+	args := []interface{}{c.Job.GetName(), c.Execution.ID, msg}
+	c.Logger.Warningf(logPrefix, args...)
 }
 
 // Execution contains all the information relative to a Job execution.

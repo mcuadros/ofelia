@@ -101,10 +101,12 @@ func (w *jobWrapper) stop(ctx *Context, err error) {
 		errText = ctx.Execution.Error.Error()
 	}
 
-	output := ctx.Execution.OutputStream.Bytes()
+	if ctx.Execution.OutputStream.TotalWritten() > 0 {
+		ctx.Log("StdOut: " + ctx.Execution.OutputStream.String())
+	}
 
-	if len(output) > 0 {
-		ctx.Log("Output: " + string(output))
+	if ctx.Execution.ErrorStream.TotalWritten() > 0 {
+		ctx.Log("StdErr: " + ctx.Execution.ErrorStream.String())
 	}
 
 	msg := fmt.Sprintf(
