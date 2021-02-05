@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"reflect"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gobs/args"
@@ -31,13 +30,6 @@ func (j *ExecJob) Run(ctx *Context) error {
 	}
 
 	return j.inspectExec(exec)
-}
-
-// Returns a hash of all the job attributes. Used to detect changes
-func (j *ExecJob) Hash() string {
-	var hash string
-	getHash(reflect.TypeOf(j).Elem(), reflect.ValueOf(j).Elem(), &hash)
-	return hash
 }
 
 func (j *ExecJob) buildExec() (*docker.Exec, error) {

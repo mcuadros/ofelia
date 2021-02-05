@@ -117,11 +117,7 @@ In order to achieve this, you simply have to use docker containers with the labe
 #### Hybrid configuration (INI files + Docker)
 
 You can specify part of the configuration on the INI files, such as globals for the middlewares or even declare tasks in there but also merge them with docker.
-The docker labels will be parsed, added and removed on the fly but also, the file config can be used to execute tasks that are not possible using just docker labels 
-such as:
-
-- job-local
-- job-run
+The docker labels will be parsed, added and removed on the fly but also, the file config can be used. 
 
 **Use the INI file to:**
 

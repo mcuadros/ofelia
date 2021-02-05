@@ -1,6 +1,7 @@
 package core
 
 import (
+	"reflect"
 	"sync"
 	"sync/atomic"
 )
@@ -47,4 +48,11 @@ func (j *BareJob) GetCronJobID() int {
 
 func (j *BareJob) SetCronJobID(id int) {
 	j.cronID = id
+}
+
+// Returns a hash of all the job attributes. Used to detect changes
+func (j *BareJob) Hash() string {
+	var hash string
+	getHash(reflect.TypeOf(j).Elem(), reflect.ValueOf(j).Elem(), &hash)
+	return hash
 }

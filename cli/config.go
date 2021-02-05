@@ -70,6 +70,21 @@ func (c *Config) InitializeApp() error {
 		return err
 	}
 
+	// In order to support non dynamic job types such as Local or Run using labels
+	// lets parse the labels and merge the job lists
+	dockerLabels, err := c.dockerHandler.GetDockerLabels()
+	var parsedLabelConfig Config
+	parsedLabelConfig.buildFromDockerLabels(dockerLabels)
+	for name, j := range parsedLabelConfig.RunJobs {
+		c.RunJobs[name] = j
+	}
+	for name, j := range parsedLabelConfig.LocalJobs {
+		c.LocalJobs[name] = j
+	}
+	for name, j := range parsedLabelConfig.ServiceJobs {
+		c.ServiceJobs[name] = j
+	}
+
 	for name, j := range c.ExecJobs {
 		defaults.SetDefaults(j)
 		j.Client = c.dockerHandler.GetInternalDockerClient()
@@ -115,7 +130,7 @@ func (c *Config) dockerLabelsUpdate(labels map[string]map[string]string) {
 	var parsedLabelConfig Config
 	parsedLabelConfig.buildFromDockerLabels(labels)
 
-	// Calculate the delta
+	// Calculate the delta execJobs. The other job types can't be dynamic
 	for name, j := range c.ExecJobs {
 		found := false
 		for newJobsName, newJob := range parsedLabelConfig.ExecJobs {
