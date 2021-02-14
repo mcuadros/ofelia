@@ -130,6 +130,7 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 			ExpectedConfig: Config{},
 			Comment:        "No service label, no 'local' jobs",
 		},
+
 		{
 			Labels: map[string]map[string]string{
 				"some": map[string]string{
@@ -164,6 +165,10 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 						Schedule: "schedule2",
 						Command:  "command2",
 					}}},
+					"job5": &RunJobConfig{RunJob: core.RunJob{BareJob: core.BareJob{
+						Schedule: "schedule5",
+						Command:  "command5",
+					}}},
 				},
 				ServiceJobs: map[string]*RunServiceConfig{
 					"job3": &RunServiceConfig{RunServiceJob: core.RunServiceJob{BareJob: core.BareJob{
@@ -174,6 +179,7 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 			},
 			Comment: "Local/Run/Service jobs from non-service container ignored",
 		},
+
 		{
 			Labels: map[string]map[string]string{
 				"some": map[string]string{
