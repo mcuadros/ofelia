@@ -130,7 +130,7 @@ func (c *Config) dockerLabelsUpdate(labels map[string]map[string]string) {
 	var parsedLabelConfig Config
 	parsedLabelConfig.buildFromDockerLabels(labels)
 
-	// Calculate the delta execJobs. The other job types can't be dynamic
+	// Calculate the delta execJobs
 	for name, j := range c.ExecJobs {
 		found := false
 		for newJobsName, newJob := range parsedLabelConfig.ExecJobs {
@@ -178,6 +178,56 @@ func (c *Config) dockerLabelsUpdate(labels map[string]map[string]string) {
 			newJob.buildMiddlewares()
 			c.sh.AddJob(newJob)
 			c.ExecJobs[newJobsName] = newJob
+		}
+	}
+
+	for name, j := range c.RunJobs {
+		found := false
+		for newJobsName, newJob := range parsedLabelConfig.RunJobs {
+			// Check if the schedule has changed
+			if name == newJobsName {
+				found = true
+				// There is a slight race condition were a job can be canceled / restarted with different params
+				// so, lets take care of it by simply restarting
+				// For the hash to work properly, we must fill the fields before calling it
+				defaults.SetDefaults(newJob)
+				newJob.Client = c.dockerHandler.GetInternalDockerClient()
+				newJob.Name = newJobsName
+				if newJob.Hash() != j.Hash() {
+					// Remove from the scheduler
+					c.sh.RemoveJob(j)
+					// Add the job back to the scheduler
+					newJob.buildMiddlewares()
+					c.sh.AddJob(newJob)
+					// Update the job config
+					c.RunJobs[name] = newJob
+				}
+				break
+			}
+		}
+		if !found {
+			// Remove the job
+			c.sh.RemoveJob(j)
+			delete(c.RunJobs, name)
+		}
+	}
+
+	// Check for aditions
+	for newJobsName, newJob := range parsedLabelConfig.RunJobs {
+		found := false
+		for name := range c.RunJobs {
+			if name == newJobsName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			defaults.SetDefaults(newJob)
+			newJob.Client = c.dockerHandler.GetInternalDockerClient()
+			newJob.Name = newJobsName
+			newJob.buildMiddlewares()
+			c.sh.AddJob(newJob)
+			c.RunJobs[newJobsName] = newJob
 		}
 	}
 

@@ -65,7 +65,7 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 					serviceJobs[jobName] = make(map[string]interface{})
 				}
 				setJobParam(serviceJobs[jobName], jopParam, v)
-			case jobType == jobRun && isServiceContainer:
+			case jobType == jobRun:
 				if _, ok := runJobs[jobName]; !ok {
 					runJobs[jobName] = make(map[string]interface{})
 				}
