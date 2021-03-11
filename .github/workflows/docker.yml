@@ -20,6 +20,14 @@ jobs:
         registry: docker.io
         username: mcuadros
         password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Build image
+      uses: mr-smithers-excellent/docker-build-push@v2
+      with:
+        image: mcuadros/ofelia
+        registry: ghcr.io
+        username: mcuadros
+        password: ${{ secrets.GITHUB_PASSWORD }}
 
     - name: Tag image
       if: github.event_name == 'release'
@@ -30,3 +38,13 @@ jobs:
         tag: latest
         username: mcuadros
         password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Tag image
+      if: github.event_name == 'release'
+      uses: mr-smithers-excellent/docker-build-push@v2
+      with:
+        image: mcuadros/ofelia
+        registry: ghcr.io
+        tag: latest
+        username: mcuadros
+        password: ${{ secrets.GITHUB_PASSWORD }}
