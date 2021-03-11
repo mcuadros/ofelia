@@ -1,4 +1,4 @@
-name: Docker Push
+name: GitHub Releases Push
 on:
   release:
     types:
@@ -17,16 +17,16 @@ jobs:
       uses: mr-smithers-excellent/docker-build-push@v2
       with:
         image: mcuadros/ofelia
-        registry: docker.io
+        registry: ghcr.io
         username: mcuadros
-        password: ${{ secrets.DOCKER_PASSWORD }}
-    
+        password: ${{ secrets.GHCR_TOKEN }}
+
     - name: Tag image
       if: github.event_name == 'release'
       uses: mr-smithers-excellent/docker-build-push@v2
       with:
         image: mcuadros/ofelia
-        registry: docker.io
+        registry: ghcr.io
         tag: latest
         username: mcuadros
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        password: ${{ secrets.GHCR_TOKEN }}
