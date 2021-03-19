@@ -33,6 +33,7 @@ type RunJob struct {
 	Network   string
 	Container string
 	Volume    []string
+	Env       []string
 }
 
 func NewRunJob(c *docker.Client) *RunJob {
@@ -162,6 +163,7 @@ func (j *RunJob) buildContainer() (*docker.Container, error) {
 			Tty:          j.TTY,
 			Cmd:          args.GetArgs(j.Command),
 			User:         j.User,
+			Env:          j.Env,
 		},
 		NetworkingConfig: &docker.NetworkingConfig{},
 		HostConfig: &docker.HostConfig{

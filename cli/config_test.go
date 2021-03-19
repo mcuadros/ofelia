@@ -252,6 +252,39 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 			},
 			Comment: "Test run job with volumes",
 		},
+		{
+			Labels: map[string]map[string]string{
+				"some": {
+					requiredLabel: "true",
+					serviceLabel:  "true",
+					labelPrefix + "." + jobRun + ".job1.schedule": "schedule1",
+					labelPrefix + "." + jobRun + ".job1.command":  "command1",
+					labelPrefix + "." + jobRun + ".job1.env":   "KEY1=value1",
+					labelPrefix + "." + jobRun + ".job2.schedule": "schedule2",
+					labelPrefix + "." + jobRun + ".job2.command":  "command2",
+					labelPrefix + "." + jobRun + ".job2.env":   `["KEY1=value1", "KEY2=value2"]`,
+				},
+			},
+			ExpectedConfig: Config{
+				RunJobs: map[string]*RunJobConfig{
+					"job1": {RunJob: core.RunJob{BareJob: core.BareJob{
+						Schedule: "schedule1",
+						Command:  "command1",
+					},
+						Env: []string{"KEY1=value1"},
+					},
+					},
+					"job2": {RunJob: core.RunJob{BareJob: core.BareJob{
+						Schedule: "schedule2",
+						Command:  "command2",
+					},
+						Env: []string{"KEY1=value1", "KEY2=value2"},
+					},
+					},
+				},
+			},
+			Comment: "Test run job with environment variables",
+		},
 	}
 
 	for _, t := range testcases {
