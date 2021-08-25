@@ -2,7 +2,7 @@ package cli
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -13,9 +13,9 @@ import (
 const (
 	labelPrefix = "ofelia"
 
-	requiredLabel       = labelPrefix + ".enabled"
-	requiredLabelFilter = requiredLabel + "=true"
-	serviceLabel        = labelPrefix + ".service"
+	requiredLabelName   = labelPrefix + ".enabled"
+	requiredLabelFilter = requiredLabelName + "=true"
+	serviceLabelName    = labelPrefix + ".service"
 )
 
 func getLabels(d *docker.Client) (map[string]map[string]string, error) {
@@ -36,7 +36,7 @@ func getLabels(d *docker.Client) (map[string]map[string]string, error) {
 	}
 
 	if len(conts) == 0 {
-		return nil, errors.New("Couldn't find containers with label 'ofelia.enabled=true'")
+		return nil, fmt.Errorf("couldn't find containers with label '%s'", requiredLabelFilter)
 	}
 
 	var labels = make(map[string]map[string]string)
@@ -45,7 +45,7 @@ func getLabels(d *docker.Client) (map[string]map[string]string, error) {
 		if len(c.Names) > 0 && len(c.Labels) > 0 {
 			name := strings.TrimPrefix(c.Names[0], "/")
 			for k := range c.Labels {
-				// remove all not relevant labels
+				// Remove all irrelevant labels
 				if !strings.HasPrefix(k, labelPrefix) {
 					delete(c.Labels, k)
 					continue
@@ -66,56 +66,61 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 	serviceJobs := make(map[string]map[string]interface{})
 	globalConfigs := make(map[string]interface{})
 
-	for c, l := range labels {
-		isServiceContainer := func() bool {
-			for k, v := range l {
-				if k == serviceLabel {
-					return v == "true"
-				}
-			}
-			return false
-		}()
+	jobTypes := map[string]map[string]map[string]interface{}{
+		jobExec:       execJobs,
+		jobLocal:      localJobs,
+		jobRun:        runJobs,
+		jobServiceRun: serviceJobs,
+	}
 
-		for k, v := range l {
-			parts := strings.Split(k, ".")
-			if len(parts) < 4 {
-				if isServiceContainer {
-					globalConfigs[parts[1]] = v
+	for containerName, containerLabels := range labels {
+		serviceLabelValue, hasServiceLabel := containerLabels[serviceLabelName]
+		isServiceContainer := hasServiceLabel && serviceLabelValue == "true"
+
+		for labelName, labelValue := range containerLabels {
+			selectors := strings.Split(labelName, ".")
+
+			// Handle short labels
+			if len(selectors) < 4 {
+				if len(selectors) > 1 && isServiceContainer {
+					// Always ignore the third selector of short labels
+					// TODO: Add warning
+					globalConfigs[selectors[1]] = labelValue
+				}
+
+				// Always ignore incomplete labels
+				continue
+			}
+
+			// The first selector, corresponding to the prefix, is always ignored
+			jobType, jobName, jobParam := selectors[1], selectors[2], selectors[3]
+
+			// Only job exec can be provided on the non-service container
+			if jobType == jobExec {
+				if _, hasJob := execJobs[jobName]; !hasJob {
+					execJobs[jobName] = make(map[string]interface{})
+				}
+
+				setJobParam(execJobs[jobName], jobParam, labelValue)
+				// Since this label was placed not on the service container
+				// this means we need to `exec` command in this container
+				if !isServiceContainer {
+					execJobs[jobName]["container"] = containerName
 				}
 
 				continue
 			}
 
-			jobType, jobName, jopParam := parts[1], parts[2], parts[3]
-			switch {
-			case jobType == jobExec: // only job exec can be provided on the non-service container
-				if _, ok := execJobs[jobName]; !ok {
-					execJobs[jobName] = make(map[string]interface{})
+			// Handle remaining job types
+			if isServiceContainer {
+				if jobMap, hasJobMap := jobTypes[jobType]; hasJobMap {
+					if _, hasJob := jobMap[jobName]; !hasJob {
+						jobMap[jobName] = make(map[string]interface{})
+					}
+					setJobParam(jobMap[jobName], jobParam, labelValue)
+				} else {
+					// TODO: Warn about unknown parameter
 				}
-
-				setJobParam(execJobs[jobName], jopParam, v)
-				// since this label was placed not on the service container
-				// this means we need to `exec` command in this container
-				if !isServiceContainer {
-					execJobs[jobName]["container"] = c
-				}
-			case jobType == jobLocal && isServiceContainer:
-				if _, ok := localJobs[jobName]; !ok {
-					localJobs[jobName] = make(map[string]interface{})
-				}
-				setJobParam(localJobs[jobName], jopParam, v)
-			case jobType == jobServiceRun && isServiceContainer:
-				if _, ok := serviceJobs[jobName]; !ok {
-					serviceJobs[jobName] = make(map[string]interface{})
-				}
-				setJobParam(serviceJobs[jobName], jopParam, v)
-			case jobType == jobRun && isServiceContainer:
-				if _, ok := runJobs[jobName]; !ok {
-					runJobs[jobName] = make(map[string]interface{})
-				}
-				setJobParam(runJobs[jobName], jopParam, v)
-			default:
-				// TODO: warn about unknown parameter
 			}
 		}
 	}
