@@ -3,7 +3,6 @@ package core
 import (
 	"archive/tar"
 	"bytes"
-	"sync"
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
@@ -42,6 +41,8 @@ func (s *SuiteRunJob) TestRun(c *C) {
 	job.Delete = "true"
 	job.Network = "foo"
 	job.Name = "test"
+	job.Environment = []string{"test_Key1=value1", "test_Key2=value2"}
+	job.Volume = []string{"/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"}
 
 	ctx := &Context{}
 	ctx.Execution = NewExecution()
@@ -49,29 +50,36 @@ func (s *SuiteRunJob) TestRun(c *C) {
 	ctx.Logger = logging.MustGetLogger("ofelia")
 	ctx.Job = job
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-
 	go func() {
-		time.Sleep(time.Millisecond * 200)
-
-		containers, err := s.client.ListContainers(docker.ListContainersOptions{})
-		c.Assert(err, IsNil)
-		c.Assert(containers[0].Command, Equals, "echo -a foo bar")
-		c.Assert(containers[0].Status[:2], Equals, "Up")
-
-		err = s.client.StopContainer(containers[0].ID, 0)
-		c.Assert(err, IsNil)
-		wg.Done()
+		// Docker Test Server doesn't actually start container
+		// so "job.Run" will hang until container is stopped
+		if err := job.Run(ctx); err != nil {
+			c.Fatal(err)
+		}
 	}()
 
-	err := job.Run(ctx)
+	time.Sleep(200 * time.Millisecond)
+	container, err := job.getContainer()
 	c.Assert(err, IsNil)
-	wg.Wait()
+	c.Assert(container.Config.Cmd, DeepEquals, []string{"echo", "-a", "foo bar"})
+	c.Assert(container.Config.User, Equals, job.User)
+	c.Assert(container.Config.Image, Equals, job.Image)
+	c.Assert(container.State.Running, Equals, true)
+	c.Assert(container.Config.Env, DeepEquals, job.Environment)
 
-	containers, err := s.client.ListContainers(docker.ListContainersOptions{
-		All: true,
-	})
+	// this doesn't seem to be working with DockerTestServer
+	// c.Assert(container.HostConfig.Binds, DeepEquals, job.Volume)
+
+	// stop container, we don't need it anymore
+	err = job.stopContainer(0)
+	c.Assert(err, IsNil)
+
+	// wait and double check if container was deleted on "stop"
+	time.Sleep(watchDuration * 2)
+	container, _ = job.getContainer()
+	c.Assert(container, IsNil)
+
+	containers, err := s.client.ListContainers(docker.ListContainersOptions{All: true})
 	c.Assert(err, IsNil)
 	c.Assert(containers, HasLen, 0)
 }

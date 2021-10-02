@@ -161,7 +161,7 @@ func setJobParam(params map[string]interface{}, paramName, paramVal string) {
 			params[paramName] = arr
 			return
 		}
-	case "env":
+	case "environment":
 		arr := []string{} // allow providing JSON arr of env keyvalues
 		if err := json.Unmarshal([]byte(paramVal), &arr); err == nil {
 			params[paramName] = arr

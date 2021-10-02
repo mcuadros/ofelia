@@ -31,6 +31,12 @@ This job is executed inside a running container. Similar to `docker exec`
   - *description*: Allocate a pseudo-tty, similar to `docker exec -t`. See this [Stack Overflow answer](https://stackoverflow.com/questions/30137135/confused-about-docker-t-option-to-allocate-a-pseudo-tty) for more info.
   - *value*: Boolean, either `false` or `true`
   - *default*: `false`
+- **Environment**
+  - *description*: Environment variables you want to set in the running container. Note: ***exec configuration Env is only supported in API#1.25 and above***
+  - *value*: Same format as used with `-e` flag within `docker run`. For example: `FOO=bar`
+    - **INI config**: `Env` setting can be provided multiple times for multiple environment variables.
+    - **Labels config**: multiple environment variables has to be provided as JSON array: `["FOO=bar", "BAZ=qux"]`
+  - *default*: Optional field, no default.
   
 ### INI-file example
 
@@ -104,7 +110,7 @@ This job can be used in 2 situations:
     - **INI config**: `Volume` setting can be provided multiple times for multiple mounts.
     - **Labels config**: multiple mounts has to be provided as JSON array: `["/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"]`
   - *default*: Optional field, no default.
-- **Env**
+- **Environment**
   - *description*: Environment variables you want to set in the running container.
   - *value*: Same format as used with `-e` flag within `docker run`. For example: `FOO=bar`
     - **INI config**: `Env` setting can be provided multiple times for multiple environment variables.
@@ -160,9 +166,11 @@ Runs the command on the host running Ofelia.
   - *description*: Base directory to execute the command.
   - *value*: String, e.g. `/tmp/sandbox/`
   - *default*: Current directory
-- **Environment** (Broken?)
-  - *description*: List of environment variables
-  - *value*: String, e.g. `FILE=test.txt`
+- **Environment**
+  - *description*: Environment variables you want to set for the executed command.
+  - *value*: Same format as used with `-e` flag within `docker run`. For example: `FOO=bar`
+    - **INI config**: `Env` setting can be provided multiple times for multiple environment variables.
+    - **Labels config**: multiple environment variables has to be provided as JSON array: `["FOO=bar", "BAZ=qux"]`
   - *default*: Optional field, no default.
 
 ### INI-file example

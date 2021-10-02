@@ -29,11 +29,13 @@ type RunJob struct {
 	Delete string `default:"true"`
 	Pull   string `default:"true"`
 
-	Image     string
-	Network   string
-	Container string
-	Volume    []string
-	Env       []string
+	Image       string
+	Network     string
+	Container   string
+	Volume      []string
+	Environment []string
+
+	containerID string
 }
 
 func NewRunJob(c *docker.Client) *RunJob {
@@ -92,18 +94,31 @@ func (j *RunJob) Run(ctx *Context) error {
 			return err
 		}
 	} else {
-		container, err = j.getContainer(j.Container)
+		container, err = j.Client.InspectContainer(j.Container)
 		if err != nil {
 			return err
 		}
 	}
 
+	if container != nil {
+		j.containerID = container.ID
+	}
+
+	// cleanup container if it is a created one
+	if j.Container == "" {
+		defer func() {
+			if delErr := j.deleteContainer(); delErr != nil {
+				ctx.Warn("failed to delete container: " + delErr.Error())
+			}
+		}()
+	}
+
 	startTime := time.Now()
-	if err := j.startContainer(ctx.Execution, container); err != nil {
+	if err := j.startContainer(); err != nil {
 		return err
 	}
 
-	err = j.watchContainer(container.ID)
+	err = j.watchContainer()
 	if err == ErrUnexpected {
 		return err
 	}
@@ -118,14 +133,6 @@ func (j *RunJob) Run(ctx *Context) error {
 		RawTerminal:  j.TTY,
 	}); logsErr != nil {
 		ctx.Warn("failed to fetch container logs: " + logsErr.Error())
-	}
-
-	if j.Container == "" {
-		defer func() {
-			if delErr := j.deleteContainer(container.ID); delErr != nil {
-				ctx.Warn("failed to delete container: " + delErr.Error())
-			}
-		}()
 	}
 
 	return err
@@ -163,7 +170,7 @@ func (j *RunJob) buildContainer() (*docker.Container, error) {
 			Tty:          j.TTY,
 			Cmd:          args.GetArgs(j.Command),
 			User:         j.User,
-			Env:          j.Env,
+			Env:          j.Environment,
 		},
 		NetworkingConfig: &docker.NetworkingConfig{},
 		HostConfig: &docker.HostConfig{
@@ -193,12 +200,16 @@ func (j *RunJob) buildContainer() (*docker.Container, error) {
 	return c, nil
 }
 
-func (j *RunJob) startContainer(e *Execution, c *docker.Container) error {
-	return j.Client.StartContainer(c.ID, &docker.HostConfig{})
+func (j *RunJob) startContainer() error {
+	return j.Client.StartContainer(j.containerID, &docker.HostConfig{})
 }
 
-func (j *RunJob) getContainer(id string) (*docker.Container, error) {
-	container, err := j.Client.InspectContainer(id)
+func (j *RunJob) stopContainer(timeout uint) error {
+	return j.Client.StopContainer(j.containerID, timeout)
+}
+
+func (j *RunJob) getContainer() (*docker.Container, error) {
+	container, err := j.Client.InspectContainer(j.containerID)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +221,7 @@ const (
 	maxProcessDuration = time.Hour * 24
 )
 
-func (j *RunJob) watchContainer(containerID string) error {
+func (j *RunJob) watchContainer() error {
 	var s docker.State
 	var r time.Duration
 	for {
@@ -221,7 +232,7 @@ func (j *RunJob) watchContainer(containerID string) error {
 			return ErrMaxTimeRunning
 		}
 
-		c, err := j.Client.InspectContainer(containerID)
+		c, err := j.Client.InspectContainer(j.containerID)
 		if err != nil {
 			return err
 		}
@@ -242,12 +253,12 @@ func (j *RunJob) watchContainer(containerID string) error {
 	}
 }
 
-func (j *RunJob) deleteContainer(containerID string) error {
+func (j *RunJob) deleteContainer() error {
 	if delete, _ := strconv.ParseBool(j.Delete); !delete {
 		return nil
 	}
 
 	return j.Client.RemoveContainer(docker.RemoveContainerOptions{
-		ID: containerID,
+		ID: j.containerID,
 	})
 }
