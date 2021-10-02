@@ -104,6 +104,12 @@ This job can be used in 2 situations:
     - **INI config**: `Volume` setting can be provided multiple times for multiple mounts.
     - **Labels config**: multiple mounts has to be provided as JSON array: `["/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"]`
   - *default*: Optional field, no default.
+- **Env**
+  - *description*: Environment variables you want to set in the running container.
+  - *value*: Same format as used with `-e` flag within `docker run`. For example: `FOO=bar`
+    - **INI config**: `Env` setting can be provided multiple times for multiple environment variables.
+    - **Labels config**: multiple environment variables has to be provided as JSON array: `["FOO=bar", "BAZ=qux"]`
+  - *default*: Optional field, no default.
   
 ### INI-file example
 
@@ -113,6 +119,7 @@ schedule = @every 5s
 image = alpine:latest
 command = sh -c 'date | tee -a /tmp/test/date'
 volume = /tmp/test:/tmp/test:rw
+env = FOO=bar
 ```
 
 Then you can check output in host machine file `/tmp/test/date`
@@ -128,6 +135,7 @@ docker run -it --rm \
     --label ofelia.job-run.print-write-date.schedule="@every 5s" \
     --label ofelia.job-run.print-write-date.image="alpine:latest" \
     --label ofelia.job-run.print-write-date.volume="/tmp/test:/tmp/test:rw" \
+    --label ofelia.job-run.print-write-date.env="FOO=bar" \
     --label ofelia.job-run.print-write-date.command="sh -c 'date | tee -a /tmp/test/date'" \
         mcuadros/ofelia:latest daemon --docker
 ```
