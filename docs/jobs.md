@@ -32,9 +32,9 @@ This job is executed inside a running container. Similar to `docker exec`
   - *value*: Boolean, either `false` or `true`
   - *default*: `false`
 - **Environment**
-  - *description*: Environment variables you want to set in the running container. Note: ***exec configuration Env is only supported in API#1.25 and above***
+  - *description*: Environment variables you want to set in the running container. Note: ***exec configuration Env is only supported in Docker API#1.25 and above***
   - *value*: Same format as used with `-e` flag within `docker run`. For example: `FOO=bar`
-    - **INI config**: `Env` setting can be provided multiple times for multiple environment variables.
+    - **INI config**: `Environment` setting can be provided multiple times for multiple environment variables.
     - **Labels config**: multiple environment variables has to be provided as JSON array: `["FOO=bar", "BAZ=qux"]`
   - *default*: Optional field, no default.
   
@@ -113,7 +113,7 @@ This job can be used in 2 situations:
 - **Environment**
   - *description*: Environment variables you want to set in the running container.
   - *value*: Same format as used with `-e` flag within `docker run`. For example: `FOO=bar`
-    - **INI config**: `Env` setting can be provided multiple times for multiple environment variables.
+    - **INI config**: `Environment` setting can be provided multiple times for multiple environment variables.
     - **Labels config**: multiple environment variables has to be provided as JSON array: `["FOO=bar", "BAZ=qux"]`
   - *default*: Optional field, no default.
   
@@ -141,7 +141,7 @@ docker run -it --rm \
     --label ofelia.job-run.print-write-date.schedule="@every 5s" \
     --label ofelia.job-run.print-write-date.image="alpine:latest" \
     --label ofelia.job-run.print-write-date.volume="/tmp/test:/tmp/test:rw" \
-    --label ofelia.job-run.print-write-date.env="FOO=bar" \
+    --label ofelia.job-run.print-write-date.environment="FOO=bar" \
     --label ofelia.job-run.print-write-date.command="sh -c 'date | tee -a /tmp/test/date'" \
         mcuadros/ofelia:latest daemon --docker
 ```
@@ -169,7 +169,7 @@ Runs the command on the host running Ofelia.
 - **Environment**
   - *description*: Environment variables you want to set for the executed command.
   - *value*: Same format as used with `-e` flag within `docker run`. For example: `FOO=bar`
-    - **INI config**: `Env` setting can be provided multiple times for multiple environment variables.
+    - **INI config**: `Environment` setting can be provided multiple times for multiple environment variables.
     - **Labels config**: multiple environment variables has to be provided as JSON array: `["FOO=bar", "BAZ=qux"]`
   - *default*: Optional field, no default.
 
