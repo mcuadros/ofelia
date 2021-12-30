@@ -125,7 +125,7 @@ schedule = @every 5s
 image = alpine:latest
 command = sh -c 'date | tee -a /tmp/test/date'
 volume = /tmp/test:/tmp/test:rw
-env = FOO=bar
+environment = FOO=bar
 ```
 
 Then you can check output in host machine file `/tmp/test/date`
