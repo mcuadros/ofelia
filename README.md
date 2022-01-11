@@ -120,7 +120,7 @@ services:
 - `mail` to send mails
 - `save` to save structured execution reports to a directory
 - `slack` to send messages via a slack webhook
-- `τεαμσ` to send messages via a Microsoft Teams webhook
+- `teams` to send messages via a Microsoft Teams webhook
 
 #### Options
 - `smtp-host` - address of the SMTP server.
