@@ -18,7 +18,7 @@ The main feature of **Ofelia** is the ability to execute commands directly on Do
 
 ### Jobs
 
-[Scheduling format](https://godoc.org/github.com/robfig/cron) is the same as the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM).
+[Scheduling format](https://pkg.go.dev/github.com/robfig/cron/v3) is the same as the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM).
 
 **Note**: the format starts with seconds, instead of minutes.
 
