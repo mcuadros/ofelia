@@ -37,6 +37,10 @@ This job is executed inside a running container. Similar to `docker exec`
     - **INI config**: `Environment` setting can be provided multiple times for multiple environment variables.
     - **Labels config**: multiple environment variables has to be provided as JSON array: `["FOO=bar", "BAZ=qux"]`
   - *default*: Optional field, no default.
+- **run-on-startup**
+  - *description*: Runs the job once on ofelia's startup and then schedules the job normally
+  - *value*: Boolean, either false or true
+  - *default*: false
   
 ### INI-file example
 
@@ -116,6 +120,10 @@ This job can be used in 2 situations:
     - **INI config**: `Environment` setting can be provided multiple times for multiple environment variables.
     - **Labels config**: multiple environment variables has to be provided as JSON array: `["FOO=bar", "BAZ=qux"]`
   - *default*: Optional field, no default.
+- **run-on-startup**
+  - *description*: Runs the job once on ofelia's startup and then schedules the job normally
+  - *value*: Boolean, either false or true
+  - *default*: false
   
 ### INI-file example
 
@@ -172,6 +180,10 @@ Runs the command on the host running Ofelia.
     - **INI config**: `Environment` setting can be provided multiple times for multiple environment variables.
     - **Labels config**: multiple environment variables has to be provided as JSON array: `["FOO=bar", "BAZ=qux"]`
   - *default*: Optional field, no default.
+- **run-on-startup**
+  - *description*: Runs the job once on ofelia's startup and then schedules the job normally
+  - *value*: Boolean, either false or true
+  - *default*: false
 
 ### INI-file example
 
@@ -233,6 +245,10 @@ This job can be used to:
   - *description*: Allocate a pseudo-tty, similar to `docker exec -t`. See this [Stack Overflow answer](https://stackoverflow.com/questions/30137135/confused-about-docker-t-option-to-allocate-a-pseudo-tty) for more info.
   - *value*: Boolean, either `true` or `false`
   - *default*: `false`
+- **run-on-startup**
+  - *description*: Runs the job once on ofelia's startup and then schedules the job normally
+  - *value*: Boolean, either false or true
+  - *default*: false
   
 ### INI-file example
 
