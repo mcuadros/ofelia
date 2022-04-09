@@ -31,6 +31,7 @@ type Job interface {
 	GetName() string
 	GetSchedule() string
 	GetCommand() string
+	GetRunOnStartup() string
 	Middlewares() []Middleware
 	Use(...Middleware)
 	Run(*Context) error
