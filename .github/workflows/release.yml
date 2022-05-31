@@ -1,9 +1,10 @@
-name: Release
+name: Create GitHub release
+
 on:
   release:
     types:
       - created
-  
+
 jobs:
   release:
     strategy:
@@ -12,12 +13,12 @@ jobs:
         goos: [linux, darwin]
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Release binaries
-      uses: mcuadros/go-release-action@master
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        goos: ${{ matrix.goos }}
-        goarch: amd64
+      - name: Release binaries
+        uses: mcuadros/go-release-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          goos: ${{ matrix.goos }}
+          goarch: amd64
