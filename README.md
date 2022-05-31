@@ -2,7 +2,7 @@
 
 <img src="https://weirdspace.dk/FranciscoIbanez/Graphics/Ofelia.gif" align="right" width="180px" height="300px" vspace="20" />
 
-**Ofelia** is a modern and low footprint job scheduler for __docker__ environments, built on Go. Ofelia aims to be a replacement for the old fashioned [cron](https://en.wikipedia.org/wiki/Cron).
+**Ofelia** is a modern and low footprint job scheduler for **docker** environments, built on Go. Ofelia aims to be a replacement for the old fashioned [cron](https://en.wikipedia.org/wiki/Cron).
 
 ### Why?
 
@@ -31,11 +31,39 @@ you can configure four different kind of jobs:
 
 See [Jobs reference documentation](docs/jobs.md) for all available parameters.
 
+### Logging
+
+**Ofelia** comes with three different logging drivers that can be configured in the `[global]` section or as top-level Docker labels:
+
+- `mail` to send mails
+- `save` to save structured execution reports to a directory
+- `slack` to send messages via a slack webhook
+
+#### Options
+
+- `smtp-host` - address of the SMTP server.
+- `smtp-port` - port number of the SMTP server.
+- `smtp-user` - user name used to connect to the SMTP server.
+- `smtp-password` - password used to connect to the SMTP server.
+- `email-to` - mail address of the receiver of the mail.
+- `email-from` - mail address of the sender of the mail.
+- `mail-only-on-error` - only send a mail if the execution was not successful.
+
+- `save-folder` - directory in which the reports shall be written.
+- `save-only-on-error` - only save a report if the execution was not successful.
+
+- `slack-webhook` - URL of the slack webhook.
+- `slack-only-on-error` - only send a slack message if the execution was not successful.
+
 #### INI-style config
 
 Run with `ofelia daemon --config=/path/to/config.ini`
 
 ```ini
+[global]
+save-folder = /var/log/ofelia_reports
+save-only-on-error = true
+
 [job-exec "job-executed-on-running-container"]
 schedule = @hourly
 container = my-container
@@ -49,7 +77,6 @@ command = touch /tmp/example
 [job-local "job-executed-on-current-host"]
 schedule = @hourly
 command = touch /tmp/example
-
 
 [job-service-run "service-executed-on-new-container"]
 schedule = 0,20,40 * * * *
@@ -65,11 +92,15 @@ In order to use this type of configurations, ofelia need access to docker socket
 ```sh
 docker run -it --rm \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    --label ofelia.save-folder="/var/log/ofelia_reports" \
+    --label ofelia.save-only-on-error="true" \
+    --label ofelia.job-local.my-test-job.schedule="@every 5s" \
+    --label ofelia.job-local.my-test-job.command="date" \
         mcuadros/ofelia:latest daemon
 ```
 
 Labels format: `ofelia.<JOB_TYPE>.<JOB_NAME>.<JOB_PARAMETER>=<PARAMETER_VALUE>.
-This type of configuration supports all the capabilities provided by INI files.
+This type of configuration supports all the capabilities provided by INI files, including the global logging options.
 
 Also, it is possible to configure `job-exec` by setting labels configurations on the target container. To do that, additional label `ofelia.enabled=true` need to be present on the target container.
 
@@ -86,7 +117,7 @@ docker run -it --rm \
 
 Now if we start `ofelia` container with the command provided above, it will execute the task:
 
-- Exec  - `uname -a`
+- Exec - `uname -a`
 
 Or with docker-compose:
 
@@ -112,12 +143,12 @@ services:
 #### Dynamic docker configuration
 
 You can start ofelia in its own container or on the host itself, and it will magically pick up any container that starts, stops or is modified on the fly.
-In order to achieve this, you simply have to use docker containers with the labels described above and let ofelia take care of the rest. 
+In order to achieve this, you simply have to use docker containers with the labels described above and let ofelia take care of the rest.
 
 #### Hybrid configuration (INI files + Docker)
 
 You can specify part of the configuration on the INI files, such as globals for the middlewares or even declare tasks in there but also merge them with docker.
-The docker labels will be parsed, added and removed on the fly but also, the file config can be used. 
+The docker labels will be parsed, added and removed on the fly but also, the file config can be used.
 
 **Use the INI file to:**
 
@@ -146,12 +177,15 @@ docker run -it --rm \
 ```
 
 ### Logging
+
 **Ofelia** comes with three different logging drivers that can be configured in the `[global]` section:
+
 - `mail` to send mails
 - `save` to save structured execution reports to a directory
 - `slack` to send messages via a slack webhook
 
 #### Options
+
 - `smtp-host` - address of the SMTP server.
 - `smtp-port` - port number of the SMTP server.
 - `smtp-user` - user name used to connect to the SMTP server.
@@ -167,12 +201,13 @@ docker run -it --rm \
 - `slack-only-on-error` - only send a slack message if the execution was not successful.
 
 ### Overlap
-**Ofelia** can prevent that a job is run twice in parallel (e.g. if the first execution didn't complete before a second execution was scheduled. If a job has the option `no-overlap` set, it will not be run concurrently. 
+
+**Ofelia** can prevent that a job is run twice in parallel (e.g. if the first execution didn't complete before a second execution was scheduled. If a job has the option `no-overlap` set, it will not be run concurrently.
 
 ## Installation
 
-The easiest way to deploy **ofelia** is using *Docker*. See examples above.
+The easiest way to deploy **ofelia** is using _Docker_. See examples above.
 
-If don't want to run **ofelia** using our *Docker* image you can download a binary from [releases](https://github.com/mcuadros/ofelia/releases) page.
+If don't want to run **ofelia** using our _Docker_ image you can download a binary from [releases](https://github.com/mcuadros/ofelia/releases) page.
 
 > Why the project is named Ofelia? Ofelia is the name of the office assistant from the Spanish comic [Mortadelo y Filemón](https://en.wikipedia.org/wiki/Mort_%26_Phil)
