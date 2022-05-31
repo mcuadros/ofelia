@@ -2,27 +2,27 @@
 
 <img src="https://weirdspace.dk/FranciscoIbanez/Graphics/Ofelia.gif" align="right" width="180px" height="300px" vspace="20" />
 
-**Ofelia** is a modern and low footprint job scheduler for **docker** environments, built on Go. Ofelia aims to be a replacement for the old fashioned [cron](https://en.wikipedia.org/wiki/Cron).
+**Ofelia** is a modern and low footprint job scheduler for **Docker** environments, built on Go. Ofelia aims to be a replacement for the old fashioned [cron](https://en.wikipedia.org/wiki/Cron).
 
 ### Why?
 
 It has been a long time since [`cron`](https://en.wikipedia.org/wiki/Cron) was released, actually more than 28 years. The world has changed a lot and especially since the `Docker` revolution. **Vixie's cron** works great but it's not extensible and it's hard to debug when something goes wrong.
 
-Many solutions are available: ready to go containerized `crons`, wrappers for your commands, etc. but in the end simple tasks become complex.
+Many solutions are available: ready to go containerized `cron`s, wrappers for your commands, etc. but in the end simple tasks become complex.
 
 ### How?
 
-The main feature of **Ofelia** is the ability to execute commands directly on Docker containers. Using Docker's API Ofelia emulates the behavior of [`exec`](https://docs.docker.com/reference/commandline/exec/), being able to run a command inside of a running container. Also you can run the command in a new container destroying it at the end of the execution.
+The main feature of **Ofelia** is the ability to execute commands directly on Docker containers. Using Docker's API Ofelia emulates the behavior of [`exec`](https://docs.docker.com/reference/commandline/exec/), being able to run a command inside of a running container. You also can run the command in a new container destroying it at the end of the execution.
 
 ## Configuration
 
 ### Jobs
 
-[Scheduling format](https://pkg.go.dev/github.com/robfig/cron/v3) is the same as the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM).
+[Scheduling format](https://pkg.go.dev/github.com/robfig/cron) is the same as the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM).
 
 **Note**: the format starts with seconds, instead of minutes.
 
-you can configure four different kind of jobs:
+You can configure four different kind of jobs:
 
 - `job-exec`: this job is executed inside of a running container.
 - `job-run`: runs a command inside of a new container, using a specific image.
@@ -87,7 +87,7 @@ command =  touch /tmp/example
 
 #### Docker labels configurations
 
-In order to use this type of configurations, ofelia need access to docker socket.
+In order to use this type of configurations, Ofelia need access to docker socket.
 
 ```sh
 docker run -it --rm \
@@ -99,7 +99,7 @@ docker run -it --rm \
         mcuadros/ofelia:latest daemon
 ```
 
-Labels format: `ofelia.<JOB_TYPE>.<JOB_NAME>.<JOB_PARAMETER>=<PARAMETER_VALUE>.
+Labels format: `ofelia.<JOB_TYPE>.<JOB_NAME>.<JOB_PARAMETER>=<PARAMETER_VALUE>`.
 This type of configuration supports all the capabilities provided by INI files, including the global logging options.
 
 Also, it is possible to configure `job-exec` by setting labels configurations on the target container. To do that, additional label `ofelia.enabled=true` need to be present on the target container.
@@ -115,11 +115,11 @@ docker run -it --rm \
         nginx
 ```
 
-Now if we start `ofelia` container with the command provided above, it will execute the task:
+Now if we start the `ofelia` container with the command provided above, it will execute the task:
 
 - Exec - `uname -a`
 
-Or with docker-compose:
+Or with `docker-compose`:
 
 ```yaml
 version: "3"
@@ -206,8 +206,8 @@ docker run -it --rm \
 
 ## Installation
 
-The easiest way to deploy **ofelia** is using _Docker_. See examples above.
+The easiest way to deploy **Ofelia** is using **Docker**. See examples above.
 
-If don't want to run **ofelia** using our _Docker_ image you can download a binary from [releases](https://github.com/mcuadros/ofelia/releases) page.
+If don't want to run **Ofelia** using our **Docker** image you can download a binary from [releases](https://github.com/mcuadros/ofelia/releases) page.
 
 > Why the project is named Ofelia? Ofelia is the name of the office assistant from the Spanish comic [Mortadelo y Filemón](https://en.wikipedia.org/wiki/Mort_%26_Phil)
