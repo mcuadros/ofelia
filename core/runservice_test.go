@@ -79,7 +79,6 @@ func (s *SuiteRunServiceJob) TestRun(c *C) {
 		c.Assert(err, IsNil)
 
 		wg.Done()
-
 	}()
 
 	err := job.Run(&Context{Execution: e, Logger: logger})

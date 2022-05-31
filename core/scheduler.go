@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 )
 
 var (
@@ -24,45 +24,39 @@ type Scheduler struct {
 }
 
 func NewScheduler(l Logger) *Scheduler {
+	cronUtils := NewCronUtils(l)
 	return &Scheduler{
 		Logger: l,
-		cron:   cron.New(),
+		cron:   cron.New(cron.WithLogger(cronUtils), cron.WithChain(cron.Recover(cronUtils))),
 	}
 }
 
 func (s *Scheduler) AddJob(j Job) error {
-	s.Logger.Noticef("New job registered %q - %q - %q", j.GetName(), j.GetCommand(), j.GetSchedule())
-
 	if j.GetSchedule() == "" {
 		return ErrEmptySchedule
 	}
 
-	err := s.cron.AddJob(j.GetSchedule(), &jobWrapper{s, j})
+	id, err := s.cron.AddJob(j.GetSchedule(), &jobWrapper{s, j})
 	if err != nil {
 		return err
 	}
+	j.SetCronJobID(int(id)) // Cast to int in order to avoid pushing cron external to common
+	j.Use(s.Middlewares()...)
+	s.Logger.Noticef("New job registered %q - %q - %q - ID: %v", j.GetName(), j.GetCommand(), j.GetSchedule(), id)
+	return nil
+}
 
-	s.Jobs = append(s.Jobs, j)
+func (s *Scheduler) RemoveJob(j Job) error {
+	s.Logger.Noticef("Job deregistered (will not fire again) %q - %q - %q - ID: %v", j.GetName(), j.GetCommand(), j.GetSchedule(), j.GetCronJobID())
+	s.cron.Remove(cron.EntryID(j.GetCronJobID()))
 	return nil
 }
 
 func (s *Scheduler) Start() error {
-	if len(s.Jobs) == 0 {
-		return ErrEmptyScheduler
-	}
-
-	s.Logger.Debugf("Starting scheduler with %d jobs", len(s.Jobs))
-
-	s.mergeMiddlewares()
+	s.Logger.Debugf("Starting scheduler")
 	s.isRunning = true
 	s.cron.Start()
 	return nil
-}
-
-func (s *Scheduler) mergeMiddlewares() {
-	for _, j := range s.Jobs {
-		j.Use(s.Middlewares()...)
-	}
 }
 
 func (s *Scheduler) Stop() error {
