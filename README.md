@@ -4,6 +4,8 @@
 
 **Ofelia** is a modern and low footprint job scheduler for **Docker** environments, built on Go. Ofelia aims to be a replacement for the old fashioned [cron](https://en.wikipedia.org/wiki/Cron).
 
+This fork is based off of [mcuadros/ofelia](https://github.com/mcuadros/ofelia).
+
 ## Using it
 
 ### Docker

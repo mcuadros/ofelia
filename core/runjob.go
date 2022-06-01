@@ -24,7 +24,7 @@ type RunJob struct {
 
 	// do not use bool values with "default:true" because if
 	// user would set it to "false" explicitly, it still will be
-	// changed to "true" https://github.com/mcuadros/ofelia/issues/135
+	// changed to "true" https://github.com/netresearch/ofelia/issues/135
 	// so lets use strings here as workaround
 	Delete string `default:"true"`
 	Pull   string `default:"true"`

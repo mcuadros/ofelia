@@ -1,4 +1,4 @@
-module github.com/mcuadros/ofelia
+module github.com/netresearch/ofelia
 
 go 1.11
 

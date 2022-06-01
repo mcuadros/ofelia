@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	defaults "github.com/mcuadros/go-defaults"
-	"github.com/mcuadros/ofelia/core"
-	"github.com/mcuadros/ofelia/middlewares"
+	"github.com/netresearch/ofelia/core"
+	"github.com/netresearch/ofelia/middlewares"
 	. "gopkg.in/check.v1"
 )
 

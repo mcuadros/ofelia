@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Release binaries
-        uses: mcuadros/go-release-action@master
+        uses: netresearch/go-release-action@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}

@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"github.com/mcuadros/ofelia/core"
-	"github.com/mcuadros/ofelia/middlewares"
+	"github.com/netresearch/ofelia/core"
+	"github.com/netresearch/ofelia/middlewares"
 
 	defaults "github.com/mcuadros/go-defaults"
 	gcfg "gopkg.in/gcfg.v1"

@@ -116,7 +116,7 @@ docker run -it --rm \
     --label ofelia.job-run.print-write-date.volume="/tmp/test:/tmp/test:rw" \
     --label ofelia.job-run.print-write-date.environment="FOO=bar" \
     --label ofelia.job-run.print-write-date.command="sh -c 'date | tee -a /tmp/test/date'" \
-        mcuadros/ofelia:latest daemon
+        netresearch/ofelia:latest daemon
 ```
 
 ## `local`

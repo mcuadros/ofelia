@@ -6,7 +6,7 @@ import (
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/mcuadros/ofelia/core"
+	"github.com/netresearch/ofelia/core"
 )
 
 var ErrNoContainerWithOfeliaEnabled = errors.New("Couldn't find containers with label 'ofelia.enabled=true'")
