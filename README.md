@@ -1,18 +1,22 @@
-# Ofelia - a job scheduler [![GitHub version](https://badge.fury.io/gh/mcuadros%2Fofelia.svg)](https://github.com/mcuadros/ofelia/releases) ![Test](https://github.com/mcuadros/ofelia/workflows/Test/badge.svg)
+# Ofelia - a job scheduler [![GitHub version](https://badge.fury.io/gh/netresearch%2Fofelia.svg)](https://github.com/netresearch/ofelia/releases) [![go test](https://github.com/netresearch/ofelia/actions/workflows/test.yml/badge.svg)](https://github.com/netresearch/ofelia/actions/workflows/test.yml)
 
 <img src="https://weirdspace.dk/FranciscoIbanez/Graphics/Ofelia.gif" align="right" width="180px" height="300px" vspace="20" />
 
 **Ofelia** is a modern and low footprint job scheduler for **Docker** environments, built on Go. Ofelia aims to be a replacement for the old fashioned [cron](https://en.wikipedia.org/wiki/Cron).
 
-### Why?
+## Using it
 
-It has been a long time since [`cron`](https://en.wikipedia.org/wiki/Cron) was released, actually more than 28 years. The world has changed a lot and especially since the `Docker` revolution. **Vixie's cron** works great but it's not extensible and it's hard to debug when something goes wrong.
+### Docker
 
-Many solutions are available: ready to go containerized `cron`s, wrappers for your commands, etc. but in the end simple tasks become complex.
+The easiest way to deploy **Ofelia** is using **Docker**.
 
-### How?
+    docker pull ghcr.io/netresearch/ofelia
 
-The main feature of **Ofelia** is the ability to execute commands directly on Docker containers. Using Docker's API Ofelia emulates the behavior of [`exec`](https://docs.docker.com/reference/commandline/exec/), being able to run a command inside of a running container. You also can run the command in a new container destroying it at the end of the execution.
+### Standalone
+
+If don't want to run **Ofelia** using our **Docker** image, you can download a binary from [our releases page](https://github.com/netresearch/ofelia/releases).
+
+    wget https://github.com/netresearch.ofelia/releases/latest
 
 ## Configuration
 
@@ -39,7 +43,7 @@ See [Jobs reference documentation](docs/jobs.md) for all available parameters.
 - `save` to save structured execution reports to a directory
 - `slack` to send messages via a slack webhook
 
-#### Options
+### Global Options
 
 - `smtp-host` - address of the SMTP server.
 - `smtp-port` - port number of the SMTP server.
@@ -55,7 +59,7 @@ See [Jobs reference documentation](docs/jobs.md) for all available parameters.
 - `slack-webhook` - URL of the slack webhook.
 - `slack-only-on-error` - only send a slack message if the execution was not successful.
 
-#### INI-style config
+### INI-style configuration
 
 Run with `ofelia daemon --config=/path/to/config.ini`
 
@@ -85,18 +89,16 @@ network = swarm_network
 command =  touch /tmp/example
 ```
 
-#### Docker labels configurations
+### Docker label configurations
 
-In order to use this type of configurations, Ofelia need access to docker socket.
+In order to use this type of configuration, Ofelia needs access to Docker socket.
 
 ```sh
 docker run -it --rm \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
     --label ofelia.save-folder="/var/log/ofelia_reports" \
     --label ofelia.save-only-on-error="true" \
-    --label ofelia.job-local.my-test-job.schedule="@every 5s" \
-    --label ofelia.job-local.my-test-job.command="date" \
-        mcuadros/ofelia:latest daemon
+        netresearch/ofelia:latest daemon
 ```
 
 Labels format: `ofelia.<JOB_TYPE>.<JOB_NAME>.<JOB_PARAMETER>=<PARAMETER_VALUE>`.
@@ -104,8 +106,8 @@ This type of configuration supports all the capabilities provided by INI files, 
 
 Also, it is possible to configure `job-exec` by setting labels configurations on the target container. To do that, additional label `ofelia.enabled=true` need to be present on the target container.
 
-For example, we want `ofelia` to execute `uname -a` command in the existing container called `my_nginx`.
-To do that, we need to we need to start `my_nginx` container with next configurations:
+For example, we want `ofelia` to execute `uname -a` command in the existing container called `nginx`.
+To do that, we need to we need to start the `nginx` container with next configurations:
 
 ```sh
 docker run -it --rm \
@@ -115,46 +117,21 @@ docker run -it --rm \
         nginx
 ```
 
-Now if we start the `ofelia` container with the command provided above, it will execute the task:
+### Dynamic Docker configuration
 
-- Exec - `uname -a`
+You can start Ofelia in its own container or on the host itself, and it will magically pick up any container that starts, stops or is modified on the fly.
+In order to achieve this, you simply have to use Docker containers with the labels described above and let Ofelia take care of the rest.
 
-Or with `docker-compose`:
+### Hybrid configuration (INI files + Docker)
 
-```yaml
-version: "3"
-services:
-  ofelia:
-    image: mcuadros/ofelia:latest
-    depends_on:
-      - nginx
-    command: daemon
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+You can specify part of the configuration on the INI files, such as globals for the middlewares or even declare tasks in there but also merge them with Docker.
+The Docker labels will be parsed, added and removed on the fly but also, the file config can be used.
 
-  nginx:
-    image: nginx
-    labels:
-      ofelia.enabled: "true"
-      ofelia.job-exec.datecron.schedule: "@every 5s"
-      ofelia.job-exec.datecron.command: "uname -a"
-```
+Use the INI file to:
 
-#### Dynamic docker configuration
-
-You can start ofelia in its own container or on the host itself, and it will magically pick up any container that starts, stops or is modified on the fly.
-In order to achieve this, you simply have to use docker containers with the labels described above and let ofelia take care of the rest.
-
-#### Hybrid configuration (INI files + Docker)
-
-You can specify part of the configuration on the INI files, such as globals for the middlewares or even declare tasks in there but also merge them with docker.
-The docker labels will be parsed, added and removed on the fly but also, the file config can be used.
-
-**Use the INI file to:**
-
-- Configure the slack or other middleware integration
+- Configure any middleware
 - Configure any global setting
-- Create a job-run so it executes on a new container each time
+- Create a `run` jobs, so they executes in a new container each time
 
 ```ini
 [global]
@@ -166,7 +143,9 @@ image = ubuntu:latest
 command = touch /tmp/example
 ```
 
-**Use docker to:**
+Use docker to:
+
+- Create `exec` jobs
 
 ```sh
 docker run -it --rm \
@@ -175,39 +154,3 @@ docker run -it --rm \
     --label ofelia.job-exec.test-exec-job.command="uname -a" \
         nginx
 ```
-
-### Logging
-
-**Ofelia** comes with three different logging drivers that can be configured in the `[global]` section:
-
-- `mail` to send mails
-- `save` to save structured execution reports to a directory
-- `slack` to send messages via a slack webhook
-
-#### Options
-
-- `smtp-host` - address of the SMTP server.
-- `smtp-port` - port number of the SMTP server.
-- `smtp-user` - user name used to connect to the SMTP server.
-- `smtp-password` - password used to connect to the SMTP server.
-- `email-to` - mail address of the receiver of the mail.
-- `email-from` - mail address of the sender of the mail.
-- `mail-only-on-error` - only send a mail if the execution was not successful.
-
-- `save-folder` - directory in which the reports shall be written.
-- `save-only-on-error` - only save a report if the execution was not successful.
-
-- `slack-webhook` - URL of the slack webhook.
-- `slack-only-on-error` - only send a slack message if the execution was not successful.
-
-### Overlap
-
-**Ofelia** can prevent that a job is run twice in parallel (e.g. if the first execution didn't complete before a second execution was scheduled. If a job has the option `no-overlap` set, it will not be run concurrently.
-
-## Installation
-
-The easiest way to deploy **Ofelia** is using **Docker**. See examples above.
-
-If don't want to run **Ofelia** using our **Docker** image you can download a binary from [releases](https://github.com/mcuadros/ofelia/releases) page.
-
-> Why the project is named Ofelia? Ofelia is the name of the office assistant from the Spanish comic [Mortadelo y Filemón](https://en.wikipedia.org/wiki/Mort_%26_Phil)
