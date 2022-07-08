@@ -46,7 +46,7 @@ func (s *Scheduler) AddJob(j Job) error {
 	runOnStartup, _ := strconv.ParseBool(j.GetRunOnStartup())
 	if runOnStartup {
 		jw := &jobWrapper{s, j}
-		jw.Run()
+		go jw.Run()
 	}
 
 	s.Jobs = append(s.Jobs, j)
