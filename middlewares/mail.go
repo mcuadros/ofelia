@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"crypto/tls"
 	"gopkg.in/gomail.v2"
 
 	"github.com/mcuadros/ofelia/core"
@@ -16,13 +17,14 @@ import (
 
 // MailConfig configuration for the Mail middleware
 type MailConfig struct {
-	SMTPHost        string `gcfg:"smtp-host" mapstructure:"smtp-host"`
-	SMTPPort        int    `gcfg:"smtp-port" mapstructure:"smtp-port"`
-	SMTPUser        string `gcfg:"smtp-user" mapstructure:"smtp-user"`
-	SMTPPassword    string `gcfg:"smtp-password" mapstructure:"smtp-password"`
-	EmailTo         string `gcfg:"email-to" mapstructure:"email-to"`
-	EmailFrom       string `gcfg:"email-from" mapstructure:"email-from"`
-	MailOnlyOnError bool   `gcfg:"mail-only-on-error" mapstructure:"mail-only-on-error"`
+	SMTPHost          string `gcfg:"smtp-host" mapstructure:"smtp-host"`
+	SMTPPort          int    `gcfg:"smtp-port" mapstructure:"smtp-port"`
+	SMTPUser          string `gcfg:"smtp-user" mapstructure:"smtp-user"`
+	SMTPPassword      string `gcfg:"smtp-password" mapstructure:"smtp-password"`
+	SMTPTLSSkipVerify bool   `gcfg:"smtp-tls-skip-verify" mapstructure:"smtp-tls-skip-verify"`
+	EmailTo           string `gcfg:"email-to" mapstructure:"email-to"`
+	EmailFrom         string `gcfg:"email-from" mapstructure:"email-from"`
+	MailOnlyOnError   bool   `gcfg:"mail-only-on-error" mapstructure:"mail-only-on-error"`
 }
 
 // NewMail returns a Mail middleware if the given configuration is not empty
@@ -90,6 +92,10 @@ func (m *Mail) sendMail(ctx *core.Context) error {
 	}))
 
 	d := gomail.NewPlainDialer(m.SMTPHost, m.SMTPPort, m.SMTPUser, m.SMTPPassword)
+	// When TLSConfig.InsecureSkipVerify is true, mail server certificate authority is not validated
+	if m.SMTPTLSSkipVerify {
+		d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	}
 	if err := d.DialAndSend(msg); err != nil {
 		return err
 	}

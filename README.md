@@ -126,6 +126,7 @@ services:
 - `smtp-port` - port number of the SMTP server.
 - `smtp-user` - user name used to connect to the SMTP server.
 - `smtp-password` - password used to connect to the SMTP server.
+- `smtp-tls-skip-verify` - when `true` ignores certificate signed by unknown authority error.
 - `email-to` - mail address of the receiver of the mail.
 - `email-from` - mail address of the sender of the mail.
 - `mail-only-on-error` - only send a mail if the execution was not successful.
