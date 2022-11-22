@@ -1,4 +1,4 @@
-# Ofelia - a job scheduler [![GitHub version](https://badge.fury.io/gh/mcuadros%2Fofelia.svg)](https://github.com/mcuadros/ofelia/releases) ![Test](https://github.com/mcuadros/ofelia/workflows/Test/badge.svg)
+# Ofelia - a job scheduler [![GitHub version](https://badge.fury.io/gh/azmodan2k%2Fofelia.svg)](https://github.com/azmodan2k/ofelia/releases) ![Test](https://github.com/azmodan2k/ofelia/workflows/Test/badge.svg)
 
 <img src="https://weirdspace.dk/FranciscoIbanez/Graphics/Ofelia.gif" align="right" width="180px" height="300px" vspace="20" />
 
@@ -67,7 +67,7 @@ docker run -it --rm \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
     --label ofelia.job-local.my-test-job.schedule="@every 5s" \
     --label ofelia.job-local.my-test-job.command="date" \
-        mcuadros/ofelia:latest daemon --docker
+        azmodan2k/ofelia:latest daemon --docker
 ```
 
 Labels format: `ofelia.<JOB_TYPE>.<JOB_NAME>.<JOB_PARAMETER>=<PARAMETER_VALUE>.
@@ -97,7 +97,7 @@ Or with docker-compose:
 version: "3"
 services:
   ofelia:
-    image: mcuadros/ofelia:latest
+    image: azmodan2k/ofelia:latest
     depends_on:
       - nginx
     command: daemon --docker
@@ -148,6 +148,6 @@ services:
 
 The easiest way to deploy **ofelia** is using *Docker*. See examples above.
 
-If don't want to run **ofelia** using our *Docker* image you can download a binary from [releases](https://github.com/mcuadros/ofelia/releases) page.
+If don't want to run **ofelia** using our *Docker* image you can download a binary from [releases](https://github.com/azmodan2k/ofelia/releases) page.
 
 > Why the project is named Ofelia? Ofelia is the name of the office assistant from the Spanish comic [Mortadelo y Filemón](https://en.wikipedia.org/wiki/Mort_%26_Phil)

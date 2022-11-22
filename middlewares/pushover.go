@@ -3,8 +3,8 @@ package middlewares
 import (
 	"fmt"
 
+	"github.com/azmodan2k/ofelia/core"
 	"github.com/gregdel/pushover"
-	"github.com/mcuadros/ofelia/core"
 )
 
 // PushoverConfig configuration for the Pushover middleware

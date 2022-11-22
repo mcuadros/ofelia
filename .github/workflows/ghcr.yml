@@ -16,17 +16,17 @@ jobs:
     - name: Build image
       uses: mr-smithers-excellent/docker-build-push@v2
       with:
-        image: mcuadros/ofelia
+        image: ${{ secrets.GHCR_USERNAME }}/ofelia
         registry: ghcr.io
-        username: mcuadros
+        username: ${{ secrets.GHCR_USERNAME }}
         password: ${{ secrets.GHCR_TOKEN }}
 
     - name: Tag image
       if: github.event_name == 'release'
       uses: mr-smithers-excellent/docker-build-push@v2
       with:
-        image: mcuadros/ofelia
+        image: ${{ secrets.GHCR_USERNAME }}/ofelia
         registry: ghcr.io
         tag: latest
-        username: mcuadros
+        username: ${{ secrets.GHCR_USERNAME }}
         password: ${{ secrets.GHCR_TOKEN }}

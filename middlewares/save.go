@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/mcuadros/ofelia/core"
+	"github.com/azmodan2k/ofelia/core"
 )
 
 // SaveConfig configuration for the Save middleware
