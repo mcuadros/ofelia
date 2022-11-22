@@ -3,9 +3,9 @@ package cli
 import (
 	"testing"
 
+	"github.com/azmodan2k/ofelia/core"
+	"github.com/azmodan2k/ofelia/middlewares"
 	defaults "github.com/mcuadros/go-defaults"
-	"github.com/mcuadros/ofelia/core"
-	"github.com/mcuadros/ofelia/middlewares"
 	. "gopkg.in/check.v1"
 )
 

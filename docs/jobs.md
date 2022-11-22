@@ -143,7 +143,7 @@ docker run -it --rm \
     --label ofelia.job-run.print-write-date.volume="/tmp/test:/tmp/test:rw" \
     --label ofelia.job-run.print-write-date.environment="FOO=bar" \
     --label ofelia.job-run.print-write-date.command="sh -c 'date | tee -a /tmp/test/date'" \
-        mcuadros/ofelia:latest daemon --docker
+        azmodan2k/ofelia:latest daemon --docker
 ```
 
 ## Job-local
@@ -194,7 +194,7 @@ docker run -it --rm \
     --label ofelia.job-local.create-file.image="alpine:latest" \
     --label ofelia.job-local.create-file.command="touch test.txt" \
     --label ofelia.job-local.create-file.dir="/tmp/" \
-        mcuadros/ofelia:latest daemon --docker
+        azmodan2k/ofelia:latest daemon --docker
 ```
 
 ## Job-service-run

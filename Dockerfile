@@ -2,8 +2,8 @@ FROM golang:1.17.1-alpine AS builder
 
 RUN apk --no-cache add gcc musl-dev
 
-WORKDIR ${GOPATH}/src/github.com/mcuadros/ofelia
-COPY . ${GOPATH}/src/github.com/mcuadros/ofelia
+WORKDIR ${GOPATH}/src/github.com/azmodan2k/ofelia
+COPY . ${GOPATH}/src/github.com/azmodan2k/ofelia
 
 RUN go build -o /go/bin/ofelia .
 
