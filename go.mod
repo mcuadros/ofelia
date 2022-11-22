@@ -11,6 +11,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.7.4
 	github.com/gobs/args v0.0.0-20180315064131-86002b4df18c
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/gregdel/pushover v1.1.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/mcuadros/go-defaults v1.2.0
 	github.com/mitchellh/mapstructure v1.4.2

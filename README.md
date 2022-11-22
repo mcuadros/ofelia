@@ -120,6 +120,7 @@ services:
 - `mail` to send mails
 - `save` to save structured execution reports to a directory
 - `slack` to send messages via a slack webhook
+- `pushover` to send messages via pushover
 
 #### Options
 - `smtp-host` - address of the SMTP server.
@@ -135,6 +136,10 @@ services:
 
 - `slack-webhook` - URL of the slack webhook.
 - `slack-only-on-error` - only send a slack message if the execution was not successful.
+
+- `pushover-userkey` - pushover user key.
+- `pushover-appkey` - pushover app key.
+- `pushover-only-on-error` - only send a pushover message if the execution was not successful.
 
 ### Overlap
 **Ofelia** can prevent that a job is run twice in parallel (e.g. if the first execution didn't complete before a second execution was scheduled. If a job has the option `no-overlap` set, it will not be run concurrently. 
