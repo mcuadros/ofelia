@@ -221,6 +221,7 @@ func (s *SuiteCommon) TestExecutionStopError(c *C) {
 func (s *SuiteCommon) TestExecutionStopErrorSkip(c *C) {
 	exe := &Execution{}
 	exe.Start()
+	exe.Date = time.Date(1900, 1, 1, 1, 1, 1, 1, time.UTC)
 	exe.Stop(ErrSkippedExecution)
 
 	c.Assert(exe.IsRunning, Equals, false)
