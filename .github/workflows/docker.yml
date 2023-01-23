@@ -5,7 +5,7 @@ on:
       - created
   push:
     branches:
-      - master
+      - main
 jobs:
   docker:
     runs-on: ubuntu-latest
