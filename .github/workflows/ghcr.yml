@@ -3,7 +3,7 @@ name: Build and publish docker container image to GitHub's container registry
 on:
   workflow_dispatch:
   schedule:
-    - cron: "38 4 * * *"
+    - cron: "0 0 * * 0"
   push:
     branches:
       - master
