@@ -96,6 +96,8 @@ command =  touch /tmp/example
 
 In order to use this type of configuration, Ofelia needs access to Docker socket.
 
+> ⚠ **Warning**: This command changed! Please remove the `--docker` flag from your command.
+
 ```sh
 docker run -it --rm \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
