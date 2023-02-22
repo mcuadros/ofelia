@@ -27,7 +27,7 @@ func NewScheduler(l Logger) *Scheduler {
 	cronUtils := NewCronUtils(l)
 	return &Scheduler{
 		Logger: l,
-		cron:   cron.New(cron.WithLogger(cronUtils), cron.WithChain(cron.Recover(cronUtils))),
+		cron:   cron.New(cron.WithSeconds(), cron.WithLogger(cronUtils), cron.WithChain(cron.Recover(cronUtils))),
 	}
 }
 
