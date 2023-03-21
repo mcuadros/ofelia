@@ -18,7 +18,7 @@ const (
 	serviceLabel        = labelPrefix + ".service"
 )
 
-func getLabels(d *docker.Client) (map[string]map[string]string, error) {
+func getLabels(d *docker.Client, filterFlags []string) (map[string]map[string]string, error) {
 	// sleep before querying containers
 	// because docker not always propagating labels in time
 	// so ofelia app can't find it's own container
@@ -26,17 +26,35 @@ func getLabels(d *docker.Client) (map[string]map[string]string, error) {
 		time.Sleep(1 * time.Second)
 	}
 
+	var filters = map[string][]string{
+		"label": {requiredLabelFilter},
+	}
+	for _, f := range filterFlags {
+		parts := strings.SplitN(f, "=", 2)
+		if len(parts) != 2 {
+			return nil, errors.New("invalid docker filter: " + f)
+		}
+		key, value := parts[0], parts[1]
+		values, ok := filters[key]
+		if ok {
+			filters[key] = append(values, value)
+		} else {
+			filters[key] = []string{value}
+		}
+	}
+
 	conts, err := d.ListContainers(docker.ListContainersOptions{
-		Filters: map[string][]string{
-			"label": {requiredLabelFilter},
-		},
+		Filters: filters,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	if len(conts) == 0 {
-		return nil, errors.New("Couldn't find containers with label 'ofelia.enabled=true'")
+		if len(filterFlags) > 0 {
+			return nil, errors.New("couldn't find containers with label 'ofelia.enabled=true' and additional filters")
+		}
+		return nil, errors.New("couldn't find containers with label 'ofelia.enabled=true'")
 	}
 
 	var labels = make(map[string]map[string]string)
