@@ -12,6 +12,7 @@ import (
 var ErrNoContainerWithOfeliaEnabled = errors.New("Couldn't find containers with label 'ofelia.enabled=true'")
 
 type DockerHandler struct {
+	filters      []string
 	dockerClient *docker.Client
 	notifier     dockerLabelsUpdate
 	logger       core.Logger
@@ -35,18 +36,21 @@ func (c *DockerHandler) buildDockerClient() (*docker.Client, error) {
 	return d, nil
 }
 
-func NewDockerHandler(notifier dockerLabelsUpdate, logger core.Logger) (*DockerHandler, error) {
-	c := &DockerHandler{}
+func NewDockerHandler(notifier dockerLabelsUpdate, logger core.Logger, filters []string) (*DockerHandler, error) {
+	c := &DockerHandler{
+		filters:  filters,
+		notifier: notifier,
+		logger:   logger,
+	}
+
 	var err error
 	c.dockerClient, err = c.buildDockerClient()
-	c.notifier = notifier
-	c.logger = logger
 	if err != nil {
 		return nil, err
 	}
+
 	// Do a sanity check on docker
-	_, err = c.dockerClient.Info()
-	if err != nil {
+	if _, err = c.dockerClient.Info(); err != nil {
 		return nil, err
 	}
 
@@ -71,10 +75,25 @@ func (c *DockerHandler) watch() {
 }
 
 func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) {
+	filters := map[string][]string{
+		"label": {requiredLabelFilter},
+	}
+	for _, f := range c.filters {
+		parts := strings.SplitN(f, "=", 2)
+		if len(parts) != 2 {
+			return nil, errors.New("invalid docker filter: " + f)
+		}
+		key, value := parts[0], parts[1]
+		values, ok := filters[key]
+		if ok {
+			filters[key] = append(values, value)
+		} else {
+			filters[key] = []string{value}
+		}
+	}
+
 	conts, err := c.dockerClient.ListContainers(docker.ListContainersOptions{
-		Filters: map[string][]string{
-			"label": {requiredLabelFilter},
-		},
+		Filters: filters,
 	})
 	if err != nil {
 		return nil, err

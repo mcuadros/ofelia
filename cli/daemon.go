@@ -10,11 +10,13 @@ import (
 
 // DaemonCommand daemon process
 type DaemonCommand struct {
-	ConfigFile string `long:"config" description:"configuration file" default:"/etc/ofelia.conf"`
-	scheduler  *core.Scheduler
-	signals    chan os.Signal
-	done       chan bool
-	Logger     core.Logger
+	ConfigFile    string   `long:"config" description:"configuration file" default:"/etc/ofelia.conf"`
+	DockerFilters []string `short:"f" long:"docker-filter" description:"Filter for docker containers"`
+
+	scheduler *core.Scheduler
+	signals   chan os.Signal
+	done      chan bool
+	Logger    core.Logger
 }
 
 // Execute runs the daemon

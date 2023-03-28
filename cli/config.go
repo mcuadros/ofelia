@@ -27,6 +27,7 @@ type Config struct {
 	RunJobs       map[string]*RunJobConfig     `gcfg:"job-run" mapstructure:"job-run,squash"`
 	ServiceJobs   map[string]*RunServiceConfig `gcfg:"job-service-run" mapstructure:"job-service-run,squash"`
 	LocalJobs     map[string]*LocalJobConfig   `gcfg:"job-local" mapstructure:"job-local,squash"`
+	Docker        DockerConfig
 	sh            *core.Scheduler
 	dockerHandler *DockerHandler
 	logger        core.Logger
@@ -67,7 +68,7 @@ func (c *Config) InitializeApp() error {
 	c.buildSchedulerMiddlewares(c.sh)
 
 	var err error
-	c.dockerHandler, err = NewDockerHandler(c, c.logger)
+	c.dockerHandler, err = NewDockerHandler(c, c.logger, c.Docker.Filters)
 	if err != nil {
 		return err
 	}
@@ -75,16 +76,21 @@ func (c *Config) InitializeApp() error {
 	// In order to support non dynamic job types such as Local or Run using labels
 	// lets parse the labels and merge the job lists
 	dockerLabels, err := c.dockerHandler.GetDockerLabels()
-	var parsedLabelConfig Config
-	parsedLabelConfig.buildFromDockerLabels(dockerLabels)
-	for name, j := range parsedLabelConfig.RunJobs {
-		c.RunJobs[name] = j
-	}
-	for name, j := range parsedLabelConfig.LocalJobs {
-		c.LocalJobs[name] = j
-	}
-	for name, j := range parsedLabelConfig.ServiceJobs {
-		c.ServiceJobs[name] = j
+	if err == nil {
+		parsedLabelConfig := Config{}
+
+		parsedLabelConfig.buildFromDockerLabels(dockerLabels)
+		for name, j := range parsedLabelConfig.RunJobs {
+			c.RunJobs[name] = j
+		}
+
+		for name, j := range parsedLabelConfig.LocalJobs {
+			c.LocalJobs[name] = j
+		}
+
+		for name, j := range parsedLabelConfig.ServiceJobs {
+			c.ServiceJobs[name] = j
+		}
 	}
 
 	for name, j := range c.ExecJobs {
@@ -296,4 +302,8 @@ func (c *RunServiceConfig) buildMiddlewares() {
 	c.RunServiceJob.Use(middlewares.NewSlack(&c.SlackConfig))
 	c.RunServiceJob.Use(middlewares.NewSave(&c.SaveConfig))
 	c.RunServiceJob.Use(middlewares.NewMail(&c.MailConfig))
+}
+
+type DockerConfig struct {
+	Filters []string `mapstructure:"filters"`
 }
