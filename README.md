@@ -24,9 +24,15 @@ If don't want to run **Ofelia** using our **Docker** image, you can download a b
 
 ### Jobs
 
-[Scheduling format](https://pkg.go.dev/github.com/robfig/cron) is the same as the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM).
+#### Scheduling format
 
-**Note**: the format starts with seconds, instead of minutes.
+This application uses the [Go implementation of `cron`](https://pkg.go.dev/github.com/robfig/cron) and uses a parser for supporting optional seconds.
+
+Supported formats:
+
+- `@every 10s`
+- `20 0 1 * * *` (every night, 20 seconds after 1 AM - [Quartz format](http://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/tutorial-lesson-06.html)
+- `0 1 * * *` (every night at 1 AM - standard [cron format](https://en.wikipedia.org/wiki/Cron)).
 
 You can configure four different kind of jobs:
 
@@ -103,7 +109,7 @@ docker run -it --rm \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
     --label ofelia.save-folder="/var/log/ofelia_reports" \
     --label ofelia.save-only-on-error="true" \
-        netresearch/ofelia:latest daemon
+        ghcr.io/netresearch/ofelia:latest daemon
 ```
 
 Labels format: `ofelia.<JOB_TYPE>.<JOB_NAME>.<JOB_PARAMETER>=<PARAMETER_VALUE>`.
@@ -128,7 +134,7 @@ docker run -it --rm \
 version: "3"
 services:
   ofelia:
-    image: mcuadros/ofelia:latest
+    image: ghcr.io/netresearch/ofelia:latest
     depends_on:
       - nginx
     command: daemon --docker -f label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}
