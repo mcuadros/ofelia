@@ -133,7 +133,7 @@ These can be configured by setting the options listed below in the `[global]` se
 - `email-from` - mail address of the sender of the mail.
 - `mail-only-on-error` - only send a mail if the execution was not successful.
 
-- `save-folder` - directory in which the reports shall be written.
+- `save-folder` - directory in which the reports shall be written (must already exist).
 - `save-only-on-error` - only save a report if the execution was not successful.
 
 - `slack-webhook` - URL of the slack webhook.
