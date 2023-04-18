@@ -116,10 +116,12 @@ services:
 ```
 
 ### Logging
-**Ofelia** comes with three different logging drivers that can be configured in the `[global]` section:
+**Ofelia** comes with three different logging drivers:
 - `mail` to send mails
 - `save` to save structured execution reports to a directory
 - `slack` to send messages via a slack webhook
+
+These can be configured by setting the options listed below in the `[global]` section of your config.ini, or via docker labels on the `ofelia` container (regardless of where your job will actually be running).
 
 #### Options
 - `smtp-host` - address of the SMTP server.
