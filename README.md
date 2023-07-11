@@ -18,7 +18,7 @@ The easiest way to deploy **Ofelia** is using **Docker**.
 
 If don't want to run **Ofelia** using our **Docker** image, you can download a binary from [our releases page](https://github.com/netresearch/ofelia/releases).
 
-    wget https://github.com/netresearch.ofelia/releases/latest
+    wget https://github.com/netresearch/ofelia/releases/latest
 
 ## Configuration
 
