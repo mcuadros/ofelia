@@ -2,7 +2,9 @@
 
 <img src="https://weirdspace.dk/FranciscoIbanez/Graphics/Ofelia.gif" align="right" width="180px" height="300px" vspace="20" />
 
-**Ofelia** is a modern and low footprint job scheduler for **Docker** environments, built on Go. Ofelia aims to be a replacement for the old fashioned [cron](https://en.wikipedia.org/wiki/Cron).
+**Ofelia** is a modern and low footprint job scheduler for conrainer (Docker) environments, built on Go. Ofelia aims to be a replacement for the old fashioned [cron](https://en.wikipedia.org/wiki/Cron).
+
+Ofelia makes it easy to schedule jobs by just adding labels to your containers.
 
 This fork is based off of [mcuadros/ofelia](https://github.com/mcuadros/ofelia).
 
@@ -10,13 +12,13 @@ This fork is based off of [mcuadros/ofelia](https://github.com/mcuadros/ofelia).
 
 ### Docker
 
-The easiest way to deploy **Ofelia** is using **Docker**.
+The easiest way to deploy **Ofelia** is using a container runtime like **Docker**.
 
     docker pull ghcr.io/netresearch/ofelia
 
 ### Standalone
 
-If don't want to run **Ofelia** using our **Docker** image, you can download a binary from [our releases page](https://github.com/netresearch/ofelia/releases).
+If you don't want to run **Ofelia** using our (Docker) container image, you can download a binary from [our releases page](https://github.com/netresearch/ofelia/releases).
 
     wget https://github.com/netresearch/ofelia/releases/latest
 
@@ -26,7 +28,7 @@ If don't want to run **Ofelia** using our **Docker** image, you can download a b
 
 #### Scheduling format
 
-This application uses the [Go implementation of `cron`](https://pkg.go.dev/github.com/robfig/cron) and uses a parser for supporting optional seconds.
+This application uses the [Go implementation of `cron`](https://pkg.go.dev/github.com/robfig/cron) with a parser for supporting optional seconds.
 
 Supported formats:
 
@@ -34,7 +36,7 @@ Supported formats:
 - `20 0 1 * * *` (every night, 20 seconds after 1 AM - [Quartz format](http://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/tutorial-lesson-06.html)
 - `0 1 * * *` (every night at 1 AM - standard [cron format](https://en.wikipedia.org/wiki/Cron)).
 
-You can configure four different kind of jobs:
+You can configure four different kinds of jobs:
 
 - `job-exec`: this job is executed inside of a running container.
 - `job-run`: runs a command inside of a new container, using a specific image.
@@ -100,7 +102,7 @@ command =  touch /tmp/example
 
 ### Docker label configurations
 
-In order to use this type of configuration, Ofelia needs access to Docker socket.
+In order to use this type of configuration, Ofelia needs access to the Docker socket.
 
 > ⚠ **Warning**: This command changed! Please remove the `--docker` flag from your command.
 
@@ -118,7 +120,7 @@ This type of configuration supports all the capabilities provided by INI files, 
 Also, it is possible to configure `job-exec` by setting labels configurations on the target container. To do that, additional label `ofelia.enabled=true` need to be present on the target container.
 
 For example, we want `ofelia` to execute `uname -a` command in the existing container called `nginx`.
-To do that, we need to we need to start the `nginx` container with next configurations:
+To do that, we need to start the `nginx` container with the following configurations:
 
 ```sh
 docker run -it --rm \
@@ -153,13 +155,13 @@ services:
 
 ### Dynamic Docker configuration
 
-You can start Ofelia in its own container or on the host itself, and it will magically pick up any container that starts, stops or is modified on the fly.
+You can start Ofelia in its own container or on the host itself, and it will dynamically pick up any container that starts, stops or is modified on the fly.
 In order to achieve this, you simply have to use Docker containers with the labels described above and let Ofelia take care of the rest.
 
 ### Hybrid configuration (INI files + Docker)
 
 You can specify part of the configuration on the INI files, such as globals for the middlewares or even declare tasks in there but also merge them with Docker.
-The Docker labels will be parsed, added and removed on the fly but also, the file config can be used.
+The Docker labels will be parsed, added and removed on the fly but the config file can also be used.
 
 Use the INI file to:
 
