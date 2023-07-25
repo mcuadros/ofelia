@@ -1,6 +1,8 @@
 FROM golang:1.20.6-alpine AS builder
 
-RUN apk --no-cache add gcc musl-dev git
+RUN apk update
+RUN apk upgrade
+RUN apk add gcc musl-dev git
 
 WORKDIR ${GOPATH}/src/github.com/netresearch/ofelia
 
@@ -17,6 +19,7 @@ FROM alpine:3.18
 LABEL ofelia.service=true
 LABEL ofelia.enabled=true
 
+RUN apk --no-cache upgrade
 RUN apk --no-cache add ca-certificates tzdata
 
 COPY --from=builder /go/bin/ofelia /usr/bin/ofelia
