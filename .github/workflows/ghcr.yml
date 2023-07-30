@@ -50,7 +50,7 @@ jobs:
         with:
           push: true
           tags: ${{ env.REGISTRY  }}/${{ env.IMAGE_NAME }}
-          platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
+          platforms: linux/amd64,linux/arm/v7,linux/arm64
           labels: |
             cache-from: type=local,src=/tmp/.buildx-cache
             cache-to: type=local,dest=/tmp/.buildx-cache
