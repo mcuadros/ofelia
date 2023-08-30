@@ -104,7 +104,7 @@ func (m *Mail) sendMail(ctx *core.Context) error {
 }
 
 func (m *Mail) from() string {
-	if strings.Index(m.EmailFrom, "%") == -1 {
+	if !strings.Contains(m.EmailFrom, "%") {
 		return m.EmailFrom
 	}
 
