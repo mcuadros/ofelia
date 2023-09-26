@@ -40,6 +40,7 @@ func (s *SuiteRunJob) TestRun(c *C) {
 	job.TTY = true
 	job.Delete = "true"
 	job.Network = "foo"
+	job.Hostname = "test-host"
 	job.Name = "test"
 	job.Environment = []string{"test_Key1=value1", "test_Key2=value2"}
 	job.Volume = []string{"/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"}
@@ -68,6 +69,7 @@ func (s *SuiteRunJob) TestRun(c *C) {
 	c.Assert(container.Config.Env, DeepEquals, job.Environment)
 
 	// this doesn't seem to be working with DockerTestServer
+	// c.Assert(container.Config.Hostname, Equals, job.Hostname)
 	// c.Assert(container.HostConfig.Binds, DeepEquals, job.Volume)
 
 	// stop container, we don't need it anymore
