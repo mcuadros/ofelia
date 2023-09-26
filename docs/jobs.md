@@ -92,6 +92,10 @@ This job can be used in 2 situations:
   - *description*: Connect the container to this network
   - *value*: String, e.g. `backend-proxy`
   - *default*: Optional field, no default.
+- **Hostname** (1)
+  - *description*: Define the hostname of the instantiated container
+  - *value*: String, e.g. `test-server`
+  - *default*: Optional field, no default.
 - **Delete** (1)
   - *description*: Delete the container after the job is finished. Similar to `docker run --rm`
   - *value*: Boolean, either `true` or `false`
