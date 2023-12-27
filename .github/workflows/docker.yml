@@ -11,17 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
 
       - name: Cache docker layers
         if: ${{ !env.ACT }}
-        uses: actions/cache@v2.1.4
+        uses: actions/cache@v3
         id: cache
         with:
           path: /tmp/.buildx-cache
@@ -46,15 +46,15 @@ jobs:
           echo ::set-output name=tags::${TAGS}
 
       - name: Login to DockerHub
-        uses: docker/login-action@v1 
+        uses: docker/login-action@v3
         with:
           username: mcuadros
           # Replace with below once @mcuadros adds the DOCKER_USERNAME secret
           # username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-     
+
       - name: Build the Docker image and push
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v5
         with:
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
           push: true
