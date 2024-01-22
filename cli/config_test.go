@@ -92,7 +92,7 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 		{
 			Labels: map[string]map[string]string{
 				"some": map[string]string{
-					requiredLabel: "true",
+					requiredLabelName: "true",
 					"label2":      "2",
 				},
 			},
@@ -102,7 +102,7 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 		{
 			Labels: map[string]map[string]string{
 				"some": map[string]string{
-					requiredLabel: "false",
+					requiredLabelName: "false",
 					labelPrefix + "." + jobLocal + ".job1.schedule": "everyday! yey!",
 				},
 			},
@@ -112,7 +112,7 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 		{
 			Labels: map[string]map[string]string{
 				"some": map[string]string{
-					requiredLabel: "true",
+					requiredLabelName: "true",
 					labelPrefix + "." + jobLocal + ".job1.schedule": "everyday! yey!",
 					labelPrefix + "." + jobLocal + ".job1.command":  "rm -rf *test*",
 					labelPrefix + "." + jobLocal + ".job2.schedule": "everynanosecond! yey!",
@@ -125,8 +125,8 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 		{
 			Labels: map[string]map[string]string{
 				"some": map[string]string{
-					requiredLabel: "true",
-					serviceLabel:  "true",
+					requiredLabelName: "true",
+					serviceLabelName:  "true",
 					labelPrefix + "." + jobLocal + ".job1.schedule":      "schedule1",
 					labelPrefix + "." + jobLocal + ".job1.command":       "command1",
 					labelPrefix + "." + jobRun + ".job2.schedule":        "schedule2",
@@ -135,7 +135,7 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 					labelPrefix + "." + jobServiceRun + ".job3.command":  "command3",
 				},
 				"other": map[string]string{
-					requiredLabel: "true",
+					requiredLabelName: "true",
 					labelPrefix + "." + jobLocal + ".job4.schedule":      "schedule4",
 					labelPrefix + "." + jobLocal + ".job4.command":       "command4",
 					labelPrefix + "." + jobRun + ".job5.schedule":        "schedule5",
@@ -169,13 +169,13 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 		{
 			Labels: map[string]map[string]string{
 				"some": map[string]string{
-					requiredLabel: "true",
-					serviceLabel:  "true",
+					requiredLabelName: "true",
+					serviceLabelName:  "true",
 					labelPrefix + "." + jobExec + ".job1.schedule": "schedule1",
 					labelPrefix + "." + jobExec + ".job1.command":  "command1",
 				},
 				"other": map[string]string{
-					requiredLabel: "true",
+					requiredLabelName: "true",
 					labelPrefix + "." + jobExec + ".job2.schedule": "schedule2",
 					labelPrefix + "." + jobExec + ".job2.command":  "command2",
 				},
@@ -200,8 +200,8 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 		{
 			Labels: map[string]map[string]string{
 				"some": map[string]string{
-					requiredLabel: "true",
-					serviceLabel:  "true",
+					requiredLabelName: "true",
+					serviceLabelName:  "true",
 					labelPrefix + "." + jobExec + ".job1.schedule":   "schedule1",
 					labelPrefix + "." + jobExec + ".job1.command":    "command1",
 					labelPrefix + "." + jobExec + ".job1.no-overlap": "true",
@@ -222,8 +222,8 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 		{
 			Labels: map[string]map[string]string{
 				"some": {
-					requiredLabel: "true",
-					serviceLabel:  "true",
+					requiredLabelName: "true",
+					serviceLabelName:  "true",
 					labelPrefix + "." + jobRun + ".job1.schedule": "schedule1",
 					labelPrefix + "." + jobRun + ".job1.command":  "command1",
 					labelPrefix + "." + jobRun + ".job1.volume":   "/test/tmp:/test/tmp:ro",
