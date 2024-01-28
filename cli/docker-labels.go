@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -18,7 +19,21 @@ const (
 	serviceLabel        = labelPrefix + ".service"
 )
 
-func getLabels(d *docker.Client) (map[string]map[string]string, error) {
+var (
+	errNoContainersMatchingFilters = errors.New("no containers matching filters")
+	errInvalidDockerFilter         = errors.New("invalid docker filter")
+	errFailedToListContainers      = errors.New("failed to list containers")
+)
+
+func parseFilter(filter string) (key, value string, err error) {
+	parts := strings.SplitN(filter, "=", 2)
+	if len(parts) != 2 {
+		return "", "", errInvalidDockerFilter
+	}
+	return parts[0], parts[1], nil
+}
+
+func getLabels(d *docker.Client, filterFlags []string) (map[string]map[string]string, error) {
 	// sleep before querying containers
 	// because docker not always propagating labels in time
 	// so ofelia app can't find it's own container
@@ -26,17 +41,22 @@ func getLabels(d *docker.Client) (map[string]map[string]string, error) {
 		time.Sleep(1 * time.Second)
 	}
 
-	conts, err := d.ListContainers(docker.ListContainersOptions{
-		Filters: map[string][]string{
-			"label": {requiredLabelFilter},
-		},
-	})
-	if err != nil {
-		return nil, err
+	var filters = map[string][]string{
+		"label": {requiredLabelFilter},
+	}
+	for _, f := range filterFlags {
+		key, value, err := parseFilter(f)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s", err, f)
+		}
+		filters[key] = append(filters[key], value)
 	}
 
-	if len(conts) == 0 {
-		return nil, errors.New("Couldn't find containers with label 'ofelia.enabled=true'")
+	conts, err := d.ListContainers(docker.ListContainersOptions{Filters: filters})
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", errFailedToListContainers, err)
+	} else if len(conts) == 0 {
+		return nil, fmt.Errorf("%w: %v", errNoContainersMatchingFilters, filters)
 	}
 
 	var labels = make(map[string]map[string]string)

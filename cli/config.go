@@ -36,7 +36,7 @@ type Config struct {
 }
 
 // BuildFromDockerLabels builds a scheduler using the config from a docker labels
-func BuildFromDockerLabels() (*core.Scheduler, error) {
+func BuildFromDockerLabels(filterFlags ...string) (*core.Scheduler, error) {
 	c := &Config{}
 
 	d, err := c.buildDockerClient()
@@ -44,7 +44,7 @@ func BuildFromDockerLabels() (*core.Scheduler, error) {
 		return nil, err
 	}
 
-	labels, err := getLabels(d)
+	labels, err := getLabels(d, filterFlags)
 	if err != nil {
 		return nil, err
 	}
