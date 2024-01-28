@@ -42,7 +42,7 @@ func (c *DaemonCommand) Execute(args []string) error {
 
 func (c *DaemonCommand) boot() (err error) {
 	if c.DockerLabelsConfig {
-		c.scheduler, err = BuildFromDockerLabels(c.DockerFilters)
+		c.scheduler, err = BuildFromDockerLabels(c.DockerFilters...)
 	} else {
 		c.scheduler, err = BuildFromFile(c.ConfigFile)
 	}

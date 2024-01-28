@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -18,6 +19,20 @@ const (
 	serviceLabel        = labelPrefix + ".service"
 )
 
+var (
+	errNoContainersMatchingFilters = errors.New("no containers matching filters")
+	errInvalidDockerFilter         = errors.New("invalid docker filter")
+	errFailedToListContainers      = errors.New("failed to list containers")
+)
+
+func parseFilter(filter string) (key, value string, err error) {
+	parts := strings.SplitN(filter, "=", 2)
+	if len(parts) != 2 {
+		return "", "", errInvalidDockerFilter
+	}
+	return parts[0], parts[1], nil
+}
+
 func getLabels(d *docker.Client, filterFlags []string) (map[string]map[string]string, error) {
 	// sleep before querying containers
 	// because docker not always propagating labels in time
@@ -30,31 +45,18 @@ func getLabels(d *docker.Client, filterFlags []string) (map[string]map[string]st
 		"label": {requiredLabelFilter},
 	}
 	for _, f := range filterFlags {
-		parts := strings.SplitN(f, "=", 2)
-		if len(parts) != 2 {
-			return nil, errors.New("invalid docker filter: " + f)
+		key, value, err := parseFilter(f)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s", err, f)
 		}
-		key, value := parts[0], parts[1]
-		values, ok := filters[key]
-		if ok {
-			filters[key] = append(values, value)
-		} else {
-			filters[key] = []string{value}
-		}
+		filters[key] = append(filters[key], value)
 	}
 
-	conts, err := d.ListContainers(docker.ListContainersOptions{
-		Filters: filters,
-	})
+	conts, err := d.ListContainers(docker.ListContainersOptions{Filters: filters})
 	if err != nil {
-		return nil, err
-	}
-
-	if len(conts) == 0 {
-		if len(filterFlags) > 0 {
-			return nil, errors.New("couldn't find containers with label 'ofelia.enabled=true' and additional filters")
-		}
-		return nil, errors.New("couldn't find containers with label 'ofelia.enabled=true'")
+		return nil, fmt.Errorf("%w: %w", errFailedToListContainers, err)
+	} else if len(conts) == 0 {
+		return nil, fmt.Errorf("%w: %v", errNoContainersMatchingFilters, filters)
 	}
 
 	var labels = make(map[string]map[string]string)
