@@ -57,3 +57,18 @@ func (s *SuiteScheduler) TestMergeMiddlewaresSame(c *C) {
 	c.Assert(m, HasLen, 1)
 	c.Assert(m[0], Equals, mB)
 }
+
+func (s *SuiteScheduler) TestRunOnStartup(c *C) {
+	job := &TestJob{}
+	job.Schedule = "@hourly"
+	job.RunOnStartup = "true"
+
+	sc := NewScheduler(&TestLogger{})
+	sc.AddJob(job)
+	c.Assert(job.Called, Equals, 1)
+
+	jobTwo := &TestJob{}
+	jobTwo.Schedule = "@hourly"
+	sc.AddJob(jobTwo)
+	c.Assert(jobTwo.Called, Equals, 0)
+}

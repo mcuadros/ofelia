@@ -6,9 +6,10 @@ import (
 )
 
 type BareJob struct {
-	Schedule string
-	Name     string
-	Command  string
+	Schedule     string
+	Name         string
+	Command      string
+	RunOnStartup string `default:"false" gcfg:"run-on-startup" mapstructure:"run-on-startup"`
 
 	middlewareContainer
 	running int32
@@ -26,6 +27,10 @@ func (j *BareJob) GetSchedule() string {
 
 func (j *BareJob) GetCommand() string {
 	return j.Command
+}
+
+func (j *BareJob) GetRunOnStartup() string {
+	return j.RunOnStartup
 }
 
 func (j *BareJob) Running() int32 {

@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/robfig/cron"
@@ -40,6 +41,12 @@ func (s *Scheduler) AddJob(j Job) error {
 	err := s.cron.AddJob(j.GetSchedule(), &jobWrapper{s, j})
 	if err != nil {
 		return err
+	}
+
+	runOnStartup, _ := strconv.ParseBool(j.GetRunOnStartup())
+	if runOnStartup {
+		jw := &jobWrapper{s, j}
+		go jw.Run()
 	}
 
 	s.Jobs = append(s.Jobs, j)
