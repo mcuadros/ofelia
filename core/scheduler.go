@@ -31,16 +31,17 @@ func NewScheduler(l Logger) *Scheduler {
 }
 
 func (s *Scheduler) AddJob(j Job) error {
-	s.Logger.Noticef("New job registered %q - %q - %q", j.GetName(), j.GetCommand(), j.GetSchedule())
-
 	if j.GetSchedule() == "" {
 		return ErrEmptySchedule
 	}
 
 	err := s.cron.AddJob(j.GetSchedule(), &jobWrapper{s, j})
 	if err != nil {
+		s.Logger.Warningf("Failed to register job %q - %q - %q", j.GetName(), j.GetCommand(), j.GetSchedule())
 		return err
 	}
+
+	s.Logger.Noticef("New job registered %q - %q - %q", j.GetName(), j.GetCommand(), j.GetSchedule())
 
 	s.Jobs = append(s.Jobs, j)
 	return nil

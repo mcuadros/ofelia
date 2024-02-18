@@ -45,13 +45,15 @@ func (s *TestDockerSuit) TestLabelsFilterJobsCount(c *check.C) {
 		{
 			requiredLabel:  "true",
 			filterLabel[0]: filterLabel[1],
-			labelPrefix + "." + jobExec + ".job2.schedule": "schedule2",
-			labelPrefix + "." + jobExec + ".job2.command":  "command2",
+			labelPrefix + "." + jobExec + ".job2.schedule":  "* * * * *",
+			labelPrefix + "." + jobExec + ".job2.command":   "command2",
+			labelPrefix + "." + jobExec + ".job2.container": "container2",
 		},
 		{
 			requiredLabel: "true",
-			labelPrefix + "." + jobExec + ".job3.schedule": "schedule3",
-			labelPrefix + "." + jobExec + ".job3.command":  "command3",
+			labelPrefix + "." + jobExec + ".job3.schedule":  "* * * * *",
+			labelPrefix + "." + jobExec + ".job3.command":   "command3",
+			labelPrefix + "." + jobExec + ".job3.container": "container3",
 		},
 	}
 
@@ -62,7 +64,6 @@ func (s *TestDockerSuit) TestLabelsFilterJobsCount(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(scheduler, check.NotNil)
 
-	c.Skip("This test will not work until https://github.com/fsouza/go-dockerclient/pull/1031 is merged")
 	c.Assert(scheduler.Jobs, check.HasLen, 1)
 }
 
