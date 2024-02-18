@@ -6,8 +6,13 @@ on:
   push:
     branches:
       - master
+
 jobs:
   docker:
+    permissions:
+      contents: read
+      packages: write
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -19,31 +24,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Cache docker layers
-        if: ${{ !env.ACT }}
-        uses: actions/cache@v3
-        id: cache
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ matrix.service }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-${{ matrix.service }}
-            ${{ runner.os }}-buildx-
-
-      - name: Prepare version number
-        id: prepare
-        run: |
-          VERSION=$(git describe --always --tags)
-          if [ "${{ github.event_name }}" = "release" ]; then
-            TAGS="mcuadros/ofelia:$VERSION,mcuadros/ofelia:latest"
-            # Replace with below once @mcuadros adds the DOCKER_USERNAME secret
-            #TAGS="${{secrets.DOCKER_USERNAME}}/ofelia:$VERSION,${{secrets.DOCKER_USERNAME}}/ofelia:latest"
-          else
-            TAGS="mcuadros/ofelia:$VERSION,mcuadros/ofelia:development"
-            # Replace with below once @mcuadros adds the DOCKER_USERNAME secret
-            #TAGS="${{secrets.DOCKER_USERNAME}}/ofelia:$VERSION,${{secrets.DOCKER_USERNAME}}/ofelia:development"
-          fi
-          echo ::set-output name=tags::${TAGS}
+          # list of Docker images to use as base name for tags
+          images: |
+            mcuadros/ofelia
+          # ghcr.io/${{ github.repository }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=development,enable=${{ github.event_name != 'release' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,enable=true,priority=100,prefix=,suffix=,format=short
 
       - name: Login to DockerHub
         uses: docker/login-action@v3
@@ -53,25 +49,22 @@ jobs:
           # username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build the Docker image and push
         uses: docker/build-push-action@v5
         with:
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
           push: true
-          tags: ${{ steps.prepare.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VERSION=${{ steps.prepare.outputs.version }}
-            BUILD_DATE=${{ steps.prepare.outputs.created }}
             GIT_REF=${{ github.sha }}
-          labels: |
-            org.opencontainers.image.title=${{ matrix.service }}
-            org.opencontainers.image.description=Ofelia - a job scheduler
-            org.opencontainers.image.url=${{ github.event.repository.html_url }}
-            org.opencontainers.image.source=${{ github.event.repository.clone_url }}
-            org.opencontainers.image.version=${{ steps.prepare.outputs.version }}
-            org.opencontainers.image.created=${{ steps.prepare.outputs.created }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.licenses=${{ github.event.repository.license.spdx_id }}
-            cache-from: type=local,src=/tmp/.buildx-cache
-            cache-to: type=local,dest=/tmp/.buildx-cache
+          cache-from: type=gha
+          cache-to: type=gha,mode=min
 
