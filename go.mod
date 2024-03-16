@@ -13,7 +13,7 @@ require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/mcuadros/go-defaults v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
+	github.com/op/go-logging v1
 	github.com/robfig/cron v1.2.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/gcfg.v1 v1.2.3
