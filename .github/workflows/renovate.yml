@@ -34,6 +34,6 @@ jobs:
         uses: renovatebot/github-action@v40.1.5
         env:
           RENOVATE_REPOSITORIES: '["${{ github.repository }}"]'
-          LOG_LEVEL: '${{inputs.log-level}}'
+          LOG_LEVEL: "${{inputs.log-level || 'info'}}"
         with:
           token: '${{ secrets.GITHUB_TOKEN }}'
