@@ -5,10 +5,22 @@ on:
     # string has to be quoted.
     - cron: '15 * * * *'
   workflow_dispatch:
+    inputs:
+      log-level:
+        default: info
+        type: choice
+        options:
+          - fatal
+          - error
+          - warn
+          - info
+          - debug
 
 jobs:
   renovate:
     permissions:
+      statuses: write
+      actions: write
       contents: write
       id-token: write
       pull-requests: write
@@ -22,5 +34,6 @@ jobs:
         uses: renovatebot/github-action@v40.1.5
         env:
           RENOVATE_REPOSITORIES: '["${{ github.repository }}"]'
+          LOG_LEVEL: '${{inputs.log-level}}'
         with:
           token: '${{ secrets.GITHUB_TOKEN }}'
