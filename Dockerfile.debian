@@ -1,0 +1,41 @@
+FROM golang:1.13-buster AS builder
+
+LABEL MAINTAINER='Simone M. Zucchi<simone.zucchi@gmail.com>'
+
+COPY . ${GOPATH}/src/github.com/mcuadros/ofelia
+
+WORKDIR ${GOPATH}/src/github.com/mcuadros/ofelia
+
+RUN go build -o /go/bin/ofelia .
+
+FROM debian:buster-slim
+
+LABEL MAINTAINER='Simone M. Zucchi<simone.zucchi@gmail.com>'
+
+ARG USERNAME=ofelia
+ARG GROUPNAME=ofelia
+ARG CA_CERTIFICATS_VER=20200601~deb10u1
+
+# these labels are required to identify container with ofelia running
+LABEL ofelia.service=true
+LABEL ofelia.enabled=true
+
+USER root
+
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y \
+      ca-certificates=${CA_CERTIFICATS_VER} && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd ${USERNAME} && \
+    useradd -g ${GROUPNAME} -d /home/${USERNAME} ${USERNAME}
+
+USER $USERNAME
+
+WORKDIR /home/$USERNAME
+
+COPY --from=builder /go/bin/ofelia /usr/bin/ofelia
+
+ENTRYPOINT ["/usr/bin/ofelia"]
+
+CMD ["daemon", "--config", "/etc/ofelia/config.ini"]
