@@ -7,7 +7,7 @@ toolchain go1.21.7
 require (
 	github.com/armon/circbuf v0.0.0-20190214190532-5111143e8da2
 	github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625
-	github.com/docker/docker v25.0.4+incompatible
+	github.com/docker/docker v25.0.5+incompatible
 	github.com/fsouza/go-dockerclient v1.11.0
 	github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93
 	github.com/jessevdk/go-flags v1.5.0
@@ -44,7 +44,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	golang.org/x/mod v0.15.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
-	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/tools v0.18.0 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
