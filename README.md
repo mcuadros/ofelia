@@ -145,6 +145,7 @@ services:
 - `mail` to send mails
 - `save` to save structured execution reports to a directory
 - `slack` to send messages via a slack webhook
+- `teams` to send messages via a Microsoft Teams webhook
 
 These can be configured by setting the options listed below in the `[global]` section of your config.ini, or via docker labels on the `ofelia` container (regardless of where your job will actually be running).
 
@@ -164,6 +165,9 @@ These can be configured by setting the options listed below in the `[global]` se
 - `slack-webhook` - URL of the slack webhook.
 - `slack-only-on-error` - only send a slack message if the execution was not successful.
 
+- `teams-webhook` - URL of the Teams incoming webhook.
+- `teams-only-on-error` - only send a Teams message if the execution was not successful.
+
 ### Overlap
 **Ofelia** can prevent that a job is run twice in parallel (e.g. if the first execution didn't complete before a second execution was scheduled. If a job has the option `no-overlap` set, it will not be run concurrently. 
 
@@ -171,6 +175,6 @@ These can be configured by setting the options listed below in the `[global]` se
 
 The easiest way to deploy **ofelia** is using *Docker*. See examples above.
 
-If don't want to run **ofelia** using our *Docker* image you can download a binary from [releases](https://github.com/mcuadros/ofelia/releases) page.
+If you don't want to run **ofelia** using our *Docker* image you can download a binary from [releases](https://github.com/mcuadros/ofelia/releases) page.
 
 > Why the project is named Ofelia? Ofelia is the name of the office assistant from the Spanish comic [Mortadelo y Filemón](https://en.wikipedia.org/wiki/Mort_%26_Phil)
