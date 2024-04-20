@@ -130,6 +130,7 @@ image = alpine:latest
 command = sh -c 'date | tee -a /tmp/test/date'
 volume = /tmp/test:/tmp/test:rw
 environment = FOO=bar
+environment = BAZ=qux
 ```
 
 Then you can check output in host machine file `/tmp/test/date`
