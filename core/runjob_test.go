@@ -3,11 +3,11 @@ package core
 import (
 	"archive/tar"
 	"bytes"
+	"log/slog"
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/fsouza/go-dockerclient/testing"
-	logging "github.com/op/go-logging"
 	. "gopkg.in/check.v1"
 )
 
@@ -47,8 +47,7 @@ func (s *SuiteRunJob) TestRun(c *C) {
 
 	ctx := &Context{}
 	ctx.Execution = NewExecution()
-	logging.SetFormatter(logging.MustStringFormatter(logFormat))
-	ctx.Logger = logging.MustGetLogger("ofelia")
+	ctx.Logger = &SLog{Logger: slog.Default()}
 	ctx.Job = job
 
 	go func() {

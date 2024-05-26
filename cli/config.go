@@ -1,15 +1,15 @@
 package cli
 
 import (
+	"log/slog"
 	"os"
 
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/mcuadros/ofelia/core"
-	"github.com/mcuadros/ofelia/middlewares"
-	logging "github.com/op/go-logging"
-
 	defaults "github.com/mcuadros/go-defaults"
 	gcfg "gopkg.in/gcfg.v1"
+
+	"github.com/mcuadros/ofelia/core"
+	"github.com/mcuadros/ofelia/middlewares"
 )
 
 const (
@@ -134,12 +134,7 @@ func (c *Config) buildDockerClient() (*docker.Client, error) {
 }
 
 func (c *Config) buildLogger() core.Logger {
-	stdout := logging.NewLogBackend(os.Stdout, "", 0)
-	// Set the backends to be used.
-	logging.SetBackend(stdout)
-	logging.SetFormatter(logging.MustStringFormatter(logFormat))
-
-	return logging.MustGetLogger("ofelia")
+	return &core.SLog{Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{}))}
 }
 
 func (c *Config) buildSchedulerMiddlewares(sh *core.Scheduler) {

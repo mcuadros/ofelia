@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"strings"
 	"time"
@@ -17,7 +18,7 @@ var (
 	// it as skipped.
 	ErrSkippedExecution   = errors.New("skipped execution")
 	ErrUnexpected         = errors.New("error unexpected, docker has returned exit code -1, maybe wrong user?")
-	ErrMaxTimeRunning     = errors.New("the job has exceed the maximum allowed time running.")
+	ErrMaxTimeRunning     = errors.New("the job has exceed the maximum allowed time running")
 	ErrLocalImageNotFound = errors.New("couldn't find image on the host")
 )
 
@@ -223,11 +224,30 @@ func (c *middlewareContainer) Middlewares() []Middleware {
 }
 
 type Logger interface {
-	Criticalf(format string, args ...interface{})
 	Debugf(format string, args ...interface{})
 	Errorf(format string, args ...interface{})
 	Noticef(format string, args ...interface{})
 	Warningf(format string, args ...interface{})
+}
+
+type SLog struct {
+	Logger *slog.Logger
+}
+
+func (l *SLog) Debugf(format string, args ...interface{}) {
+	l.Logger.Debug(fmt.Sprintf(format, args...))
+}
+
+func (l *SLog) Noticef(format string, args ...interface{}) {
+	l.Logger.Info(fmt.Sprintf(format, args...))
+}
+
+func (l *SLog) Errorf(format string, args ...interface{}) {
+	l.Logger.Error(fmt.Sprintf(format, args...))
+}
+
+func (l *SLog) Warningf(format string, args ...interface{}) {
+	l.Logger.Warn(fmt.Sprintf(format, args...))
 }
 
 func randomID() string {
@@ -242,7 +262,7 @@ func randomID() string {
 func buildFindLocalImageOptions(image string) docker.ListImagesOptions {
 	return docker.ListImagesOptions{
 		Filters: map[string][]string{
-			"reference": []string{image},
+			"reference": {image},
 		},
 	}
 }

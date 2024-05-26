@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"github.com/docker/docker/api/types/swarm"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/fsouza/go-dockerclient/testing"
-	logging "github.com/op/go-logging"
 
 	. "gopkg.in/check.v1"
 )
@@ -25,16 +25,12 @@ type SuiteRunServiceJob struct {
 
 var _ = Suite(&SuiteRunServiceJob{})
 
-const logFormat = "%{color}%{shortfile} ▶ %{level}%{color:reset} %{message}"
-
 var logger Logger
 
 func (s *SuiteRunServiceJob) SetUpTest(c *C) {
 	var err error
 
-	logging.SetFormatter(logging.MustStringFormatter(logFormat))
-
-	logger = logging.MustGetLogger("ofelia")
+	logger = &SLog{Logger: slog.Default()}
 	s.server, err = testing.NewServer("127.0.0.1:0", nil, nil)
 	c.Assert(err, IsNil)
 
