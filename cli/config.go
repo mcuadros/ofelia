@@ -3,8 +3,10 @@ package cli
 import (
 	"log/slog"
 	"os"
+	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/lmittmann/tint"
 	defaults "github.com/mcuadros/go-defaults"
 	gcfg "gopkg.in/gcfg.v1"
 
@@ -13,7 +15,6 @@ import (
 )
 
 const (
-	logFormat     = "%{time} %{color} %{shortfile} ▶ %{level}%{color:reset} %{message}"
 	jobExec       = "job-exec"
 	jobRun        = "job-run"
 	jobServiceRun = "job-service-run"
@@ -134,7 +135,8 @@ func (c *Config) buildDockerClient() (*docker.Client, error) {
 }
 
 func (c *Config) buildLogger() core.Logger {
-	return &core.SLog{Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{}))}
+	return &core.SLog{Logger: slog.New(tint.NewHandler(os.Stdout,
+		&tint.Options{AddSource: true, TimeFormat: time.RFC3339Nano}))}
 }
 
 func (c *Config) buildSchedulerMiddlewares(sh *core.Scheduler) {
