@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"crypto/tls"
+
 	"gopkg.in/gomail.v2"
 
 	"github.com/mcuadros/ofelia/core"
@@ -19,8 +20,8 @@ import (
 type MailConfig struct {
 	SMTPHost          string `gcfg:"smtp-host" mapstructure:"smtp-host"`
 	SMTPPort          int    `gcfg:"smtp-port" mapstructure:"smtp-port"`
-	SMTPUser          string `gcfg:"smtp-user" mapstructure:"smtp-user"`
-	SMTPPassword      string `gcfg:"smtp-password" mapstructure:"smtp-password"`
+	SMTPUser          string `gcfg:"smtp-user" mapstructure:"smtp-user" json:"-"`
+	SMTPPassword      string `gcfg:"smtp-password" mapstructure:"smtp-password" json:"-"`
 	SMTPTLSSkipVerify bool   `gcfg:"smtp-tls-skip-verify" mapstructure:"smtp-tls-skip-verify"`
 	EmailTo           string `gcfg:"email-to" mapstructure:"email-to"`
 	EmailFrom         string `gcfg:"email-from" mapstructure:"email-from"`

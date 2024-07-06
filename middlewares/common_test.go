@@ -50,6 +50,14 @@ type TestJob struct {
 	core.BareJob
 }
 
+type TestJobConfig struct {
+	TestJob
+	MailConfig
+	OverlapConfig
+	SaveConfig
+	SlackConfig
+}
+
 func (j *TestJob) Run(ctx *core.Context) error {
 	return nil
 }
