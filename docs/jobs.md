@@ -114,6 +114,12 @@ This job can be used in 2 situations:
     - **INI config**: `Volume` setting can be provided multiple times for multiple mounts.
     - **Labels config**: multiple mounts has to be provided as JSON array: `["/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"]`
   - *default*: Optional field, no default.
+- **VolumesFrom**
+  - *description*: Use the volumes from another container.
+  - *value*: The name of the container, from which the volumes will be used.
+    - **INI config**: `VolumesFrom` setting can be provided multiple times for multiple mounts.
+    - **Labels config**: multiple mounts has to be provided as JSON array: `["container-foo", "bar-container"]`
+  - *default*: Optional field, no default.
 - **Environment**
   - *description*: Environment variables you want to set in the running container.
   - *value*: Same format as used with `-e` flag within `docker run`. For example: `FOO=bar`
