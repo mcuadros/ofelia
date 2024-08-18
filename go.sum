@@ -20,12 +20,16 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/docker/docker v27.0.3+incompatible h1:aBGI9TeQ4MPlhquTQKq9XbK79rKFVwXNUAYz9aXyEBE=
 github.com/docker/docker v27.0.3+incompatible/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
+github.com/docker/docker v27.1.1+incompatible h1:hO/M4MtV36kzKldqnA37IWhebRA+LnqqcqDja6kVaKY=
+github.com/docker/docker v27.1.1+incompatible/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
 github.com/docker/go-connections v0.5.0 h1:USnMq7hx7gwdVZq1L49hLXaFtUdTADjXGp+uj1Br63c=
 github.com/docker/go-connections v0.5.0/go.mod h1:ov60Kzw0kKElRwhNs9UlUHAE/F9Fe6GLaXnqyDdmEXc=
 github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4=
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
 github.com/fsouza/go-dockerclient v1.11.0 h1:4ZAk6W7rPAtPXm7198EFqA5S68rwnNQORxlOA5OurCA=
 github.com/fsouza/go-dockerclient v1.11.0/go.mod h1:0I3TQCRseuPTzqlY4Y3ajfsg2VAdMQoazrkxJTiJg8s=
+github.com/fsouza/go-dockerclient v1.11.2 h1:Wos4OMUwIjOW2rt8Z10TZSJHxgQH0KcYyf3O86dqFII=
+github.com/fsouza/go-dockerclient v1.11.2/go.mod h1:HZN6ky2Mg5mfZO/WZBFDe6XCricqTnDJntfXHZTYnQQ=
 github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93 h1:70jFzur8/dg4E5NKFMOPLAxk4wSyGm3vQ+7PuBEoHzE=
 github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93/go.mod h1:ZpqkpUmnBz2Jz7hMGSPRbHtYC82FP/IZ1Y7A2riYH0s=
 github.com/gogo/protobuf v1.3.2 h1:Ov1cvc58UF3b5XjBnZv7+opcTcQFZebYjWzi34vdm4Q=

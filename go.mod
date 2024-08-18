@@ -2,13 +2,13 @@ module github.com/mcuadros/ofelia
 
 go 1.21
 
-toolchain go1.22.5
+toolchain go1.22.6
 
 require (
 	github.com/armon/circbuf v0.0.0-20190214190532-5111143e8da2
 	github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625
-	github.com/docker/docker v27.0.3+incompatible
-	github.com/fsouza/go-dockerclient v1.11.0
+	github.com/docker/docker v27.1.1+incompatible
+	github.com/fsouza/go-dockerclient v1.11.2
 	github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/mcuadros/go-defaults v1.2.0
