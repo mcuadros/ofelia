@@ -34,6 +34,7 @@ type RunJob struct {
 	Hostname    string
 	Container   string
 	Volume      []string
+	VolumesFrom []string
 	Environment []string
 
 	containerID string
@@ -177,6 +178,7 @@ func (j *RunJob) buildContainer() (*docker.Container, error) {
 		NetworkingConfig: &docker.NetworkingConfig{},
 		HostConfig: &docker.HostConfig{
 			Binds: j.Volume,
+			VolumesFrom: j.VolumesFrom,
 		},
 	})
 
