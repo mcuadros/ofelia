@@ -10,7 +10,7 @@ type ValidateCommand struct {
 // Execute runs the validation command
 func (c *ValidateCommand) Execute(args []string) error {
 	fmt.Printf("Validating %q ... ", c.ConfigFile)
-	config, err := BuildFromFile(c.ConfigFile)
+	config, err := BuildFromFile("", c.ConfigFile)
 	if err != nil {
 		fmt.Println("ERROR")
 		return err
