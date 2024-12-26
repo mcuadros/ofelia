@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"encoding/json"
 	"testing"
 
 	defaults "github.com/mcuadros/go-defaults"
 	"github.com/mcuadros/ofelia/core"
 	"github.com/mcuadros/ofelia/middlewares"
 	. "gopkg.in/check.v1"
+	gcfg "gopkg.in/gcfg.v1"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -66,6 +68,76 @@ func (s *SuiteConfig) TestExecJobBuild(c *C) {
 	j.buildMiddlewares()
 
 	c.Assert(j.Middlewares(), HasLen, 1)
+}
+
+func (s *SuiteConfig) TestConfigIni(c *C) {
+	testcases := []struct {
+		Ini            string
+		ExpectedConfig Config
+		Comment        string
+	}{
+		{
+			Ini: `
+				[job-exec "foo"]
+				schedule = @every 10s
+				command = echo \"foo\"
+				`,
+			ExpectedConfig: Config{
+				ExecJobs: map[string]*ExecJobConfig{
+					"foo": {ExecJob: core.ExecJob{BareJob: core.BareJob{
+						Schedule: "@every 10s",
+						Command:  `echo "foo"`,
+					}}},
+				},
+			},
+			Comment: "Test job-exec",
+		},
+		{
+			Ini: `
+				[job-run "foo"]
+				schedule = @every 10s
+				environment = "KEY1=value1"
+				Environment = "KEY2=value2"
+				`,
+			ExpectedConfig: Config{
+				RunJobs: map[string]*RunJobConfig{
+					"foo": {RunJob: core.RunJob{BareJob: core.BareJob{
+						Schedule: "@every 10s",
+					},
+						Environment: []string{"KEY1=value1", "KEY2=value2"},
+					}},
+				},
+			},
+			Comment: "Test job-run with Env Variables",
+		},
+		{
+			Ini: `
+				[job-run "foo"]
+				schedule = @every 10s
+				volumes-from = "volume1"
+				volumes-from = "volume2"
+				`,
+			ExpectedConfig: Config{
+				RunJobs: map[string]*RunJobConfig{
+					"foo": {RunJob: core.RunJob{BareJob: core.BareJob{
+						Schedule: "@every 10s",
+					},
+						VolumesFrom: []string{"volume1", "volume2"},
+					}},
+				},
+			},
+			Comment: "Test job-run with Env Variables",
+		},
+	}
+
+	for _, t := range testcases {
+		conf := Config{}
+		err := gcfg.ReadStringInto(&conf, t.Ini)
+		c.Assert(err, IsNil)
+		if !c.Check(conf, DeepEquals, t.ExpectedConfig) {
+			c.Errorf("Test %q\nExpected %s, but got %s", t.Comment, toJSON(t.ExpectedConfig), toJSON(conf))
+		}
+	}
 }
 
 func (s *SuiteConfig) TestLabelsConfig(c *C) {
@@ -285,12 +357,56 @@ func (s *SuiteConfig) TestLabelsConfig(c *C) {
 			},
 			Comment: "Test run job with environment variables",
 		},
+		{
+			Labels: map[string]map[string]string{
+				"some": {
+					requiredLabel: "true",
+					serviceLabel:  "true",
+					labelPrefix + "." + jobRun + ".job1.schedule":     "schedule1",
+					labelPrefix + "." + jobRun + ".job1.command":      "command1",
+					labelPrefix + "." + jobRun + ".job1.volumes-from": "test123",
+					labelPrefix + "." + jobRun + ".job2.schedule":     "schedule2",
+					labelPrefix + "." + jobRun + ".job2.command":      "command2",
+					labelPrefix + "." + jobRun + ".job2.volumes-from": `["test321", "test456"]`,
+				},
+			},
+			ExpectedConfig: Config{
+				RunJobs: map[string]*RunJobConfig{
+					"job1": {
+						RunJob: core.RunJob{
+							BareJob: core.BareJob{
+								Schedule: "schedule1",
+								Command:  "command1",
+							},
+							VolumesFrom: []string{"test123"},
+						},
+					},
+					"job2": {
+						RunJob: core.RunJob{
+							BareJob: core.BareJob{
+								Schedule: "schedule2",
+								Command:  "command2",
+							},
+							VolumesFrom: []string{"test321", "test456"},
+						},
+					},
+				},
+			},
+			Comment: "Test run job with volumes-from",
+		},
 	}
 
 	for _, t := range testcases {
 		var conf = Config{}
 		err := conf.buildFromDockerLabels(t.Labels)
 		c.Assert(err, IsNil)
-		c.Assert(conf, DeepEquals, t.ExpectedConfig)
+		if !c.Check(conf, DeepEquals, t.ExpectedConfig) {
+			c.Errorf("Test %q\nExpected %s, but got %s", t.Comment, toJSON(t.ExpectedConfig), toJSON(conf))
+		}
 	}
+}
+
+func toJSON(any interface{}) string {
+	b, _ := json.MarshalIndent(any, "", "  ")
+	return string(b)
 }
