@@ -5,6 +5,10 @@
 - [job-local](#job-local)
 - [job-service-run](#job-service-run)
 
+
+>[!IMPORTANT]
+>Configuration keys are not case sensitive
+
 ## Job-exec
 
 This job is executed inside a running container. Similar to `docker exec`
@@ -114,10 +118,16 @@ This job can be used in 2 situations:
     - **INI config**: `Volume` setting can be provided multiple times for multiple mounts.
     - **Labels config**: multiple mounts has to be provided as JSON array: `["/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"]`
   - *default*: Optional field, no default.
+- **Volumes-From**
+  - *description*: Use the volumes from another container.
+  - *value*: The name of the container, from which the volumes will be used.
+    - **INI config**: setting can be provided multiple times for multiple mounts.
+    - **Labels config**: multiple mounts has to be provided as JSON array: `["container-foo", "bar-container"]`
+  - *default*: Optional field, no default.
 - **Environment**
   - *description*: Environment variables you want to set in the running container.
   - *value*: Same format as used with `-e` flag within `docker run`. For example: `FOO=bar`
-    - **INI config**: `Environment` setting can be provided multiple times for multiple environment variables.
+    - **INI config**: setting can be provided multiple times for multiple environment variables.
     - **Labels config**: multiple environment variables has to be provided as JSON array: `["FOO=bar", "BAZ=qux"]`
   - *default*: Optional field, no default.
   
