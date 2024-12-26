@@ -7,7 +7,7 @@ toolchain go1.23.4
 require (
 	github.com/armon/circbuf v0.0.0-20190214190532-5111143e8da2
 	github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625
-	github.com/docker/docker v27.1.2+incompatible
+	github.com/docker/docker v27.4.1+incompatible
 	github.com/fsouza/go-dockerclient v1.12.0
 	github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93
 	github.com/jessevdk/go-flags v1.6.1
