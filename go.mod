@@ -1,14 +1,14 @@
 module github.com/mcuadros/ofelia
 
-go 1.21
+go 1.22
 
 toolchain go1.23.4
 
 require (
 	github.com/armon/circbuf v0.0.0-20190214190532-5111143e8da2
 	github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625
-	github.com/docker/docker v27.1.1+incompatible
-	github.com/fsouza/go-dockerclient v1.11.2
+	github.com/docker/docker v27.1.2+incompatible
+	github.com/fsouza/go-dockerclient v1.12.0
 	github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/mcuadros/go-defaults v1.2.0
@@ -36,6 +36,7 @@ require (
 	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
 	github.com/moby/sys/user v0.1.0 // indirect
+	github.com/moby/sys/userns v0.1.0 // indirect
 	github.com/moby/term v0.5.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -43,7 +44,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/sys v0.23.0 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
