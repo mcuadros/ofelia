@@ -5,6 +5,10 @@
 - [job-local](#job-local)
 - [job-service-run](#job-service-run)
 
+
+>[!IMPORTANT]
+>Configuration keys are not case sensitive
+
 ## Job-exec
 
 This job is executed inside a running container. Similar to `docker exec`
@@ -71,9 +75,6 @@ This job can be used in 2 situations:
 1. To start a stopped container, similar to `docker start`
 
 ### Parameters
-
->[!IMPORTANT]
->Configuration keys are not case sensitive
 
 - **Schedule** * (1,2)
   - *description*: When the job should be executed. E.g. every 10 seconds or every night at 1 AM.
