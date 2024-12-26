@@ -13,6 +13,7 @@ type DaemonCommand struct {
 	ConfigFile         string   `long:"config" description:"configuration file" default:"/etc/ofelia.conf"`
 	DockerLabelsConfig bool     `short:"d" long:"docker" description:"read configurations from docker labels"`
 	DockerFilters      []string `short:"f" long:"docker-filter" description:"filter to select docker containers"`
+	LogLevel           string   `long:"log-level" description:"log level" default:"DEBUG" choice:"DEBUG" choice:"WARNING" choice:"ERROR"`
 
 	config    *Config
 	scheduler *core.Scheduler
@@ -42,9 +43,9 @@ func (c *DaemonCommand) Execute(args []string) error {
 
 func (c *DaemonCommand) boot() (err error) {
 	if c.DockerLabelsConfig {
-		c.scheduler, err = BuildFromDockerLabels(c.DockerFilters...)
+		c.scheduler, err = BuildFromDockerLabels(c.LogLevel, c.DockerFilters...)
 	} else {
-		c.scheduler, err = BuildFromFile(c.ConfigFile)
+		c.scheduler, err = BuildFromFile(c.LogLevel, c.ConfigFile)
 	}
 
 	return
