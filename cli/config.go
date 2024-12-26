@@ -25,9 +25,10 @@ var IsDockerEnv bool
 // Config contains the configuration
 type Config struct {
 	Global struct {
-		middlewares.SlackConfig `mapstructure:",squash"`
-		middlewares.SaveConfig  `mapstructure:",squash"`
-		middlewares.MailConfig  `mapstructure:",squash"`
+		middlewares.SlackConfig			`mapstructure:",squash"`
+		middlewares.SaveConfig 			`mapstructure:",squash"`
+		middlewares.MailConfig			`mapstructure:",squash"`
+		LogFormat				string	`gcfg:"log-format" mapstructure:"log-format"`
 	}
 	ExecJobs    map[string]*ExecJobConfig    `gcfg:"job-exec" mapstructure:"job-exec,squash"`
 	RunJobs     map[string]*RunJobConfig     `gcfg:"job-run" mapstructure:"job-run,squash"`
@@ -134,6 +135,12 @@ func (c *Config) buildDockerClient() (*docker.Client, error) {
 }
 
 func (c *Config) buildLogger() core.Logger {
+	// Set to default log format if not specified
+	logFormat := c.Global.LogFormat
+	if logFormat == "" {
+		logFormat = defaultLogFormat
+	}
+
 	stdout := logging.NewLogBackend(os.Stdout, "", 0)
 	// Set the backends to be used.
 	logging.SetBackend(stdout)
