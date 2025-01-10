@@ -1,4 +1,4 @@
-# Ofelia - a job scheduler [![GitHub version](https://badge.fury.io/gh/mcuadros%2Fofelia.svg)](https://github.com/mcuadros/ofelia/releases) ![Test](https://github.com/mcuadros/ofelia/workflows/Test/badge.svg)
+# Ofelia - a job scheduler [![GitHub version](https://badge.fury.io/gh/poplawskidaniel%2Fofelia.svg)](https://github.com/poplawskidaniel/ofelia/releases) ![Test](https://github.com/poplawskidaniel/ofelia/workflows/Test/badge.svg)
 
 <img src="https://weirdspace.dk/FranciscoIbanez/Graphics/Ofelia.gif" align="right" width="180px" height="300px" vspace="20" />
 
@@ -181,6 +181,6 @@ These can be configured by setting the options listed below in the `[global]` se
 
 The easiest way to deploy **ofelia** is using *Docker*. See examples above.
 
-If don't want to run **ofelia** using our *Docker* image you can download a binary from [releases](https://github.com/mcuadros/ofelia/releases) page.
+If don't want to run **ofelia** using our *Docker* image you can download a binary from [releases](https://github.com/poplawskidaniel/ofelia/releases) page.
 
 > Why the project is named Ofelia? Ofelia is the name of the office assistant from the Spanish comic [Mortadelo y Filemón](https://en.wikipedia.org/wiki/Mort_%26_Phil)
