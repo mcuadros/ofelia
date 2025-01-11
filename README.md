@@ -165,11 +165,8 @@ These can be configured by setting the options listed below in the `[global]` se
 - `slack-webhook` - URL of the slack webhook.
 - `slack-only-on-error` - only send a slack message if the execution was not successful.
 
-- `signal-` - URL of the slack webhook.
-- `slack-only-on-error` - only send a slack message if the execution was not successful.
-
 **Signal** - to send messages to Signal need to start and configure signal-cli-rest-api from here: https://github.com/bbernhard/signal-cli-rest-api
-- `signal-url` - URL of the signal-sli-rest-api server like 'http:localhost:6001'
+- `signal-url` - URL of the signal-sli-rest-api server like 'http://localhost:6001'
 - `signal-number` - number FROM message will be sent (Must be already registered) like: '+48123456789'
 - `signal-recipients` - list of recipients (could be a number or group Id like: 'group.TkpRc6pmK2ZwdVN2SCtSClFhMExwMWVMYkQ5RDNnSkl2UC9PMXVhV1FyUT0='
 - `signal-only-on-error` - only send a signal message if the execution was not successful.
