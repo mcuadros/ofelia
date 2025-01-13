@@ -1,5 +1,7 @@
 github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 h1:bvDV9vkmnHYOMsOr4WLk+Vo07yKIzd94sVoIqshQ4bU=
 github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24/go.mod h1:8o94RPi1/7XTJvwPpRSzSUedZrtlirdB3r9Z20bi2f8=
+github.com/AnthonyHewins/gotfy v0.0.10 h1:23ZjRVG7wuGuqn7CQq/bOrkXa3gg2XyYrrD3RYEmvE8=
+github.com/AnthonyHewins/gotfy v0.0.10/go.mod h1:q2orErDDpl9/gZ5L4oJhejb7TaP/eBdtkzjWDruNRlg=
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 h1:L/gRVlceqvL25UVaW/CKtUDjefjrs0SPonmDGUVOYP0=
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
@@ -26,6 +28,8 @@ github.com/fsouza/go-dockerclient v1.12.0 h1:S2f2crEUbBNCFiF06kR/GvioEB8EMsb3Td/
 github.com/fsouza/go-dockerclient v1.12.0/go.mod h1:YWUtjg8japrqD/80L98nTtCoxQFp5B5wrSsnyeB5lFo=
 github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93 h1:70jFzur8/dg4E5NKFMOPLAxk4wSyGm3vQ+7PuBEoHzE=
 github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93/go.mod h1:ZpqkpUmnBz2Jz7hMGSPRbHtYC82FP/IZ1Y7A2riYH0s=
+github.com/goccy/go-json v0.10.2 h1:CrxCmQqYDkv1z7lO7Wbh2HN93uovUHgrECaO5ZrCXAU=
+github.com/goccy/go-json v0.10.2/go.mod h1:6MelG93GURQebXPDq3khkgXZkazVtN9CRI+MGFi0w8I=
 github.com/gogo/protobuf v1.3.2 h1:Ov1cvc58UF3b5XjBnZv7+opcTcQFZebYjWzi34vdm4Q=
 github.com/gogo/protobuf v1.3.2/go.mod h1:P1XiOD3dCwIKUDQYPy72D8LYyHL2YPYrpS2s69NZV8Q=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
