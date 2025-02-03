@@ -28,8 +28,29 @@ jobs:
     - name: Test
       run: go test ./...
 
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ['oldstable', 'stable']
+        platform: [ubuntu-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+
     - name: Integration tests
       working-directory: test/test-exec
+      env:
+        OUTPUT_DIR: ${{ runner.temp }}
+        COMPOSE_PROJECT_NAME: ${{ github.workflow_ref }}
       run: |
         go install github.com/magefile/mage@latest
         mage test
