@@ -30,4 +30,6 @@ jobs:
 
     - name: Integration tests
       working-directory: test/test-exec
-      run: mage test
+      run: |
+        go install github.com/magefile/mage@latest
+        mage test
