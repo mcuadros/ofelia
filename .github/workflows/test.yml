@@ -50,7 +50,7 @@ jobs:
       working-directory: test/test-exec
       env:
         OUTPUT_DIR: ${{ runner.temp }}
-        COMPOSE_PROJECT_NAME: ${{ github.workflow_ref }}
+        COMPOSE_PROJECT_NAME: ${{ github.run_id }}
       run: |
         go install github.com/magefile/mage@latest
         mage test
