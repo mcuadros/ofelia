@@ -13,7 +13,7 @@ import (
 
 // Runs go mod download and then installs the binary.
 func Test() error {
-	if err := sh.Run("docker", "compose", "up", "--exit-code-from", "sleep1"); err != nil {
+	if err := sh.RunV("docker", "compose", "up", "--exit-code-from", "sleep1"); err != nil {
 		return err
 	}
 
