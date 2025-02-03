@@ -27,3 +27,7 @@ jobs:
 
     - name: Test
       run: go test ./...
+
+    - name: Integration tests
+      workdir: test/test-exec
+      run: mage test
