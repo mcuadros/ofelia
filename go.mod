@@ -11,6 +11,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.12.0
 	github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93
 	github.com/jessevdk/go-flags v1.6.1
+	github.com/magefile/mage v1.15.0
 	github.com/mcuadros/go-defaults v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
