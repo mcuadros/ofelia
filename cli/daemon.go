@@ -10,21 +10,16 @@ import (
 
 // DaemonCommand daemon process
 type DaemonCommand struct {
-	ConfigFile         string   `long:"config" description:"configuration file" default:"/etc/ofelia.conf"`
-	DockerLabelsConfig bool     `short:"d" long:"docker" description:"read configurations from docker labels"`
-	DockerFilters      []string `short:"f" long:"docker-filter" description:"filter to select docker containers"`
-
-	config    *Config
-	scheduler *core.Scheduler
-	signals   chan os.Signal
-	done      chan bool
+	ConfigFile    string   `long:"config" description:"configuration file" default:"/etc/ofelia.conf"`
+	DockerFilters []string `short:"f" long:"docker-filter" description:"filter to select docker containers. https://docs.docker.com/reference/cli/docker/container/ls/#filter"`
+	scheduler     *core.Scheduler
+	signals       chan os.Signal
+	done          chan bool
+	Logger        core.Logger
 }
 
 // Execute runs the daemon
 func (c *DaemonCommand) Execute(args []string) error {
-	_, err := os.Stat("/.dockerenv")
-	IsDockerEnv = !os.IsNotExist(err)
-
 	if err := c.boot(); err != nil {
 		return err
 	}
@@ -41,13 +36,29 @@ func (c *DaemonCommand) Execute(args []string) error {
 }
 
 func (c *DaemonCommand) boot() (err error) {
-	if c.DockerLabelsConfig {
-		c.scheduler, err = BuildFromDockerLabels(c.DockerFilters...)
-	} else {
-		c.scheduler, err = BuildFromFile(c.ConfigFile)
+	// Always try to read the config file, as there are options such as globals or some tasks that can be specified there and not in docker
+	config, err := BuildFromFile(c.ConfigFile, c.Logger)
+	if err != nil {
+		c.Logger.Debugf("Config file: %v not found", c.ConfigFile)
+	}
+	scheduler := core.NewScheduler(c.Logger)
+
+	config.sh = scheduler
+	config.buildSchedulerMiddlewares(scheduler)
+
+	config.dockerHandler, err = NewDockerHandler(config, c.DockerFilters, c.Logger)
+	if err != nil {
+		return err
 	}
 
-	return
+	err = config.InitializeApp()
+	if err != nil {
+		c.Logger.Criticalf("Can't start the app: %v", err)
+	}
+
+	c.scheduler = config.sh
+
+	return err
 }
 
 func (c *DaemonCommand) start() error {
@@ -67,7 +78,7 @@ func (c *DaemonCommand) setSignals() {
 
 	go func() {
 		sig := <-c.signals
-		c.scheduler.Logger.Warningf(
+		c.Logger.Warningf(
 			"Signal received: %s, shutting down the process\n", sig,
 		)
 
@@ -81,6 +92,6 @@ func (c *DaemonCommand) shutdown() error {
 		return nil
 	}
 
-	c.scheduler.Logger.Warningf("Waiting running jobs.")
+	c.Logger.Warningf("Waiting running jobs.")
 	return c.scheduler.Stop()
 }
