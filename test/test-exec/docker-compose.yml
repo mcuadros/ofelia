@@ -8,17 +8,17 @@ services:
     command: daemon --docker
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ${TMP:-/tmp}/${COMPOSE_PROJECT_NAME}:/tmp
+      - &output_mount ${OUTPUT_DIR:-/tmp}/${COMPOSE_PROJECT_NAME}:/tmp
     labels:
-      ofelia.job-local.my-local-job.schedule: "@every 5s"
-      ofelia.job-local.my-local-job.command: /bin/sh -c 'date | tee -a /tmp/ofelia.txt'"
+      ofelia.job-local.my-local-job.schedule: &schedule_5s "@every 5s"
+      ofelia.job-local.my-local-job.command: &cmd_date_tee /bin/sh -c 'date | tee -a /tmp/ofelia.txt'"
 
   sleep1:
     image: alpine
     command: sleep 15
     volumes:
-      - ${TMP:-/tmp}/${COMPOSE_PROJECT_NAME}:/tmp
+      - *output_mount
     labels:
       ofelia.enabled: "true"
-      ofelia.job-exec.my-exec-job.schedule: "@every 5s"
-      ofelia.job-exec.my-exec-job.command: /bin/sh -c 'date | tee -a /tmp/sleep1.txt'"
+      ofelia.job-exec.my-exec-job.schedule: *schedule_5s
+      ofelia.job-exec.my-exec-job.command: *cmd_date_tee
