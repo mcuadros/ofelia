@@ -17,7 +17,6 @@ func (s *SuiteScheduler) TestAddJob(c *C) {
 	sc := NewScheduler(&TestLogger{})
 	err := sc.AddJob(job)
 	c.Assert(err, IsNil)
-	c.Assert(sc.Jobs, HasLen, 1)
 
 	e := sc.cron.Entries()
 	c.Assert(e, HasLen, 1)
@@ -51,7 +50,6 @@ func (s *SuiteScheduler) TestMergeMiddlewaresSame(c *C) {
 	sc := NewScheduler(&TestLogger{})
 	sc.Use(mA)
 	sc.AddJob(job)
-	sc.mergeMiddlewares()
 
 	m := job.Middlewares()
 	c.Assert(m, HasLen, 1)

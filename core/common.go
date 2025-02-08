@@ -31,6 +31,8 @@ type Job interface {
 	GetName() string
 	GetSchedule() string
 	GetCommand() string
+	GetCronJobID() int
+	SetCronJobID(int)
 	Middlewares() []Middleware
 	Use(...Middleware)
 	Run(*Context) error

@@ -9,12 +9,13 @@ require (
 	github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625
 	github.com/docker/docker v27.5.1+incompatible
 	github.com/fsouza/go-dockerclient v1.12.0
+	github.com/go-viper/mapstructure/v2 v2.2.1
 	github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93
+	github.com/gohugoio/hashstructure v0.3.0
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/mcuadros/go-defaults v1.2.0
-	github.com/mitchellh/mapstructure v1.5.0
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
-	github.com/robfig/cron v1.2.0
+	github.com/robfig/cron/v3 v3.0.1
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df

@@ -8,7 +8,8 @@ import (
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
+	"github.com/mcuadros/ofelia/core"
 )
 
 const (
@@ -25,26 +26,71 @@ var (
 	errFailedToListContainers      = errors.New("failed to list containers")
 )
 
-func parseFilter(filter string) (key, value string, err error) {
-	parts := strings.SplitN(filter, "=", 2)
-	if len(parts) != 2 {
-		return "", "", errInvalidDockerFilter
-	}
-	return parts[0], parts[1], nil
+type DockerHandler struct {
+	dockerClient *docker.Client
+	notifier     dockerLabelsUpdate
+	logger       core.Logger
+	filters      []string
 }
 
-func getLabels(d *docker.Client, filterFlags []string) (map[string]map[string]string, error) {
-	// sleep before querying containers
-	// because docker not always propagating labels in time
-	// so ofelia app can't find it's own container
-	if IsDockerEnv {
-		time.Sleep(1 * time.Second)
+type dockerLabelsUpdate interface {
+	dockerLabelsUpdate(map[string]map[string]string)
+}
+
+// TODO: Implement an interface so the code does not have to use third parties directly
+func (c *DockerHandler) GetInternalDockerClient() *docker.Client {
+	return c.dockerClient
+}
+
+func (c *DockerHandler) buildDockerClient() (*docker.Client, error) {
+	d, err := docker.NewClientFromEnv()
+	if err != nil {
+		return nil, err
 	}
 
+	return d, nil
+}
+
+func NewDockerHandler(notifier dockerLabelsUpdate, dockerFilters []string, logger core.Logger) (*DockerHandler, error) {
+	c := &DockerHandler{
+		filters: dockerFilters,
+	}
+	var err error
+	c.dockerClient, err = c.buildDockerClient()
+	c.notifier = notifier
+	c.logger = logger
+	if err != nil {
+		return nil, err
+	}
+	// Do a sanity check on docker
+	_, err = c.dockerClient.Info()
+	if err != nil {
+		return nil, err
+	}
+
+	go c.watch()
+	return c, nil
+}
+
+func (c *DockerHandler) watch() {
+	// Poll for changes
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		labels, err := c.GetDockerLabels()
+		// Do not print or care if there is no container up right now
+		if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
+			c.logger.Debugf("%v", err)
+		}
+		c.notifier.dockerLabelsUpdate(labels)
+	}
+}
+
+func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) {
 	var filters = map[string][]string{
 		"label": {requiredLabelFilter},
 	}
-	for _, f := range filterFlags {
+	for _, f := range c.filters {
 		key, value, err := parseFilter(f)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s", err, f)
@@ -52,7 +98,7 @@ func getLabels(d *docker.Client, filterFlags []string) (map[string]map[string]st
 		filters[key] = append(filters[key], value)
 	}
 
-	conts, err := d.ListContainers(docker.ListContainersOptions{Filters: filters})
+	conts, err := c.dockerClient.ListContainers(docker.ListContainersOptions{Filters: filters})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errFailedToListContainers, err)
 	} else if len(conts) == 0 {
@@ -77,6 +123,14 @@ func getLabels(d *docker.Client, filterFlags []string) (map[string]map[string]st
 	}
 
 	return labels, nil
+}
+
+func parseFilter(filter string) (key, value string, err error) {
+	parts := strings.SplitN(filter, "=", 2)
+	if len(parts) != 2 {
+		return "", "", errInvalidDockerFilter
+	}
+	return parts[0], parts[1], nil
 }
 
 func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) error {
