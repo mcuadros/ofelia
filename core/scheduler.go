@@ -53,11 +53,16 @@ func (s *Scheduler) Start() error {
 	}
 
 	s.Logger.Debugf("Starting scheduler with %d jobs", len(s.Jobs))
+	s.logMiddlewares()
 
 	s.mergeMiddlewares()
 	s.isRunning = true
 	s.cron.Start()
 	return nil
+}
+
+func (s *Scheduler) logMiddlewares() {
+	s.Logger.Debugf("Configured %d Middleware(s): %g", len(s.middlewareContainer.m), s.middlewareContainer.m)
 }
 
 func (s *Scheduler) mergeMiddlewares() {
