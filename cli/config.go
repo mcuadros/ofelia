@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"regexp"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/mcuadros/ofelia/core"
@@ -56,10 +57,27 @@ func BuildFromDockerLabels(filterFlags ...string) (*core.Scheduler, error) {
 	return c.build()
 }
 
+var envVarPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
+
+func replaceEnvVariables(config string) string {
+	return envVarPattern.ReplaceAllStringFunc(config, func(match string) string {
+		varName := envVarPattern.FindStringSubmatch(match)[1]
+		if value, exists := os.LookupEnv(varName); exists {
+			return value
+		}
+		return match
+	})
+}
+
 // BuildFromFile builds a scheduler using the config from a file
 func BuildFromFile(filename string) (*core.Scheduler, error) {
 	c := &Config{}
-	if err := gcfg.ReadFileInto(c, filename); err != nil {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	configStr := replaceEnvVariables(string(data))
+	if err := gcfg.ReadStringInto(c, configStr); err != nil {
 		return nil, err
 	}
 
@@ -69,6 +87,7 @@ func BuildFromFile(filename string) (*core.Scheduler, error) {
 // BuildFromString builds a scheduler using the config from a string
 func BuildFromString(config string) (*core.Scheduler, error) {
 	c := &Config{}
+	config = replaceEnvVariables(config)
 	if err := gcfg.ReadStringInto(c, config); err != nil {
 		return nil, err
 	}
