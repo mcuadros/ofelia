@@ -2,7 +2,7 @@ module github.com/mcuadros/ofelia
 
 go 1.23
 
-toolchain go1.24.0
+toolchain go1.24.1
 
 require (
 	github.com/armon/circbuf v0.0.0-20190214190532-5111143e8da2
