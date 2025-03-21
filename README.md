@@ -145,6 +145,7 @@ services:
 - `mail` to send mails
 - `save` to save structured execution reports to a directory
 - `slack` to send messages via a slack webhook
+- `signal` to send messages via signal
 
 These can be configured by setting the options listed below in the `[global]` section of your config.ini, or via docker labels on the `ofelia` container (regardless of where your job will actually be running).
 
@@ -163,6 +164,12 @@ These can be configured by setting the options listed below in the `[global]` se
 
 - `slack-webhook` - URL of the slack webhook.
 - `slack-only-on-error` - only send a slack message if the execution was not successful.
+
+**Signal** - to send messages to Signal need to start and configure signal-cli-rest-api from here: https://github.com/bbernhard/signal-cli-rest-api
+- `signal-url` - URL of the signal-sli-rest-api server like 'http://localhost:6001'
+- `signal-number` - number FROM message will be sent (Must be already registered) like: '+48123456789'
+- `signal-recipients` - list of recipients (could be a number or group Id like: 'group.TkpRc6pmK2ZwdVN2SCtSClFhMExwMWVMYkQ5RDNnSkl2UC9PMXVhV1FyUT0='
+- `signal-only-on-error` - only send a signal message if the execution was not successful.
 
 ### Overlap
 **Ofelia** can prevent that a job is run twice in parallel (e.g. if the first execution didn't complete before a second execution was scheduled. If a job has the option `no-overlap` set, it will not be run concurrently. 
