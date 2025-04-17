@@ -18,7 +18,7 @@ type SuiteConfig struct{}
 var _ = Suite(&SuiteConfig{})
 
 func (s *SuiteConfig) TestBuildFromString(c *C) {
-	sh, err := BuildFromString(`
+	sh, err := BuildFromString("", `
 		[job-exec "foo"]
 		schedule = @every 10s
 

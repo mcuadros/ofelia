@@ -36,7 +36,7 @@ type Config struct {
 }
 
 // BuildFromDockerLabels builds a scheduler using the config from a docker labels
-func BuildFromDockerLabels(filterFlags ...string) (*core.Scheduler, error) {
+func BuildFromDockerLabels(logLevel string, filterFlags ...string) (*core.Scheduler, error) {
 	c := &Config{}
 
 	d, err := c.buildDockerClient()
@@ -53,30 +53,30 @@ func BuildFromDockerLabels(filterFlags ...string) (*core.Scheduler, error) {
 		return nil, err
 	}
 
-	return c.build()
+	return c.build(logLevel)
 }
 
 // BuildFromFile builds a scheduler using the config from a file
-func BuildFromFile(filename string) (*core.Scheduler, error) {
+func BuildFromFile(logLevel string, filename string) (*core.Scheduler, error) {
 	c := &Config{}
 	if err := gcfg.ReadFileInto(c, filename); err != nil {
 		return nil, err
 	}
 
-	return c.build()
+	return c.build(logLevel)
 }
 
 // BuildFromString builds a scheduler using the config from a string
-func BuildFromString(config string) (*core.Scheduler, error) {
+func BuildFromString(logLevel string, config string) (*core.Scheduler, error) {
 	c := &Config{}
 	if err := gcfg.ReadStringInto(c, config); err != nil {
 		return nil, err
 	}
 
-	return c.build()
+	return c.build(logLevel)
 }
 
-func (c *Config) build() (*core.Scheduler, error) {
+func (c *Config) build(logLevel string) (*core.Scheduler, error) {
 	defaults.SetDefaults(c)
 
 	d, err := c.buildDockerClient()
@@ -84,7 +84,7 @@ func (c *Config) build() (*core.Scheduler, error) {
 		return nil, err
 	}
 
-	sh := core.NewScheduler(c.buildLogger())
+	sh := core.NewScheduler(c.buildLogger(logLevel))
 	c.buildSchedulerMiddlewares(sh)
 
 	for name, j := range c.ExecJobs {
@@ -133,10 +133,15 @@ func (c *Config) buildDockerClient() (*docker.Client, error) {
 	return d, nil
 }
 
-func (c *Config) buildLogger() core.Logger {
+func (c *Config) buildLogger(logLevel string) core.Logger {
 	stdout := logging.NewLogBackend(os.Stdout, "", 0)
 	// Set the backends to be used.
 	logging.SetBackend(stdout)
+	if logLevel == "" {
+		logLevel = "DEBUG"
+	}
+	level, _ := logging.LogLevel(logLevel)
+	logging.SetLevel(level, "")
 	logging.SetFormatter(logging.MustStringFormatter(logFormat))
 
 	return logging.MustGetLogger("ofelia")

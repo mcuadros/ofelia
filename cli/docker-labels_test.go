@@ -60,7 +60,7 @@ func (s *TestDockerSuit) TestLabelsFilterJobsCount(c *check.C) {
 	_, err := s.startTestContainersWithLabels(containersToStartWithLabels)
 	c.Assert(err, check.IsNil)
 
-	scheduler, err := BuildFromDockerLabels("label=" + strings.Join(filterLabel, "="))
+	scheduler, err := BuildFromDockerLabels("DEBUG", "label="+strings.Join(filterLabel, "="))
 	c.Assert(err, check.IsNil)
 	c.Assert(scheduler, check.NotNil)
 
@@ -79,7 +79,7 @@ func (s *TestDockerSuit) TestFilterErrorsLabel(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	{
-		scheduler, err := BuildFromDockerLabels()
+		scheduler, err := BuildFromDockerLabels("DEBUG")
 		c.Assert(errors.Is(err, errNoContainersMatchingFilters), check.Equals, true)
 		c.Assert(strings.Contains(err.Error(), requiredLabelFilter), check.Equals, true)
 		c.Assert(scheduler, check.IsNil)
@@ -87,7 +87,7 @@ func (s *TestDockerSuit) TestFilterErrorsLabel(c *check.C) {
 
 	customLabelFilter := []string{"label", "test=123"}
 	{
-		scheduler, err := BuildFromDockerLabels(strings.Join(customLabelFilter, "="))
+		scheduler, err := BuildFromDockerLabels("DEBUG", strings.Join(customLabelFilter, "="))
 		c.Assert(errors.Is(err, errNoContainersMatchingFilters), check.Equals, true)
 		c.Assert(err, check.ErrorMatches, fmt.Sprintf(`.*%s:.*%s.*`, "label", requiredLabel))
 		c.Assert(err, check.ErrorMatches, fmt.Sprintf(`.*%s:.*%s.*`, customLabelFilter[0], customLabelFilter[1]))
@@ -96,7 +96,7 @@ func (s *TestDockerSuit) TestFilterErrorsLabel(c *check.C) {
 
 	{
 		customNameFilter := []string{"name", "test-name"}
-		scheduler, err := BuildFromDockerLabels(strings.Join(customLabelFilter, "="), strings.Join(customNameFilter, "="))
+		scheduler, err := BuildFromDockerLabels("DEBUG", strings.Join(customLabelFilter, "="), strings.Join(customNameFilter, "="))
 		c.Assert(errors.Is(err, errNoContainersMatchingFilters), check.Equals, true)
 		c.Assert(err, check.ErrorMatches, fmt.Sprintf(`.*%s:.*%s.*`, "label", requiredLabel))
 		c.Assert(err, check.ErrorMatches, fmt.Sprintf(`.*%s:.*%s.*`, customLabelFilter[0], customLabelFilter[1]))
@@ -106,7 +106,7 @@ func (s *TestDockerSuit) TestFilterErrorsLabel(c *check.C) {
 
 	{
 		customBadFilter := "label-test"
-		scheduler, err := BuildFromDockerLabels(customBadFilter)
+		scheduler, err := BuildFromDockerLabels("DEBUG", customBadFilter)
 		c.Assert(errors.Is(err, errInvalidDockerFilter), check.Equals, true)
 		c.Assert(scheduler, check.IsNil)
 	}
