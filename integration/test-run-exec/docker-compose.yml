@@ -1,0 +1,34 @@
+# Run this with: docker compose up --exit-code-from sleep1
+services:
+  sleep1:
+    image: &alpine alpine:3.21.3
+    command: sleep ${SLEEP_FOR:-15}
+    environment:
+      OUTPUT_FILE: ${EXEC_OUTPUT_FILE:-sleep.txt}
+    volumes:
+      - &output_mount ${OUTPUT_DIR:-/tmp/${COMPOSE_PROJECT_NAME}}/:/tmp
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.my-exec-job.schedule: &schedule ${SCHEDULE:-@every 5s}
+      ofelia.job-exec.my-exec-job.command: &cmd_date_tee /bin/sh -c 'date | tee -a /tmp/$${OUTPUT_FILE}'"
+
+  ofelia:
+    build:
+      dockerfile: Dockerfile
+      context: ../../.
+    depends_on:
+      - sleep1
+    command: daemon --docker
+    environment:
+      OUTPUT_FILE: ${LOCAL_EXEC_OUTPUT_FILE:-ofelia.txt}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - *output_mount
+    labels:
+      ofelia.job-local.my-local-job.schedule: *schedule
+      ofelia.job-local.my-local-job.command: *cmd_date_tee
+      ofelia.job-run.my-run-job.schedule: *schedule
+      ofelia.job-run.my-run-job.command: *cmd_date_tee
+      ofelia.job-run.my-run-job.image: *alpine
+      ofelia.job-run.my-run-job.volume: *output_mount
+      ofelia.job-run.my-run-job.environment: OUTPUT_FILE=${RUN_OUTPUT_FILE:-run.txt}
