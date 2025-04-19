@@ -29,13 +29,15 @@ func TestIntegration(t *testing.T) {
 	t.Setenv("EXEC_OUTPUT_FILE", exec_filename)
 	t.Setenv("RUN_OUTPUT_FILE", run_filename)
 
-	t.Log("Printing docker compose config")
-	if err := sh.RunV("docker", "compose", "config"); err != nil {
-		t.Fatal(err)
+	for _, command := range []string{"config", "build", "pull"} {
+		t.Logf("Running docker compose %s", command)
+		if err := sh.RunV("docker", "compose", command); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	t.Log("Running docker compose up")
-	if err := sh.RunV("docker", "compose", "up", "--build", "--exit-code-from", "sleep1"); err != nil {
+	if err := sh.RunV("docker", "compose", "up", "--exit-code-from", "sleep1"); err != nil {
 		t.Error(err)
 	}
 
