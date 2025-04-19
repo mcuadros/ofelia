@@ -19,15 +19,7 @@ func (c *ValidateCommand) Execute(args []string) error {
 		return err
 	}
 
-	c.Logger.Debugf("OK")
-	c.Logger.Debugf("Found %d jobs", len(config.sh.CronJobs()))
-
-	// for _, j := range config.sh.CronJobs() {
-	// 	c.Logger.Debugf(
-	// 		"- name: %s schedule: %q command: %q\n",
-	// 		j.GetName(), j.GetSchedule(), j.GetCommand(),
-	// 	)
-	// }
+	c.Logger.Noticef("OK. Found %d jobs.", config.JobsCount())
 
 	return nil
 }
