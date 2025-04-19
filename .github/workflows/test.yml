@@ -55,4 +55,4 @@ jobs:
 
     - name: Integration tests
       working-directory: integration
-      run: gotestsum --rerun-fails=10 --format=github-actions
+      run: gotestsum --rerun-fails=3 --format=github-actions
