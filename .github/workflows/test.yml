@@ -3,17 +3,18 @@ on:
   push:
     branches:
       - master
-      - 'renovate/**'
+      - 0.3.x
   pull_request:
     branches:
       - master
+      - 0.3.x
 jobs:
   test:
     strategy:
       fail-fast: false
       matrix:
-        go-version: ['oldstable', 'stable']
-        platform: [ubuntu-latest, macos-latest]
+        go-version: ['stable']
+        platform: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
     runs-on: ${{ matrix.platform }}
     steps:
 
@@ -25,5 +26,33 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Install gotestsum
+      run: go install gotest.tools/gotestsum@latest
+
     - name: Test
-      run: go test ./...
+      run: gotestsum --format=github-actions --packages $(go list ./... | grep -v integration)
+
+
+  integration_test:
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ['stable']
+        platform: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.platform }}
+    steps:
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Install gotestsum
+      run: go install gotest.tools/gotestsum@latest
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Integration tests
+      working-directory: integration
+      run: gotestsum --rerun-fails=3 --format=github-actions

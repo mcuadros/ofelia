@@ -115,6 +115,9 @@ services:
       ofelia.job-exec.datecron.command: "uname -a"
 ```
 
+>[!NOTE]
+>For more advanced docker-compose usage example see [docker-compose.yml](./integration/test-run-exec/docker-compose.yml) used in integration tests.
+
 **Ofelia** reads labels of all Docker containers for configuration by default. To apply on a subset of containers only, use the flag `--docker-filter` (or `-f`) similar to the [filtering for `docker ps`](https://docs.docker.com/engine/reference/commandline/ps/#filter). E.g. to apply to current docker compose project only using `label` filter:
 
 ```yaml
