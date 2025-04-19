@@ -17,8 +17,8 @@ func TestIntegration(t *testing.T) {
 	local_exec_filename := "local_exec.txt"
 	exec_filename := "exec.txt"
 	run_filename := "run.txt"
-	sleep_for_seconds := 15
-	schedule_seconds := 3
+	sleep_for_seconds := 33
+	schedule_seconds := 9
 
 	t.Setenv("COMPOSE_FILE", "./test-run-exec/docker-compose.yml")
 	t.Setenv("COMPOSE_PROJECT_NAME", projectName)
