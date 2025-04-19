@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,20 +15,27 @@ import (
 func TestIntegration(t *testing.T) {
 	projectName := strings.ToLower(t.Name())
 	outputDir := t.TempDir()
-	local_exec_filename := "local_exec.txt"
-	exec_filename := "exec.txt"
-	run_filename := "run.txt"
-	sleep_for_seconds := 33
-	schedule_seconds := 9
+	composeFile := "./test-run-exec/docker-compose.yml"
+	localExecFilename := "local_exec.txt"
+	execFilename := "exec.txt"
+	runFilename := "run.txt"
 
-	t.Setenv("COMPOSE_FILE", "./test-run-exec/docker-compose.yml")
+	sleepForSec := 10
+	scheduleEverySec := 3
+	expectedExecutions := (sleepForSec / scheduleEverySec)
+
+	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
+		t.Fatalf("Compose file %s not found", composeFile)
+	}
+
+	t.Setenv("COMPOSE_FILE", composeFile)
 	t.Setenv("COMPOSE_PROJECT_NAME", projectName)
 	t.Setenv("OUTPUT_DIR", outputDir)
-	t.Setenv("SCHEDULE", fmt.Sprintf("@every %ds", schedule_seconds))
-	t.Setenv("SLEEP_SEC", strconv.Itoa(sleep_for_seconds))
-	t.Setenv("LOCAL_EXEC_OUTPUT_FILE", local_exec_filename)
-	t.Setenv("EXEC_OUTPUT_FILE", exec_filename)
-	t.Setenv("RUN_OUTPUT_FILE", run_filename)
+	t.Setenv("SCHEDULE", fmt.Sprintf("@every %ds", scheduleEverySec))
+	t.Setenv("SLEEP_FOR", strconv.Itoa(sleepForSec))
+	t.Setenv("LOCAL_EXEC_OUTPUT_FILE", localExecFilename)
+	t.Setenv("EXEC_OUTPUT_FILE", execFilename)
+	t.Setenv("RUN_OUTPUT_FILE", runFilename)
 
 	for _, command := range []string{"config", "build", "pull"} {
 		t.Run("docker compose "+command, func(t *testing.T) {
@@ -38,22 +46,52 @@ func TestIntegration(t *testing.T) {
 		})
 	}
 
-	t.Run("docker-compose up", func(t *testing.T) {
+	t.Run("docker compose up", func(t *testing.T) {
 		if err := sh.RunV("docker", "compose", "up", "--exit-code-from", "sleep1"); err != nil {
 			t.Fatal(err)
 		}
 
-		for _, file := range []string{local_exec_filename, exec_filename, run_filename} {
+		for _, file := range []string{localExecFilename, execFilename, runFilename} {
 			t.Log("Checking for outputs in", file)
-			data, err := os.ReadFile(filepath.Join(outputDir, file))
+			count, content, err := checkFile(filepath.Join(outputDir, file))
 			if err != nil {
 				t.Error(err)
+				continue
 			}
 
-			split := strings.Split(string(data), "\n")
-			if expectedLines := sleep_for_seconds / schedule_seconds; len(split) != expectedLines {
-				t.Errorf("expected %d lines in %s, but got %d", expectedLines, file, len(split))
+			if count != expectedExecutions {
+				t.Errorf("expected %d lines in %s, but got %d. File content:\n%s", expectedExecutions, file, count, content)
 			}
 		}
 	})
 }
+
+func checkFile(path string) (int, string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, "", err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	content := strings.Builder{}
+	count := 0
+	for scanner.Scan() {
+		content.Write(scanner.Bytes())
+		count++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return 0, "", err
+	}
+
+	return count, content.String(), nil
+}
+
+/*
+Sleep for 10s
+Start at 24s
+Run #1 at 27s
+Run #2 at 30s
+Run #3 at 33s
+*/
