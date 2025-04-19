@@ -79,6 +79,9 @@ func (c *Config) InitializeApp() error {
 		return err
 	}
 
+	// Initialize middlewares again after reading the labels
+	c.buildSchedulerMiddlewares(c.sh)
+
 	for name, j := range c.ExecJobs {
 		defaults.SetDefaults(j)
 		j.Client = c.dockerHandler.GetInternalDockerClient()
