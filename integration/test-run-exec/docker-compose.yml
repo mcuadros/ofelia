@@ -25,6 +25,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - *output_mount
     labels:
+      ofelia.save-folder: "/tmp/"
       ofelia.job-local.my-local-job.schedule: *schedule
       ofelia.job-local.my-local-job.command: *cmd_date_tee
       ofelia.job-run.my-run-job.schedule: *schedule
