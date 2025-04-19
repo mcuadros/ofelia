@@ -41,9 +41,7 @@ func (s *Scheduler) AddJob(j Job) error {
 		return err
 	}
 
-	s.Logger.Noticef("New job registered %q - %q - %q", j.GetName(), j.GetCommand(), j.GetSchedule())
-
-	j.SetCronJobID(int(id)) // Cast to int in order to avoid pushing cron external to common
+	j.SetCronJobID(int(id))
 	j.Use(s.Middlewares()...)
 	s.Logger.Noticef("New job registered %q - %q - %q - ID: %v", j.GetName(), j.GetCommand(), j.GetSchedule(), id)
 	return nil
