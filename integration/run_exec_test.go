@@ -29,23 +29,21 @@ func TestIntegration(t *testing.T) {
 	t.Setenv("EXEC_OUTPUT_FILE", exec_filename)
 	t.Setenv("RUN_OUTPUT_FILE", run_filename)
 
-	for _, command := range [][]string{
-		{"config"},
-		{"build"},
-		{"pull"},
-		{"up", "--exit-code-from", "sleep1"},
-	} {
-		t.Run("docker "+strings.Join(command, " "), func(t *testing.T) {
-			args := append([]string{"compose"}, command...)
-			t.Logf("Running docker %v", args)
-			if err := sh.RunV("docker", args...); err != nil {
+	for _, command := range []string{"config", "build", "pull"} {
+		t.Run("docker compose "+command, func(t *testing.T) {
+			t.Logf("Running docker compose %s", command)
+			if err := sh.RunV("docker", "compose", command); err != nil {
 				t.Fatal(err)
 			}
 		})
 	}
 
-	for _, file := range []string{local_exec_filename, exec_filename, run_filename} {
-		t.Run(file, func(t *testing.T) {
+	t.Run("docker-compose up", func(t *testing.T) {
+		if err := sh.RunV("docker", "compose", "up", "--exit-code-from", "sleep1"); err != nil {
+			t.Fatal(err)
+		}
+
+		for _, file := range []string{local_exec_filename, exec_filename, run_filename} {
 			t.Log("Checking for outputs in", file)
 			data, err := os.ReadFile(filepath.Join(outputDir, file))
 			if err != nil {
@@ -56,6 +54,6 @@ func TestIntegration(t *testing.T) {
 			if expectedLines := sleep_for_seconds / schedule_seconds; len(split) != expectedLines {
 				t.Errorf("expected %d lines in %s, but got %d", expectedLines, file, len(split))
 			}
-		})
-	}
+		}
+	})
 }
