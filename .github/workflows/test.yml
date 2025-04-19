@@ -3,10 +3,11 @@ on:
   push:
     branches:
       - master
-      - 'renovate/**'
+      - 0.3.x
   pull_request:
     branches:
       - master
+      - 0.3.x
 jobs:
   test:
     strategy:
@@ -25,8 +26,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Install gotestsum
+      run: go install gotest.tools/gotestsum@latest
+
     - name: Test
-      run: go test ./...
+      run: gotestsum --format github-actions ./...
 
 
   integration_test:
@@ -43,14 +47,12 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
+    - name: Install gotestsum
+      run: go install gotest.tools/gotestsum@latest
+
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Integration tests
-      working-directory: test/test-exec
-      env:
-        OUTPUT_DIR: ${{ runner.temp }}
-        COMPOSE_PROJECT_NAME: ${{ github.run_id }}
-      run: |
-        go install github.com/magefile/mage@latest
-        mage test
+      working-directory: integration
+      run: gotestsum --rerun-fails 3 --format github-actions .
