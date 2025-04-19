@@ -35,7 +35,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	t.Log("Running docker compose up")
-	if err := sh.RunV("docker", "compose", "up", "--exit-code-from", "sleep1"); err != nil {
+	if err := sh.RunV("docker", "compose", "up", "--build", "--exit-code-from", "sleep1"); err != nil {
 		t.Error(err)
 	}
 
