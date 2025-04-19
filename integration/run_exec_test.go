@@ -87,11 +87,3 @@ func checkFile(path string) (int, string, error) {
 
 	return count, content.String(), nil
 }
-
-/*
-Sleep for 10s
-Start at 24s
-Run #1 at 27s
-Run #2 at 30s
-Run #3 at 33s
-*/
