@@ -25,9 +25,10 @@ var IsDockerEnv bool
 // Config contains the configuration
 type Config struct {
 	Global struct {
-		middlewares.SlackConfig `mapstructure:",squash"`
-		middlewares.SaveConfig  `mapstructure:",squash"`
-		middlewares.MailConfig  `mapstructure:",squash"`
+		middlewares.SlackConfig  `mapstructure:",squash"`
+		middlewares.SaveConfig   `mapstructure:",squash"`
+		middlewares.MailConfig   `mapstructure:",squash"`
+		middlewares.SignalConfig `mapstructure:",squash"`
 	}
 	ExecJobs    map[string]*ExecJobConfig    `gcfg:"job-exec" mapstructure:"job-exec,squash"`
 	RunJobs     map[string]*RunJobConfig     `gcfg:"job-run" mapstructure:"job-run,squash"`
@@ -146,6 +147,7 @@ func (c *Config) buildSchedulerMiddlewares(sh *core.Scheduler) {
 	sh.Use(middlewares.NewSlack(&c.Global.SlackConfig))
 	sh.Use(middlewares.NewSave(&c.Global.SaveConfig))
 	sh.Use(middlewares.NewMail(&c.Global.MailConfig))
+	sh.Use(middlewares.NewSignal(&c.Global.SignalConfig))
 }
 
 // ExecJobConfig contains all configuration params needed to build a ExecJob
@@ -155,6 +157,7 @@ type ExecJobConfig struct {
 	middlewares.SlackConfig   `mapstructure:",squash"`
 	middlewares.SaveConfig    `mapstructure:",squash"`
 	middlewares.MailConfig    `mapstructure:",squash"`
+	middlewares.SignalConfig  `mapstructure:",squash"`
 }
 
 func (c *ExecJobConfig) buildMiddlewares() {
@@ -162,6 +165,7 @@ func (c *ExecJobConfig) buildMiddlewares() {
 	c.ExecJob.Use(middlewares.NewSlack(&c.SlackConfig))
 	c.ExecJob.Use(middlewares.NewSave(&c.SaveConfig))
 	c.ExecJob.Use(middlewares.NewMail(&c.MailConfig))
+	c.ExecJob.Use(middlewares.NewSignal(&c.SignalConfig))
 }
 
 // RunServiceConfig contains all configuration params needed to build a RunJob
@@ -171,6 +175,7 @@ type RunServiceConfig struct {
 	middlewares.SlackConfig   `mapstructure:",squash"`
 	middlewares.SaveConfig    `mapstructure:",squash"`
 	middlewares.MailConfig    `mapstructure:",squash"`
+	middlewares.SignalConfig  `mapstructure:",squash"`
 }
 
 type RunJobConfig struct {
@@ -179,6 +184,7 @@ type RunJobConfig struct {
 	middlewares.SlackConfig   `mapstructure:",squash"`
 	middlewares.SaveConfig    `mapstructure:",squash"`
 	middlewares.MailConfig    `mapstructure:",squash"`
+	middlewares.SignalConfig  `mapstructure:",squash"`
 }
 
 func (c *RunJobConfig) buildMiddlewares() {
@@ -186,6 +192,7 @@ func (c *RunJobConfig) buildMiddlewares() {
 	c.RunJob.Use(middlewares.NewSlack(&c.SlackConfig))
 	c.RunJob.Use(middlewares.NewSave(&c.SaveConfig))
 	c.RunJob.Use(middlewares.NewMail(&c.MailConfig))
+	c.RunJob.Use(middlewares.NewSignal(&c.SignalConfig))
 }
 
 // LocalJobConfig contains all configuration params needed to build a RunJob
@@ -195,6 +202,7 @@ type LocalJobConfig struct {
 	middlewares.SlackConfig   `mapstructure:",squash"`
 	middlewares.SaveConfig    `mapstructure:",squash"`
 	middlewares.MailConfig    `mapstructure:",squash"`
+	middlewares.SignalConfig  `mapstructure:",squash"`
 }
 
 func (c *LocalJobConfig) buildMiddlewares() {
@@ -202,6 +210,7 @@ func (c *LocalJobConfig) buildMiddlewares() {
 	c.LocalJob.Use(middlewares.NewSlack(&c.SlackConfig))
 	c.LocalJob.Use(middlewares.NewSave(&c.SaveConfig))
 	c.LocalJob.Use(middlewares.NewMail(&c.MailConfig))
+	c.LocalJob.Use(middlewares.NewSignal(&c.SignalConfig))
 }
 
 func (c *RunServiceConfig) buildMiddlewares() {
@@ -209,4 +218,5 @@ func (c *RunServiceConfig) buildMiddlewares() {
 	c.RunServiceJob.Use(middlewares.NewSlack(&c.SlackConfig))
 	c.RunServiceJob.Use(middlewares.NewSave(&c.SaveConfig))
 	c.RunServiceJob.Use(middlewares.NewMail(&c.MailConfig))
+	c.RunServiceJob.Use(middlewares.NewSignal(&c.SignalConfig))
 }
