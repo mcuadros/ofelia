@@ -17,8 +17,16 @@ type SuiteConfig struct{}
 
 var _ = Suite(&SuiteConfig{})
 
+type TestLogger struct{}
+
+func (*TestLogger) Criticalf(format string, args ...interface{}) {}
+func (*TestLogger) Debugf(format string, args ...interface{})    {}
+func (*TestLogger) Errorf(format string, args ...interface{})    {}
+func (*TestLogger) Noticef(format string, args ...interface{})   {}
+func (*TestLogger) Warningf(format string, args ...interface{})  {}
+
 func (s *SuiteConfig) TestBuildFromString(c *C) {
-	sh, err := BuildFromString(`
+	conf, err := BuildFromString(`
 		[job-exec "foo"]
 		schedule = @every 10s
 
@@ -33,10 +41,10 @@ func (s *SuiteConfig) TestBuildFromString(c *C) {
 
 		[job-service-run "bob"]
 		schedule = @every 10s
-  `)
+  `, &TestLogger{})
 
 	c.Assert(err, IsNil)
-	c.Assert(sh.Jobs, HasLen, 5)
+	c.Assert(conf.JobsCount(), Equals, 5)
 }
 
 func (s *SuiteConfig) TestJobDefaultsSet(c *C) {
