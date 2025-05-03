@@ -68,22 +68,24 @@ func (c *Config) InitializeApp() error {
 		return fmt.Errorf("scheduler is not initialized yet")
 	}
 
-	// Wait couple seconds for docker to propagate container labels
-	c.dockerHandler.WaitForLabels()
+	if c.dockerHandler.ConfigFromLabelsEnabled() {
+		// Wait couple seconds for docker to propagate container labels
+		c.dockerHandler.WaitForLabels()
 
-	// In order to support non dynamic job types such as Local or Run using labels
-	// lets parse the labels and merge the job lists
-	dockerLabels, err := c.dockerHandler.GetDockerLabels()
-	if err != nil {
-		return err
+		// In order to support non dynamic job types such as Local or Run using labels
+		// lets parse the labels and merge the job lists
+		dockerLabels, err := c.dockerHandler.GetDockerLabels()
+		if err != nil {
+			return err
+		}
+
+		if err := c.buildFromDockerLabels(dockerLabels); err != nil {
+			return err
+		}
+
+		// Initialize middlewares again after reading the labels
+		c.buildSchedulerMiddlewares(c.sh)
 	}
-
-	if err := c.buildFromDockerLabels(dockerLabels); err != nil {
-		return err
-	}
-
-	// Initialize middlewares again after reading the labels
-	c.buildSchedulerMiddlewares(c.sh)
 
 	for name, j := range c.ExecJobs {
 		defaults.SetDefaults(j)

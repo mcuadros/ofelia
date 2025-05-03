@@ -29,13 +29,14 @@ var (
 )
 
 type DockerHandler struct {
-	dockerClient *docker.Client
-	notifier     dockerLabelsUpdate
-	logger       core.Logger
-	filters      []string
+	dockerClient      *docker.Client
+	notifier          labelConfigUpdater
+	configsFromLabels bool
+	logger            core.Logger
+	filters           []string
 }
 
-type dockerLabelsUpdate interface {
+type labelConfigUpdater interface {
 	dockerLabelsUpdate(map[string]map[string]string)
 }
 
@@ -53,14 +54,19 @@ func (c *DockerHandler) buildDockerClient() (*docker.Client, error) {
 	return d, nil
 }
 
-func NewDockerHandler(notifier dockerLabelsUpdate, dockerFilters []string, logger core.Logger) (*DockerHandler, error) {
+func NewDockerHandler(config *Config, dockerFilters []string, configsFromLabels bool, logger core.Logger) (*DockerHandler, error) {
+	if len(dockerFilters) > 0 && !configsFromLabels {
+		return nil, fmt.Errorf("docker filters can only be provided together with '--docker' flag")
+	}
+
 	c := &DockerHandler{
-		filters: dockerFilters,
+		filters:           dockerFilters,
+		configsFromLabels: configsFromLabels,
+		notifier:          config,
+		logger:            logger,
 	}
 	var err error
 	c.dockerClient, err = c.buildDockerClient()
-	c.notifier = notifier
-	c.logger = logger
 	if err != nil {
 		return nil, err
 	}
@@ -70,13 +76,20 @@ func NewDockerHandler(notifier dockerLabelsUpdate, dockerFilters []string, logge
 		return nil, err
 	}
 
-	go c.watch()
+	if c.configsFromLabels {
+		go c.watch()
+	}
 	return c, nil
 }
 
+func (c *DockerHandler) ConfigFromLabelsEnabled() bool {
+	return c.configsFromLabels
+}
+
 func (c *DockerHandler) watch() {
-	// Poll for changes
-	ticker := time.NewTicker(10 * time.Second)
+	const pollInterval = 10 * time.Second
+	c.logger.Debugf("Watching for Docker labels changes every %s...", pollInterval)
+	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 	for range ticker.C {
 		labels, err := c.GetDockerLabels()

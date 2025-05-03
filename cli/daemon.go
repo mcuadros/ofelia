@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,12 +11,13 @@ import (
 
 // DaemonCommand daemon process
 type DaemonCommand struct {
-	ConfigFile    string   `long:"config" description:"configuration file" default:"/etc/ofelia.conf"`
-	DockerFilters []string `short:"f" long:"docker-filter" description:"filter to select docker containers. https://docs.docker.com/reference/cli/docker/container/ls/#filter"`
-	scheduler     *core.Scheduler
-	signals       chan os.Signal
-	done          chan bool
-	Logger        core.Logger
+	ConfigFile        string   `long:"config" description:"configuration file" default:"/etc/ofelia.conf"`
+	DockerLabelConfig bool     `short:"d" long:"docker" description:"continiously poll docker labels for configurations"`
+	DockerFilters     []string `short:"f" long:"docker-filter" description:"filter to select docker containers. https://docs.docker.com/reference/cli/docker/container/ls/#filter"`
+	scheduler         *core.Scheduler
+	signals           chan os.Signal
+	done              chan bool
+	Logger            core.Logger
 }
 
 // Execute runs the daemon
@@ -39,9 +41,17 @@ func (c *DaemonCommand) boot() (err error) {
 	// Always try to read the config file, as there are options such as globals or some tasks that can be specified there and not in docker
 	config, err := BuildFromFile(c.ConfigFile, c.Logger)
 	if err != nil {
-		c.Logger.Debugf("Config file %v not found. Proceeding to read docker labels...", c.ConfigFile)
+		if !c.DockerLabelConfig {
+			return fmt.Errorf("can't read the config file: %w", err)
+		} else {
+			c.Logger.Debugf("Config file %v not found. Proceeding to read docker labels...", c.ConfigFile)
+		}
 	} else {
-		c.Logger.Debugf("Found config file %v. Proceeding to read docker labels as well...", c.ConfigFile)
+		msg := "Found config file %v"
+		if c.DockerLabelConfig {
+			msg += ". Proceeding to read docker labels as well..."
+		}
+		c.Logger.Debugf(msg, c.ConfigFile)
 	}
 
 	scheduler := core.NewScheduler(c.Logger)
@@ -49,14 +59,14 @@ func (c *DaemonCommand) boot() (err error) {
 	config.sh = scheduler
 	config.buildSchedulerMiddlewares(scheduler)
 
-	config.dockerHandler, err = NewDockerHandler(config, c.DockerFilters, c.Logger)
+	config.dockerHandler, err = NewDockerHandler(config, c.DockerFilters, c.DockerLabelConfig, c.Logger)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create docker handler: %w", err)
 	}
 
 	err = config.InitializeApp()
 	if err != nil {
-		c.Logger.Criticalf("Can't start the app: %v", err)
+		return fmt.Errorf("can't start the app: %w", err)
 	}
 
 	c.scheduler = config.sh
