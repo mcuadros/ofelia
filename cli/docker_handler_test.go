@@ -28,7 +28,7 @@ func buildFromDockerLabels(dockerFilters ...string) (*Config, error) {
 	}
 
 	var err error
-	c.dockerHandler, err = NewDockerHandler(c, dockerFilters, mockLogger)
+	c.dockerHandler, err = NewDockerHandler(c, dockerFilters, true, mockLogger)
 	if err != nil {
 		return nil, err
 	}
