@@ -18,14 +18,15 @@ import (
 
 // MailConfig configuration for the Mail middleware
 type MailConfig struct {
-	SMTPHost          string `gcfg:"smtp-host" mapstructure:"smtp-host"`
-	SMTPPort          int    `gcfg:"smtp-port" mapstructure:"smtp-port"`
-	SMTPUser          string `gcfg:"smtp-user" mapstructure:"smtp-user" json:"-"`
-	SMTPPassword      string `gcfg:"smtp-password" mapstructure:"smtp-password" json:"-"`
-	SMTPTLSSkipVerify bool   `gcfg:"smtp-tls-skip-verify" mapstructure:"smtp-tls-skip-verify"`
-	EmailTo           string `gcfg:"email-to" mapstructure:"email-to"`
-	EmailFrom         string `gcfg:"email-from" mapstructure:"email-from"`
-	MailOnlyOnError   bool   `gcfg:"mail-only-on-error" mapstructure:"mail-only-on-error"`
+	SMTPHost            string `gcfg:"smtp-host" mapstructure:"smtp-host"`
+	SMTPPort            int    `gcfg:"smtp-port" mapstructure:"smtp-port"`
+	SMTPUser            string `gcfg:"smtp-user" mapstructure:"smtp-user" json:"-"`
+	SMTPPassword        string `gcfg:"smtp-password" mapstructure:"smtp-password" json:"-"`
+	SMTPTLSSkipVerify   bool   `gcfg:"smtp-tls-skip-verify" mapstructure:"smtp-tls-skip-verify"`
+	EmailTo             string `gcfg:"email-to" mapstructure:"email-to"`
+	EmailFrom           string `gcfg:"email-from" mapstructure:"email-from"`
+	MailOnlyOnError     bool   `gcfg:"mail-only-on-error" mapstructure:"mail-only-on-error"`
+	IncludeStdoutInBody bool   `gcfg:"include-stdout-in-body" mapstructure:"include-stdout-in-body"`
 }
 
 // NewMail returns a Mail middleware if the given configuration is not empty
@@ -69,7 +70,12 @@ func (m *Mail) sendMail(ctx *core.Context) error {
 	msg.SetHeader("From", m.from())
 	msg.SetHeader("To", strings.Split(m.EmailTo, ",")...)
 	msg.SetHeader("Subject", m.subject(ctx))
-	msg.SetBody("text/html", m.body(ctx))
+
+	if m.IncludeStdoutInBody {
+		msg.SetBody("text/txt", string(ctx.Execution.OutputStream.Bytes()))
+	} else {
+		msg.SetBody("text/html", m.body(ctx))
+	}
 
 	base := fmt.Sprintf("%s_%s", ctx.Job.GetName(), ctx.Execution.ID)
 	msg.Attach(base+".stdout.log", gomail.SetCopyFunc(func(w io.Writer) error {
