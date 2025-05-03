@@ -50,12 +50,27 @@ command = touch /tmp/example
 schedule = @hourly
 command = touch /tmp/example
 
-
 [job-service-run "service-executed-on-new-container"]
 schedule = 0,20,40 * * * *
 image = ubuntu
 network = swarm_network
 command =  touch /tmp/example
+
+[job-service-run "job-executed-on-existing-service"]
+schedule = 0,20,40 * * * *
+service =  my-service
+```
+
+#### Docker labels configurations
+
+In order to use this type of configurations, ofelia need access to docker socket.
+
+```sh
+docker run -it --rm \
+    -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    --label ofelia.job-local.my-test-job.schedule="@every 5s" \
+    --label ofelia.job-local.my-test-job.command="date" \
+        mcuadros/ofelia:latest daemon --docker
 ```
 
 #### Docker labels configurations
