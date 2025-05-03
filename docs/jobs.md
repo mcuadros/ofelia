@@ -80,6 +80,10 @@ This job can be used in 2 situations:
   - *description*: When the job should be executed. E.g. every 10 seconds or every night at 1 AM.
   - *value*: String, see [Scheduling format](https://godoc.org/github.com/robfig/cron) of the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM). **Note**: the format starts with seconds, instead of minutes.
   - *default*: Required field, no default.
+- **Entrypoint** (1)
+  - *description*: Override container default entrypoint.
+  - *value*: String, e.g. `/bin/bash -c`
+  - *default*: Default container entrypoint
 - **Command** (1)
   - *description*: Command you want to run inside the container.
   - *value*: String, e.g. `touch /tmp/example`
