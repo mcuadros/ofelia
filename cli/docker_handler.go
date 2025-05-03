@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -86,6 +88,35 @@ func (c *DockerHandler) watch() {
 	}
 }
 
+func (c *DockerHandler) WaitForLabels() {
+	const maxRetries = 3
+	const retryDelay = 1 * time.Second
+	const dockerEnvFile = "/.dockerenv"
+	const mountinfoFilePath = "/proc/self/mountinfo"
+
+	// Check if .dockerenv file exists
+	if _, err := os.Stat(dockerEnvFile); os.IsNotExist(err) {
+		c.logger.Debugf(".dockerenv file not found, ofelia is not running in a Docker container")
+		return
+	}
+
+	id, err := getContainerID(mountinfoFilePath)
+	if err != nil {
+		c.logger.Debugf("Failed to extract ofelia's container ID. Trying with container hostname instead...")
+		id, _ = os.Hostname()
+	}
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		_, err := c.dockerClient.InspectContainerWithOptions(docker.InspectContainerOptions{ID: id})
+		if err == nil {
+			c.logger.Debugf("Found ofelia container with ID: %s", id)
+			return
+		}
+
+		time.Sleep(retryDelay)
+	}
+}
+
 func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) {
 	var filters = map[string][]string{
 		"label": {requiredLabelFilter},
@@ -107,18 +138,18 @@ func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) 
 
 	var labels = make(map[string]map[string]string)
 
-	for _, c := range conts {
-		if len(c.Names) > 0 && len(c.Labels) > 0 {
-			name := strings.TrimPrefix(c.Names[0], "/")
-			for k := range c.Labels {
+	for _, cont := range conts {
+		if len(cont.Names) > 0 && len(cont.Labels) > 0 {
+			name := strings.TrimPrefix(cont.Names[0], "/")
+			for k := range cont.Labels {
 				// remove all not relevant labels
 				if !strings.HasPrefix(k, labelPrefix) {
-					delete(c.Labels, k)
+					delete(cont.Labels, k)
 					continue
 				}
 			}
 
-			labels[name] = c.Labels
+			labels[name] = cont.Labels
 		}
 	}
 
@@ -238,4 +269,37 @@ func setJobParam(params map[string]interface{}, paramName, paramVal string) {
 	}
 
 	params[paramName] = paramVal
+}
+
+func getContainerID(mountinfoFilePath string) (string, error) {
+	// Open the mountinfo file
+	file, err := os.Open(mountinfoFilePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	// Scan the file line by line
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Look for container ID in the line
+		if !strings.Contains(line, "/containers/") {
+			continue
+		}
+
+		splt := strings.Split(line, "/")
+		for i, part := range splt {
+			if part == "containers" && len(splt) > i+1 {
+				return splt[i+1], nil
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	return "", os.ErrNotExist
 }

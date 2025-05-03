@@ -39,8 +39,11 @@ func (c *DaemonCommand) boot() (err error) {
 	// Always try to read the config file, as there are options such as globals or some tasks that can be specified there and not in docker
 	config, err := BuildFromFile(c.ConfigFile, c.Logger)
 	if err != nil {
-		c.Logger.Debugf("Config file: %v not found", c.ConfigFile)
+		c.Logger.Debugf("Config file %v not found. Proceeding to read docker labels...", c.ConfigFile)
+	} else {
+		c.Logger.Debugf("Found config file %v. Proceeding to read docker labels as well...", c.ConfigFile)
 	}
+
 	scheduler := core.NewScheduler(c.Logger)
 
 	config.sh = scheduler
