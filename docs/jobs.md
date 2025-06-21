@@ -41,7 +41,7 @@ This job is executed inside a running container. Similar to `docker exec`
     - **INI config**: `Environment` setting can be provided multiple times for multiple environment variables.
     - **Labels config**: multiple environment variables has to be provided as JSON array: `["FOO=bar", "BAZ=qux"]`
   - *default*: Optional field, no default.
-  
+
 ### INI-file example
 
 ```ini
@@ -78,7 +78,7 @@ This job can be used in 2 situations:
 
 - **Schedule** * (1,2)
   - *description*: When the job should be executed. E.g. every 10 seconds or every night at 1 AM.
-  - *value*: String, see [Scheduling format](https://godoc.org/github.com/robfig/cron) of the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM). **Note**: the format starts with seconds, instead of minutes.
+  - *value*: String, see [Scheduling format](https://pkg.go.dev/github.com/robfig/cron/v3@v3.0.1#hdr-CRON_Expression_Format) of the Go implementation of `cron`. E.g. `@every 10s` or `0 1 * * *` (every night at 1 AM).
   - *default*: Required field, no default.
 - **Command** (1)
   - *description*: Command you want to run inside the container.
@@ -130,7 +130,7 @@ This job can be used in 2 situations:
     - **INI config**: setting can be provided multiple times for multiple environment variables.
     - **Labels config**: multiple environment variables has to be provided as JSON array: `["FOO=bar", "BAZ=qux"]`
   - *default*: Optional field, no default.
-  
+
 ### INI-file example
 
 ```ini
@@ -171,7 +171,7 @@ Runs the command on the host running Ofelia.
 
 - **Schedule** *
   - *description*: When the job should be executed. E.g. every 10 seconds or every night at 1 AM.
-  - *value*: String, see [Scheduling format](https://godoc.org/github.com/robfig/cron) of the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM). **Note**: the format starts with seconds, instead of minutes.
+  - *value*: String, see [Scheduling format](https://pkg.go.dev/github.com/robfig/cron/v3@v3.0.1#hdr-CRON_Expression_Format) of the Go implementation of `cron`. E.g. `@every 10s` or `0 1 * * *` (every night at 1 AM).
   - *default*: Required field, no default.
 - **Command** *
   - *description*: Command you want to run on the host.
@@ -222,7 +222,7 @@ This job can be used to:
 
 - **Schedule** * (1,2)
   - *description*: When the job should be executed. E.g. every 10 seconds or every night at 1 AM.
-  - *value*: String, see [Scheduling format](https://godoc.org/github.com/robfig/cron) of the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM). **Note**: the format starts with seconds, instead of minutes.
+  - *value*: String, see [Scheduling format](https://pkg.go.dev/github.com/robfig/cron/v3@v3.0.1#hdr-CRON_Expression_Format) of the Go implementation of `cron`. E.g. `@every 10s` or `0 1 * * *` (every night at 1 AM).
   - *default*: Required field, no default.
 - **Command** (1, 2)
   - *description*: Command you want to run inside the container.
@@ -248,12 +248,12 @@ This job can be used to:
   - *description*: Allocate a pseudo-tty, similar to `docker exec -t`. See this [Stack Overflow answer](https://stackoverflow.com/questions/30137135/confused-about-docker-t-option-to-allocate-a-pseudo-tty) for more info.
   - *value*: Boolean, either `true` or `false`
   - *default*: `false`
-  
+
 ### INI-file example
 
 ```ini
 [job-service-run "service-executed-on-new-container"]
-schedule = 0,20,40 * * * *
+schedule = 0,20,40 * * *
 image = ubuntu
 network = swarm_network
 command =  touch /tmp/example

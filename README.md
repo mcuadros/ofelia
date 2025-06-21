@@ -52,7 +52,7 @@ command = touch /tmp/example
 
 
 [job-service-run "service-executed-on-new-container"]
-schedule = 0,20,40 * * * *
+schedule = 0,20,40 * * *
 image = ubuntu
 network = swarm_network
 command =  touch /tmp/example
@@ -168,7 +168,7 @@ These can be configured by setting the options listed below in the `[global]` se
 - `slack-only-on-error` - only send a slack message if the execution was not successful.
 
 ### Overlap
-**Ofelia** can prevent that a job is run twice in parallel (e.g. if the first execution didn't complete before a second execution was scheduled. If a job has the option `no-overlap` set, it will not be run concurrently. 
+**Ofelia** can prevent that a job is run twice in parallel (e.g. if the first execution didn't complete before a second execution was scheduled. If a job has the option `no-overlap` set, it will not be run concurrently.
 
 ## Installation
 
