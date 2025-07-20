@@ -26,7 +26,15 @@ func NewScheduler(l Logger) *Scheduler {
 	cronUtils := NewCronUtils(l)
 	return &Scheduler{
 		Logger: l,
-		cron:   cron.New(cron.WithLogger(cronUtils), cron.WithChain(cron.Recover(cronUtils))),
+		cron: cron.New(
+			cron.WithLogger(cronUtils),
+			cron.WithChain(cron.Recover(cronUtils)),
+			cron.WithParser(cron.NewParser(
+				// For backward compatibility with cron/v1 configure optional seconds field
+				// https://github.com/robfig/cron?tab=readme-ov-file#upgrading-to-v3-june-2019
+				cron.SecondOptional|cron.Minute|cron.Hour|cron.Dom|cron.Month|cron.Dow|cron.Descriptor),
+			),
+		),
 	}
 }
 
