@@ -37,7 +37,7 @@ func (s *Scheduler) AddJob(j Job) error {
 
 	id, err := s.cron.AddJob(j.GetSchedule(), &jobWrapper{s, j})
 	if err != nil {
-		s.Logger.Warningf("Failed to register job %q - %q - %q", j.GetName(), j.GetCommand(), j.GetSchedule())
+		s.Logger.Warningf("Failed to register job %q - %q - %q. Error: %s", j.GetName(), j.GetCommand(), j.GetSchedule(), err)
 		return err
 	}
 

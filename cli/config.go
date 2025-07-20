@@ -93,10 +93,7 @@ func (c *Config) InitializeApp() error {
 		j.Client = c.dockerHandler.GetInternalDockerClient()
 		j.Name = name
 		j.buildMiddlewares()
-		err = c.sh.AddJob(j)
-		if err != nil {
-			c.logger.Debugf("Unable to add new exec job %s from config: %v", name, err)
-		}
+		c.sh.AddJob(j)
 	}
 
 	for name, j := range c.RunJobs {
@@ -104,20 +101,15 @@ func (c *Config) InitializeApp() error {
 		j.Client = c.dockerHandler.GetInternalDockerClient()
 		j.Name = name
 		j.buildMiddlewares()
-		err = c.sh.AddJob(j)
-		if err != nil {
-			c.logger.Debugf("Unable to add new run job %s from config: %v", name, err)
-		}
+		c.sh.AddJob(j)
 	}
 
 	for name, j := range c.LocalJobs {
 		defaults.SetDefaults(j)
 		j.Name = name
 		j.buildMiddlewares()
-		err = c.sh.AddJob(j)
-		if err != nil {
-			c.logger.Debugf("Unable to add new local job %s from config: %v", name, err)
-		}
+		c.sh.AddJob(j)
+		c.logger.Debugf("Unable to add new local job %s from config: %v", name, err)
 	}
 
 	for name, j := range c.ServiceJobs {
@@ -125,10 +117,7 @@ func (c *Config) InitializeApp() error {
 		j.Name = name
 		j.Client = c.dockerHandler.GetInternalDockerClient()
 		j.buildMiddlewares()
-		err = c.sh.AddJob(j)
-		if err != nil {
-			c.logger.Debugf("Unable to add new service job %s from config: %v", name, err)
-		}
+		c.sh.AddJob(j)
 	}
 
 	return nil
