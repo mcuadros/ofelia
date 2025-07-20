@@ -18,11 +18,12 @@ The main feature of **Ofelia** is the ability to execute commands directly on Do
 
 ### Jobs
 
-[Scheduling format](https://godoc.org/github.com/robfig/cron) is the same as the Go implementation of `cron`. E.g. `@every 10s` or `0 0 1 * * *` (every night at 1 AM).
+[Scheduling format](https://pkg.go.dev/github.com/robfig/cron/v3#hdr-CRON_Expression_Format) is the same as the Go implementation of `cron`. E.g. `@every 10s` or `0 1 * * *` (every night at 1 AM).
 
-**Note**: the format starts with seconds, instead of minutes.
+>[!NOTE]
+>[robfig/cron/v1](https://pkg.go.dev/github.com/robfig/cron@v1.2.0#hdr-CRON_Expression_Format) accepted an optional seconds field at the beginning of the cron spec. While **Ofelia** still supports this format for backward compatibility, using seconds is optional and not recommended for new configurations. 
 
-you can configure four different kind of jobs:
+You can configure four different kind of jobs:
 
 - `job-exec`: this job is executed inside of a running container.
 - `job-run`: runs a command inside of a new container, using a specific image.
