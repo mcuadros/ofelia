@@ -87,7 +87,6 @@ func (c *Config) InitializeApp() error {
 		c.buildSchedulerMiddlewares(c.sh)
 	}
 
-	var err error
 	for name, j := range c.ExecJobs {
 		defaults.SetDefaults(j)
 		j.Client = c.dockerHandler.GetInternalDockerClient()
@@ -109,7 +108,6 @@ func (c *Config) InitializeApp() error {
 		j.Name = name
 		j.buildMiddlewares()
 		c.sh.AddJob(j)
-		c.logger.Debugf("Unable to add new local job %s from config: %v", name, err)
 	}
 
 	for name, j := range c.ServiceJobs {
