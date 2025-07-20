@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -86,18 +87,50 @@ func (c *DockerHandler) ConfigFromLabelsEnabled() bool {
 	return c.configsFromLabels
 }
 
+// Watch for Docker events and update the labels accordingly
 func (c *DockerHandler) watch() {
-	const pollInterval = 10 * time.Second
-	c.logger.Debugf("Watching for Docker labels changes every %s...", pollInterval)
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-	for range ticker.C {
-		labels, err := c.GetDockerLabels()
-		// Do not print or care if there is no container up right now
-		if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
-			c.logger.Debugf("%v", err)
+	c.logger.Debugf("Listening for Docker events to hot reload configs...")
+
+	events := make(chan *docker.APIEvents)
+	err := c.dockerClient.AddEventListener(events)
+	if err != nil {
+		c.logger.Errorf("Error adding event listener: %v", err)
+	}
+	defer func() {
+		// remove the listener when the program exits
+		err := c.dockerClient.RemoveEventListener(events)
+		if err != nil {
+			c.logger.Errorf("Error removing event listener: %v", err)
 		}
-		c.notifier.dockerLabelsUpdate(labels)
+	}()
+
+	lifecycleEvents := []string{
+		"create",
+		"start",
+		"restart",
+		"stop",
+		"kill",
+		"die",
+		"destroy",
+	}
+
+	otherManagementEvents := []string{
+		"pause",
+		"unpause",
+		"rename",
+		"update",
+	}
+
+	for event := range events {
+		if event.Type == "container" && (slices.Contains(lifecycleEvents, event.Action) || slices.Contains(otherManagementEvents, event.Action)) {
+			c.logger.Debugf("Received Docker event: Type=%s, Action=%s, ID=%s, ContanerName=%s", event.Type, event.Action, event.ID[:8], event.Actor.Attributes["name"])
+			labels, err := c.GetDockerLabels()
+			// Do not print or care if there is no container up right now
+			if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
+				c.logger.Debugf("%v", err)
+			}
+			c.notifier.dockerLabelsUpdate(labels)
+		}
 	}
 }
 
