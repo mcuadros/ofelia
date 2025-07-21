@@ -55,3 +55,42 @@ func (s *SuiteScheduler) TestMergeMiddlewaresSame(c *C) {
 	c.Assert(m, HasLen, 1)
 	c.Assert(m[0], Equals, mB)
 }
+
+func (s *SuiteScheduler) TestCronFormat(c *C) {
+
+	var testcases = []struct {
+		schedule    string
+		expectedErr bool
+	}{
+		{"@every 1s", false},
+		{"@hourly", false},
+		{"@daily", false},
+		{"@weekly", false},
+		{"@monthly", false},
+		{"@yearly", false},
+		{"* * * * *", false},
+		{"* * * * * *", false},
+		{"* * * * * * *", true},
+	}
+
+	for _, tc := range testcases {
+		job := &TestJob{}
+		job.Schedule = tc.schedule
+
+		sc := NewScheduler(&TestLogger{})
+		err := sc.AddJob(job)
+		if tc.expectedErr {
+			c.Assert(err, NotNil)
+		} else {
+			c.Assert(err, IsNil)
+		}
+
+		sc.Start()
+		c.Assert(sc.IsRunning(), Equals, true)
+
+		time.Sleep(time.Millisecond * 10)
+
+		sc.Stop()
+		c.Assert(sc.IsRunning(), Equals, false)
+	}
+}
