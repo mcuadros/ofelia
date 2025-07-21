@@ -123,7 +123,6 @@ func (c *DockerHandler) watch() {
 
 	for event := range events {
 		if event.Type == "container" && (slices.Contains(lifecycleEvents, event.Action) || slices.Contains(otherManagementEvents, event.Action)) {
-			c.logger.Debugf("Received Docker event: Type=%s, Action=%s, ID=%s, ContanerName=%s", event.Type, event.Action, event.ID[:8], event.Actor.Attributes["name"])
 			labels, err := c.GetDockerLabels()
 			// Do not print or care if there is no container up right now
 			if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
