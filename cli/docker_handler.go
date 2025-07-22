@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"slices"
-	"strings"
-	"time"
-
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/mcuadros/ofelia/core"
+	"os"
+	"strings"
+	"time"
 )
 
 const (
@@ -104,34 +102,22 @@ func (c *DockerHandler) watch() {
 		}
 	}()
 
-
-         shouldProcessEvent := func(event *docker.APIEvents) bool {
-             if event.Type != "container":
-                return false
-             }
-         
-             switch (event.Action) {
-              // lifecycle events
-              case "create", "start", "restart", "stop", "kill", "die", "destroy": 
-                  return true
-              // other management events
-              case "pause", "unpause", "rename", "update":
-                  return true
-              default:
-                 return false
-             }
-         }
-
 	for event := range events {
-		if !shouldProcessEvent(event) {
-		    continue
+		if event.Type != "container" {
+			continue
 		}
+
+		switch event.Action {
+		//   |-----------------------lifecycle events---------------------|  | ----- other management events -----|
+		case "create", "start", "restart", "stop", "kill", "die", "destroy", "pause", "unpause", "rename", "update":
 			labels, err := c.GetDockerLabels()
 			// Do not print or care if there is no container up right now
 			if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
 				c.logger.Debugf("%v", err)
 			}
 			c.notifier.dockerLabelsUpdate(labels)
+		default:
+			continue
 		}
 	}
 }
