@@ -104,25 +104,28 @@ func (c *DockerHandler) watch() {
 		}
 	}()
 
-	lifecycleEvents := []string{
-		"create",
-		"start",
-		"restart",
-		"stop",
-		"kill",
-		"die",
-		"destroy",
-	}
 
-	otherManagementEvents := []string{
-		"pause",
-		"unpause",
-		"rename",
-		"update",
-	}
+         shouldProcessEvent := func(event *docker.APIEvents) bool {
+             if event.Type != "container":
+                return false
+             }
+         
+             switch (event.Action) {
+              // lifecycle events
+              case "create", "start", "restart", "stop", "kill", "die", "destroy": 
+                  return true
+              // other management events
+              case "pause", "unpause", "rename", "update":
+                  return true
+              default:
+                 return false
+             }
+         }
 
 	for event := range events {
-		if event.Type == "container" && (slices.Contains(lifecycleEvents, event.Action) || slices.Contains(otherManagementEvents, event.Action)) {
+		if !shouldProcessEvent(event) {
+		    continue
+		}
 			labels, err := c.GetDockerLabels()
 			// Do not print or care if there is no container up right now
 			if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
