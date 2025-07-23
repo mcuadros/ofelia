@@ -35,6 +35,7 @@ func (s *SuiteRunJob) SetUpTest(c *C) {
 func (s *SuiteRunJob) TestRun(c *C) {
 	job := &RunJob{Client: s.client}
 	job.Image = ImageFixture
+	job.Entrypoint = "/bin/bash -c"
 	job.Command = `echo -a "foo bar"`
 	job.User = "foo"
 	job.TTY = true
@@ -62,6 +63,7 @@ func (s *SuiteRunJob) TestRun(c *C) {
 	time.Sleep(200 * time.Millisecond)
 	container, err := job.getContainer()
 	c.Assert(err, IsNil)
+	c.Assert(container.Config.Entrypoint, DeepEquals, []string{"/bin/bash", "-c"})
 	c.Assert(container.Config.Cmd, DeepEquals, []string{"echo", "-a", "foo bar"})
 	c.Assert(container.Config.User, Equals, job.User)
 	c.Assert(container.Config.Image, Equals, job.Image)
