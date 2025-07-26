@@ -66,7 +66,8 @@ func NewDockerHandler(config *Config, dockerFilters []string, configsFromLabels 
 	for _, f := range dockerFilters {
 		key, value, err := parseFilter(f)
 		if err != nil {
-			config.logger.Errorf("Error parsing filter '%s': %v", f, err)
+			logger.Errorf("Error parsing filter '%s': %v", f, err)
+			return nil, errInvalidDockerFilter
 		}
 		filters[key] = append(filters[key], value)
 	}
@@ -100,12 +101,13 @@ func (c *DockerHandler) ConfigFromLabelsEnabled() bool {
 
 // Watch for Docker events and update the labels accordingly
 func (c *DockerHandler) watch() {
-	c.logger.Debugf("Listening for Docker events to hot reload configs...")
 	events := make(chan *docker.APIEvents)
 	var filters = map[string][]string{
 		"type":  {"container"},
 		"label": c.filters["label"],
 	}
+
+	c.logger.Debugf("Listening for Docker events (with following filters %v) to hot reload configs...", filters)
 
 	if err := c.dockerClient.AddEventListenerWithOptions(docker.EventsOptions{
 		Filters: filters}, events); err != nil {
