@@ -21,7 +21,7 @@ The main feature of **Ofelia** is the ability to execute commands directly on Do
 [Scheduling format](https://pkg.go.dev/github.com/robfig/cron/v3#hdr-CRON_Expression_Format) is the same as the Go implementation of `cron`. E.g. `@every 10s` or `0 1 * * *` (every night at 1 AM).
 
 >[!NOTE]
->[robfig/cron/v1](https://pkg.go.dev/github.com/robfig/cron@v1.2.0#hdr-CRON_Expression_Format) accepted an optional seconds field at the beginning of the cron spec. While **Ofelia** still supports this format for backward compatibility, using seconds is optional and not recommended for new configurations. 
+>[robfig/cron/v1](https://pkg.go.dev/github.com/robfig/cron@v1.2.0#hdr-CRON_Expression_Format) accepted an seconds field at the beginning of the cron spec. Starting with `0.4.x`, **Ofelia** still supports this format for backward compatibility, using seconds is optional and not recommended for new configurations. However, for `0.3.x` seconds configuration is still **required**.
 
 You can configure four different kind of jobs:
 
