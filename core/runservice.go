@@ -16,7 +16,7 @@ import (
 type RunServiceJob struct {
 	BareJob `mapstructure:",squash"`
 	Client  *docker.Client `json:"-"`
-	User    string         `default:"root"`
+	User    string         `default:""`
 	TTY     bool           `default:"false"`
 	// do not use bool values with "default:true" because if
 	// user would set it to "false" explicitly, it still will be
@@ -67,10 +67,16 @@ func (j *RunServiceJob) buildService() (*swarm.Service, error) {
 	max := uint64(1)
 	createSvcOpts := docker.CreateServiceOptions{}
 
-	createSvcOpts.ServiceSpec.TaskTemplate.ContainerSpec =
-		&swarm.ContainerSpec{
-			Image: j.Image,
-		}
+	containerSpec := &swarm.ContainerSpec{
+		Image: j.Image,
+	}
+	
+	// Only set User if it's explicitly specified, otherwise use container's default user
+	if j.User != "" {
+		containerSpec.User = j.User
+	}
+
+	createSvcOpts.ServiceSpec.TaskTemplate.ContainerSpec = containerSpec
 
 	// Make the service run once and not restart
 	createSvcOpts.ServiceSpec.TaskTemplate.RestartPolicy =

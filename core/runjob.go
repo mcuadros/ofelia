@@ -18,7 +18,7 @@ func init() {
 type RunJob struct {
 	BareJob `mapstructure:",squash"`
 	Client  *docker.Client `json:"-"`
-	User    string         `default:"root"`
+	User    string         `default:""`
 
 	TTY bool `default:"false"`
 
@@ -163,18 +163,24 @@ func (j *RunJob) pullImage() error {
 }
 
 func (j *RunJob) buildContainer() (*docker.Container, error) {
+	config := &docker.Config{
+		Image:        j.Image,
+		AttachStdin:  false,
+		AttachStdout: true,
+		AttachStderr: true,
+		Tty:          j.TTY,
+		Cmd:          args.GetArgs(j.Command),
+		Env:          j.Environment,
+		Hostname:     j.Hostname,
+	}
+	
+	// Only set User if it's explicitly specified, otherwise use container's default user
+	if j.User != "" {
+		config.User = j.User
+	}
+
 	c, err := j.Client.CreateContainer(docker.CreateContainerOptions{
-		Config: &docker.Config{
-			Image:        j.Image,
-			AttachStdin:  false,
-			AttachStdout: true,
-			AttachStderr: true,
-			Tty:          j.TTY,
-			Cmd:          args.GetArgs(j.Command),
-			User:         j.User,
-			Env:          j.Environment,
-			Hostname:     j.Hostname,
-		},
+		Config:           config,
 		NetworkingConfig: &docker.NetworkingConfig{},
 		HostConfig: &docker.HostConfig{
 			Binds:       j.Volume,

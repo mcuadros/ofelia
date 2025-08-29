@@ -30,7 +30,7 @@ This job is executed inside a running container. Similar to `docker exec`
 - **User**
   - *description*: User as which the command should be executed, similar to `docker exec --user <user>`
   - *value*: String, e.g. `www-data`
-  - *default*: `root`
+  - *default*: Container's default user (equivalent to not specifying `--user` in docker exec)
 - **tty**
   - *description*: Allocate a pseudo-tty, similar to `docker exec -t`. See this [Stack Overflow answer](https://stackoverflow.com/questions/30137135/confused-about-docker-t-option-to-allocate-a-pseudo-tty) for more info.
   - *value*: Boolean, either `false` or `true`
@@ -91,7 +91,7 @@ This job can be used in 2 situations:
 - **User** (1)
   - *description*: User as which the command should be executed, similar to `docker run --user <user>`
   - *value*: String, e.g. `www-data`
-  - *default*: `root`
+  - *default*: Container's default user (equivalent to not specifying `--user` in docker run)
 - **Network** (1)
   - *description*: Connect the container to this network
   - *value*: String, e.g. `backend-proxy`
@@ -243,7 +243,7 @@ This job can be used to:
 - **User** (1,2)
   - *description*: User as which the command should be executed.
   - *value*: String, e.g. `www-data`
-  - *default*: `root`
+  - *default*: Container's default user (equivalent to not specifying `--user` in docker run)
 - **tty** (1,2)
   - *description*: Allocate a pseudo-tty, similar to `docker exec -t`. See this [Stack Overflow answer](https://stackoverflow.com/questions/30137135/confused-about-docker-t-option-to-allocate-a-pseudo-tty) for more info.
   - *value*: Boolean, either `true` or `false`
