@@ -1,9 +1,8 @@
 package core
 
 import (
+	"bytes"
 	"strings"
-
-	"github.com/armon/circbuf"
 
 	. "gopkg.in/check.v1"
 )
@@ -16,7 +15,7 @@ func (s *SuiteLocalJob) TestRun(c *C) {
 	job := &LocalJob{}
 	job.Command = `echo "foo bar"`
 
-	b, _ := circbuf.NewBuffer(1000)
+	b := &bytes.Buffer{}
 	e := NewExecution()
 	e.OutputStream = b
 
@@ -31,7 +30,7 @@ func (s *SuiteLocalJob) TestEnvironment(c *C) {
 	env := []string{"test_Key1=value1", "test_Key2=value2"}
 	job.Environment = env
 
-	b, _ := circbuf.NewBuffer(1000)
+	b := &bytes.Buffer{}
 	e := NewExecution()
 	e.OutputStream = b
 

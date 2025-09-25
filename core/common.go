@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -8,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/armon/circbuf"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -143,17 +143,15 @@ type Execution struct {
 	Skipped   bool
 	Error     error
 
-	OutputStream, ErrorStream *circbuf.Buffer `json:"-"`
+	OutputStream, ErrorStream *bytes.Buffer `json:"-"`
 }
 
 // NewExecution returns a new Execution, with a random ID
 func NewExecution() *Execution {
-	bufOut, _ := circbuf.NewBuffer(maxStreamSize)
-	bufErr, _ := circbuf.NewBuffer(maxStreamSize)
 	return &Execution{
 		ID:           randomID(),
-		OutputStream: bufOut,
-		ErrorStream:  bufErr,
+		OutputStream: &bytes.Buffer{},
+		ErrorStream:  &bytes.Buffer{},
 	}
 }
 
