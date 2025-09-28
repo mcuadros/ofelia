@@ -1,6 +1,6 @@
 module github.com/mcuadros/ofelia
 
-go 1.23.0
+go 1.24.0
 
 toolchain go1.25.1
 
@@ -8,7 +8,7 @@ require (
 	github.com/armon/circbuf v0.0.0-20190214190532-5111143e8da2
 	github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625
 	github.com/docker/docker v28.4.0+incompatible
-	github.com/fsouza/go-dockerclient v1.12.1
+	github.com/fsouza/go-dockerclient v1.12.2
 	github.com/go-viper/mapstructure/v2 v2.4.0
 	github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93
 	github.com/gohugoio/hashstructure v0.5.0
@@ -46,7 +46,7 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
-	golang.org/x/sys v0.32.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
