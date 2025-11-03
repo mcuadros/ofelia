@@ -17,10 +17,10 @@ FROM alpine:3.22
 LABEL ofelia.service=true
 LABEL ofelia.enabled=true
 
-RUN apk --no-cache add ca-certificates tzdata
+RUN apk --no-cache add ca-certificates tini tzdata
 
 COPY --from=builder /go/bin/ofelia /usr/bin/ofelia
 
-ENTRYPOINT ["/usr/bin/ofelia"]
+ENTRYPOINT ["/sbin/tini", "/usr/bin/ofelia"]
 
 CMD ["daemon", "--config", "/etc/ofelia/config.ini"]
