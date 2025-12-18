@@ -1,7 +1,7 @@
 # Run this with: docker compose up --build --exit-code-from sleep1
 services:
   sleep1:
-    image: &alpine alpine:3.22.1
+    image: &alpine alpine:3.23.2
     command: sleep ${SLEEP_FOR:-15}
     environment:
       OUTPUT_FILE: ${EXEC_OUTPUT_FILE:-sleep.txt}
