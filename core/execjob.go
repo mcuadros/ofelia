@@ -11,7 +11,7 @@ type ExecJob struct {
 	BareJob     `mapstructure:",squash"`
 	Client      *docker.Client `json:"-" hash:"-"`
 	Container   string
-	User        string `default:"root"`
+	User        string `default:""`
 	TTY         bool   `default:"false"`
 	Environment []string
 
@@ -52,16 +52,22 @@ func (j *ExecJob) Run(ctx *Context) error {
 }
 
 func (j *ExecJob) buildExec() (*docker.Exec, error) {
-	exec, err := j.Client.CreateExec(docker.CreateExecOptions{
+	options := docker.CreateExecOptions{
 		AttachStdin:  false,
 		AttachStdout: true,
 		AttachStderr: true,
 		Tty:          j.TTY,
 		Cmd:          args.GetArgs(j.Command),
 		Container:    j.Container,
-		User:         j.User,
 		Env:          j.Environment,
-	})
+	}
+	
+	// Only set User if it's explicitly specified, otherwise use container's default user
+	if j.User != "" {
+		options.User = j.User
+	}
+
+	exec, err := j.Client.CreateExec(options)
 
 	if err != nil {
 		return exec, fmt.Errorf("error creating exec: %s", err)
