@@ -144,6 +144,75 @@ services:
 ```
 
 
+#### Docker host configuration
+
+By default, **Ofelia** connects to the Docker daemon via the default socket (`/var/run/docker.sock` on Linux). However, you can configure it to connect to a different Docker host using environment variables. This is particularly useful when:
+- Using a Docker socket proxy for security
+- Connecting to a remote Docker daemon
+- Using Docker over TCP
+
+**Ofelia** supports the following Docker environment variables:
+- `DOCKER_HOST` - The Docker host to connect to (e.g., `tcp://docker-proxy:2375`, `unix:///custom/docker.sock`)
+- `DOCKER_TLS_VERIFY` - Enable TLS verification (set to `1` to enable)
+- `DOCKER_CERT_PATH` - Path to TLS certificates directory
+- `DOCKER_API_VERSION` - Docker API version to use
+
+##### Using with a socket proxy
+
+```sh
+docker run -it --rm \
+    -e DOCKER_HOST=tcp://docker-proxy:2375 \
+    --label ofelia.job-local.my-test-job.schedule="@every 5s" \
+    --label ofelia.job-local.my-test-job.command="date" \
+        mcuadros/ofelia:latest daemon --docker
+```
+
+Or with docker-compose:
+
+```yaml
+version: "3"
+services:
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    environment:
+      CONTAINERS: 1
+      SERVICES: 1
+      TASKS: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  ofelia:
+    image: mcuadros/ofelia:latest
+    depends_on:
+      - docker-proxy
+      - nginx
+    command: daemon --docker
+    environment:
+      DOCKER_HOST: tcp://docker-proxy:2375
+    labels:
+      ofelia.job-local.my-test-job.schedule: "@every 5s"
+      ofelia.job-local.my-test-job.command: "date"
+
+  nginx:
+    image: nginx
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.datecron.schedule: "@every 5s"
+      ofelia.job-exec.datecron.command: "uname -a"
+```
+
+##### Using with TLS
+
+```sh
+docker run -it --rm \
+    -e DOCKER_HOST=tcp://docker.example.com:2376 \
+    -e DOCKER_TLS_VERIFY=1 \
+    -e DOCKER_CERT_PATH=/certs \
+    -v /path/to/certs:/certs:ro \
+        mcuadros/ofelia:latest daemon --config=/path/to/config.ini
+```
+
+
 ### Logging
 **Ofelia** comes with three different logging drivers:
 - `mail` to send mails
