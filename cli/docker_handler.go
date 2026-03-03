@@ -37,7 +37,7 @@ type DockerHandler struct {
 }
 
 type labelConfigUpdater interface {
-	dockerLabelsUpdate(map[string]map[string]string)
+	dockerLabelsUpdate(map[DockerContainerInfo]map[string]string)
 }
 
 // TODO: Implement an interface so the code does not have to use third parties directly
@@ -130,7 +130,15 @@ func (c *DockerHandler) WaitForLabels() {
 	}
 }
 
-func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) {
+// DockerContainerInfo is a struct that contains the name and running state of a Docker container.
+type DockerContainerInfo struct {
+	// Name is the name of the Docker container.
+	Name string
+	// IsRunning is a boolean flag that indicates if the container is running.
+	IsRunning bool
+}
+
+func (c *DockerHandler) GetDockerLabels() (map[DockerContainerInfo]map[string]string, error) {
 	var filters = map[string][]string{
 		"label": {requiredLabelFilter},
 	}
@@ -142,18 +150,23 @@ func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) 
 		filters[key] = append(filters[key], value)
 	}
 
-	conts, err := c.dockerClient.ListContainers(docker.ListContainersOptions{Filters: filters})
+	// This is necessary to get the labels of all containers, to be able to `run` jobs on stopped containers.
+	conts, err := c.dockerClient.ListContainers(docker.ListContainersOptions{Filters: filters, All: true})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errFailedToListContainers, err)
 	} else if len(conts) == 0 {
 		return nil, fmt.Errorf("%w: %v", errNoContainersMatchingFilters, filters)
 	}
 
-	var labels = make(map[string]map[string]string)
+	var labels = make(map[DockerContainerInfo]map[string]string)
 
 	for _, cont := range conts {
+		name := strings.TrimPrefix(cont.Names[0], "/")
+		containerInfo := DockerContainerInfo{
+			Name:      name,
+			IsRunning: cont.State == "running",
+		}
 		if len(cont.Names) > 0 && len(cont.Labels) > 0 {
-			name := strings.TrimPrefix(cont.Names[0], "/")
 			for k := range cont.Labels {
 				// remove all not relevant labels
 				if !strings.HasPrefix(k, labelPrefix) {
@@ -162,7 +175,7 @@ func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) 
 				}
 			}
 
-			labels[name] = cont.Labels
+			labels[containerInfo] = cont.Labels
 		}
 	}
 
@@ -177,14 +190,15 @@ func parseFilter(filter string) (key, value string, err error) {
 	return parts[0], parts[1], nil
 }
 
-func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) error {
+func (c *Config) buildFromDockerLabels(labels map[DockerContainerInfo]map[string]string) error {
+	logger := c.logger
 	execJobs := make(map[string]map[string]interface{})
 	localJobs := make(map[string]map[string]interface{})
 	runJobs := make(map[string]map[string]interface{})
 	serviceJobs := make(map[string]map[string]interface{})
 	globalConfigs := make(map[string]interface{})
 
-	for c, l := range labels {
+	for containerInfo, l := range labels {
 		isServiceContainer := func() bool {
 			for k, v := range l {
 				if k == serviceLabel {
@@ -193,6 +207,9 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 			}
 			return false
 		}()
+
+		containerName := containerInfo.Name
+		isRunning := containerInfo.IsRunning
 
 		for k, v := range l {
 			parts := strings.Split(k, ".")
@@ -205,35 +222,50 @@ func (c *Config) buildFromDockerLabels(labels map[string]map[string]string) erro
 			}
 
 			jobType, jobName, jopParam := parts[1], parts[2], parts[3]
-			switch {
-			case jobType == jobExec: // only job exec can be provided on the non-service container
+
+			if !isRunning && jobType != jobRun {
+				// Only job run can be provided on the non-running container.
+				continue
+			}
+			if !isServiceContainer && (jobType != jobExec && jobType != jobRun) {
+				logger.Warningf("Container %s, label %s: job type %s can only be defined on the ofelia service container", containerName, k, jobType)
+				continue
+			}
+
+			switch jobType {
+			case jobExec: // only job exec and job run can be provided on the non-service container
 				if _, ok := execJobs[jobName]; !ok {
 					execJobs[jobName] = make(map[string]interface{})
 				}
-
 				setJobParam(execJobs[jobName], jopParam, v)
 				// since this label was placed not on the service container
 				// this means we need to `exec` command in this container
 				if !isServiceContainer {
-					execJobs[jobName]["container"] = c
+					execJobs[jobName]["container"] = containerName
 				}
-			case jobType == jobLocal && isServiceContainer:
-				if _, ok := localJobs[jobName]; !ok {
-					localJobs[jobName] = make(map[string]interface{})
-				}
-				setJobParam(localJobs[jobName], jopParam, v)
-			case jobType == jobServiceRun && isServiceContainer:
-				if _, ok := serviceJobs[jobName]; !ok {
-					serviceJobs[jobName] = make(map[string]interface{})
-				}
-				setJobParam(serviceJobs[jobName], jopParam, v)
-			case jobType == jobRun && isServiceContainer:
+
+			case jobRun: // only job exec and job run can be provided on the non-service container
 				if _, ok := runJobs[jobName]; !ok {
 					runJobs[jobName] = make(map[string]interface{})
 				}
 				setJobParam(runJobs[jobName], jopParam, v)
+				if !isServiceContainer {
+					runJobs[jobName]["container"] = containerName
+				}
+
+			case jobLocal:
+				if _, ok := localJobs[jobName]; !ok {
+					localJobs[jobName] = make(map[string]interface{})
+				}
+				setJobParam(localJobs[jobName], jopParam, v)
+
+			case jobServiceRun:
+				if _, ok := serviceJobs[jobName]; !ok {
+					serviceJobs[jobName] = make(map[string]interface{})
+				}
+				setJobParam(serviceJobs[jobName], jopParam, v)
 			default:
-				// TODO: warn about unknown parameter
+				logger.Warningf("Container %s, label %s: unknown job type %s", containerName, k, jobType)
 			}
 		}
 	}
