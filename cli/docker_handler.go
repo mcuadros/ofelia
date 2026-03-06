@@ -33,7 +33,7 @@ type DockerHandler struct {
 	notifier          labelConfigUpdater
 	configsFromLabels bool
 	logger            core.Logger
-	filters           []string
+	filters           map[string][]string
 }
 
 type labelConfigUpdater interface {
@@ -59,8 +59,21 @@ func NewDockerHandler(config *Config, dockerFilters []string, configsFromLabels 
 		return nil, fmt.Errorf("docker filters can only be provided together with '--docker' flag")
 	}
 
+	var filters = map[string][]string{
+		"label": {requiredLabelFilter},
+	}
+
+	for _, f := range dockerFilters {
+		key, value, err := parseFilter(f)
+		if err != nil {
+			logger.Errorf("Error parsing filter '%s': %v", f, err)
+			return nil, errInvalidDockerFilter
+		}
+		filters[key] = append(filters[key], value)
+	}
+
 	c := &DockerHandler{
-		filters:           dockerFilters,
+		filters:           filters,
 		configsFromLabels: configsFromLabels,
 		notifier:          config,
 		logger:            logger,
@@ -86,18 +99,45 @@ func (c *DockerHandler) ConfigFromLabelsEnabled() bool {
 	return c.configsFromLabels
 }
 
+// Watch for Docker events and update the labels accordingly
 func (c *DockerHandler) watch() {
-	const pollInterval = 10 * time.Second
-	c.logger.Debugf("Watching for Docker labels changes every %s...", pollInterval)
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-	for range ticker.C {
-		labels, err := c.GetDockerLabels()
-		// Do not print or care if there is no container up right now
-		if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
-			c.logger.Debugf("%v", err)
+	events := make(chan *docker.APIEvents)
+	var filters = map[string][]string{
+		"type":  {"container"},
+		"label": c.filters["label"],
+	}
+
+	c.logger.Debugf("Listening for Docker events (with following filters %v) to hot reload configs...", filters)
+
+	if err := c.dockerClient.AddEventListenerWithOptions(docker.EventsOptions{
+		Filters: filters}, events); err != nil {
+		c.logger.Errorf("Error adding event listener: %v", err)
+		return
+	}
+
+	defer func() {
+		if err := c.dockerClient.RemoveEventListener(events); err != nil {
+			c.logger.Errorf("Error removing event listener: %v", err)
 		}
-		c.notifier.dockerLabelsUpdate(labels)
+	}()
+
+	for event := range events {
+		switch event.Action {
+		case
+			// lifecycle events
+			"create", "start", "restart", "stop", "kill", "die", "destroy",
+			// other management events
+			"pause", "unpause", "rename", "update":
+			c.logger.Debugf("Refreshing configurations. Docker event received - [%s] %s (%s)", event.Action, event.Actor.Attributes["name"], event.Actor.ID)
+			labels, err := c.GetDockerLabels()
+			// Do not print or care if there is no container up right now
+			if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
+				c.logger.Debugf("%v", err)
+			}
+			c.notifier.dockerLabelsUpdate(labels)
+		default:
+			continue
+		}
 	}
 }
 
@@ -131,22 +171,11 @@ func (c *DockerHandler) WaitForLabels() {
 }
 
 func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) {
-	var filters = map[string][]string{
-		"label": {requiredLabelFilter},
-	}
-	for _, f := range c.filters {
-		key, value, err := parseFilter(f)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %s", err, f)
-		}
-		filters[key] = append(filters[key], value)
-	}
-
-	conts, err := c.dockerClient.ListContainers(docker.ListContainersOptions{Filters: filters})
+	conts, err := c.dockerClient.ListContainers(docker.ListContainersOptions{Filters: c.filters})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errFailedToListContainers, err)
 	} else if len(conts) == 0 {
-		return nil, fmt.Errorf("%w: %v", errNoContainersMatchingFilters, filters)
+		return nil, fmt.Errorf("%w: %v", errNoContainersMatchingFilters, c.filters)
 	}
 
 	var labels = make(map[string]map[string]string)
