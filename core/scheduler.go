@@ -115,11 +115,11 @@ func (w *jobWrapper) stop(ctx *Context, err error) {
 		errText = ctx.Execution.Error.Error()
 	}
 
-	if ctx.Execution.OutputStream.TotalWritten() > 0 {
+	if ctx.Execution.OutputStream.Len() > 0 {
 		ctx.Log("StdOut: " + ctx.Execution.OutputStream.String())
 	}
 
-	if ctx.Execution.ErrorStream.TotalWritten() > 0 {
+	if ctx.Execution.ErrorStream.Len() > 0 {
 		ctx.Log("StdErr: " + ctx.Execution.ErrorStream.String())
 	}
 

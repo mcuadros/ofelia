@@ -18,6 +18,8 @@ type DaemonCommand struct {
 	signals           chan os.Signal
 	done              chan bool
 	Logger            core.Logger
+
+	dockerHandlerStop func()
 }
 
 // Execute runs the daemon
@@ -64,6 +66,8 @@ func (c *DaemonCommand) boot() (err error) {
 		return fmt.Errorf("failed to create docker handler: %w", err)
 	}
 
+	c.dockerHandlerStop = config.dockerHandler.Stop
+
 	err = config.InitializeApp()
 	if err != nil {
 		return fmt.Errorf("can't start the app: %w", err)
@@ -103,6 +107,10 @@ func (c *DaemonCommand) shutdown() error {
 	<-c.done
 	if !c.scheduler.IsRunning() {
 		return nil
+	}
+
+	if c.dockerHandlerStop != nil {
+		c.dockerHandlerStop()
 	}
 
 	c.Logger.Warningf("Waiting running jobs.")

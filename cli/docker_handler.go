@@ -34,6 +34,8 @@ type DockerHandler struct {
 	configsFromLabels bool
 	logger            core.Logger
 	filters           []string
+
+	stopCh chan struct{}
 }
 
 type labelConfigUpdater interface {
@@ -64,6 +66,7 @@ func NewDockerHandler(config *Config, dockerFilters []string, configsFromLabels 
 		configsFromLabels: configsFromLabels,
 		notifier:          config,
 		logger:            logger,
+		stopCh:            make(chan struct{}),
 	}
 	var err error
 	c.dockerClient, err = c.buildDockerClient()
@@ -91,13 +94,29 @@ func (c *DockerHandler) watch() {
 	c.logger.Debugf("Watching for Docker labels changes every %s...", pollInterval)
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
-	for range ticker.C {
-		labels, err := c.GetDockerLabels()
-		// Do not print or care if there is no container up right now
-		if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
-			c.logger.Debugf("%v", err)
+	for {
+		select {
+		case <-ticker.C:
+			labels, err := c.GetDockerLabels()
+			// Do not print or care if there is no container up right now
+			if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
+				c.logger.Debugf("%v", err)
+			}
+			c.notifier.dockerLabelsUpdate(labels)
+		case <-c.stopCh:
+			return
 		}
-		c.notifier.dockerLabelsUpdate(labels)
+	}
+}
+
+// Stop terminates the background watch goroutine if running.
+func (c *DockerHandler) Stop() {
+	select {
+	case <-c.stopCh:
+		// already closed
+		return
+	default:
+		close(c.stopCh)
 	}
 }
 
@@ -154,15 +173,18 @@ func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) 
 	for _, cont := range conts {
 		if len(cont.Names) > 0 && len(cont.Labels) > 0 {
 			name := strings.TrimPrefix(cont.Names[0], "/")
-			for k := range cont.Labels {
-				// remove all not relevant labels
-				if !strings.HasPrefix(k, labelPrefix) {
-					delete(cont.Labels, k)
-					continue
+
+			// copy only relevant labels instead of mutating cont.Labels
+			filtered := make(map[string]string, len(cont.Labels))
+			for k, v := range cont.Labels {
+				if strings.HasPrefix(k, labelPrefix) {
+					filtered[k] = v
 				}
 			}
 
-			labels[name] = cont.Labels
+			if len(filtered) > 0 {
+				labels[name] = filtered
+			}
 		}
 	}
 
