@@ -33,56 +33,71 @@ func (s *SuiteRunJob) SetUpTest(c *C) {
 }
 
 func (s *SuiteRunJob) TestRun(c *C) {
-	job := &RunJob{Client: s.client}
-	job.Image = ImageFixture
-	job.Command = `echo -a "foo bar"`
-	job.User = "foo"
-	job.TTY = true
-	job.Delete = "true"
-	job.Network = "foo"
-	job.Hostname = "test-host"
-	job.Name = "test"
-	job.Environment = []string{"test_Key1=value1", "test_Key2=value2"}
-	job.Volume = []string{"/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"}
+	overridenEntrypoint := "/bin/bash -c"
+	emptyEntrypoint := ""
+	testCases := []struct {
+		entrypoint         *string
+		expectedEntrypoint []string
+	}{
+		{nil, nil},
+		{&overridenEntrypoint, []string{"/bin/bash", "-c"}},
+		{&emptyEntrypoint, []string{}},
+	}
 
-	ctx := &Context{}
-	ctx.Execution = NewExecution()
-	ctx.Logger = NewSlogLogger(io.Discard)
-	ctx.Job = job
+	for _, tc := range testCases {
+		job := &RunJob{Client: s.client}
+		job.Image = ImageFixture
+		job.Command = `echo -a "foo bar"`
+		job.User = "foo"
+		job.TTY = true
+		job.Delete = "true"
+		job.Network = "foo"
+		job.Hostname = "test-host"
+		job.Name = "test"
+		job.Environment = []string{"test_Key1=value1", "test_Key2=value2"}
+		job.Volume = []string{"/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"}
+		job.Entrypoint = tc.entrypoint
 
-	go func() {
-		// Docker Test Server doesn't actually start container
-		// so "job.Run" will hang until container is stopped
-		if err := job.Run(ctx); err != nil {
-			c.Fatal(err)
-		}
-	}()
+		ctx := &Context{}
+		ctx.Execution = NewExecution()
+		ctx.Logger = NewSlogLogger(io.Discard)
+		ctx.Job = job
 
-	time.Sleep(200 * time.Millisecond)
-	container, err := job.getContainer()
-	c.Assert(err, IsNil)
-	c.Assert(container.Config.Cmd, DeepEquals, []string{"echo", "-a", "foo bar"})
-	c.Assert(container.Config.User, Equals, job.User)
-	c.Assert(container.Config.Image, Equals, job.Image)
-	c.Assert(container.State.Running, Equals, true)
-	c.Assert(container.Config.Env, DeepEquals, job.Environment)
+		go func() {
+			// Docker Test Server doesn't actually start container
+			// so "job.Run" will hang until container is stopped
+			if err := job.Run(ctx); err != nil {
+				c.Fatal(err)
+			}
+		}()
 
-	// this doesn't seem to be working with DockerTestServer
-	// c.Assert(container.Config.Hostname, Equals, job.Hostname)
-	// c.Assert(container.HostConfig.Binds, DeepEquals, job.Volume)
+		time.Sleep(200 * time.Millisecond)
+		container, err := job.getContainer()
+		c.Assert(err, IsNil)
+		c.Assert(container.Config.Entrypoint, DeepEquals, tc.expectedEntrypoint)
+		c.Assert(container.Config.Cmd, DeepEquals, []string{"echo", "-a", "foo bar"})
+		c.Assert(container.Config.User, Equals, job.User)
+		c.Assert(container.Config.Image, Equals, job.Image)
+		c.Assert(container.State.Running, Equals, true)
+		c.Assert(container.Config.Env, DeepEquals, job.Environment)
 
-	// stop container, we don't need it anymore
-	err = job.stopContainer(0)
-	c.Assert(err, IsNil)
+		// this doesn't seem to be working with DockerTestServer
+		// c.Assert(container.Config.Hostname, Equals, job.Hostname)
+		// c.Assert(container.HostConfig.Binds, DeepEquals, job.Volume)
 
-	// wait and double check if container was deleted on "stop"
-	time.Sleep(watchDuration * 2)
-	container, _ = job.getContainer()
-	c.Assert(container, IsNil)
+		// stop container, we don't need it anymore
+		err = job.stopContainer(0)
+		c.Assert(err, IsNil)
 
-	containers, err := s.client.ListContainers(docker.ListContainersOptions{All: true})
-	c.Assert(err, IsNil)
-	c.Assert(containers, HasLen, 0)
+		// wait and double check if container was deleted on "stop"
+		time.Sleep(watchDuration * 2)
+		container, _ = job.getContainer()
+		c.Assert(container, IsNil)
+
+		containers, err := s.client.ListContainers(docker.ListContainersOptions{All: true})
+		c.Assert(err, IsNil)
+		c.Assert(containers, HasLen, 0)
+	}
 }
 
 func (s *SuiteRunJob) TestBuildPullImageOptionsBareImage(c *C) {

@@ -84,6 +84,10 @@ This job can be used in 2 situations:
   - *description*: Command you want to run inside the container.
   - *value*: String, e.g. `touch /tmp/example`
   - *default*: Default container command
+- **Entrypoint** (1)
+  - *description*: Override container default entrypoint.
+  - *value*: String, e.g. `/bin/bash -c`
+  - *default*: Default container entrypoint
 - **Image** (1)
   - *description*: Image you want to use for the job.
   - *value*: String, e.g. `nginx:latest`

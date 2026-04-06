@@ -33,6 +33,7 @@ type RunJob struct {
 	Network     string
 	Hostname    string
 	Container   string
+	Entrypoint  *string
 	Volume      []string
 	VolumesFrom []string `gcfg:"volumes-from" mapstructure:"volumes-from,"`
 	Environment []string
@@ -163,18 +164,22 @@ func (j *RunJob) pullImage() error {
 }
 
 func (j *RunJob) buildContainer() (*docker.Container, error) {
+	config := &docker.Config{
+		Image:        j.Image,
+		AttachStdin:  false,
+		AttachStdout: true,
+		AttachStderr: true,
+		Tty:          j.TTY,
+		Cmd:          args.GetArgs(j.Command),
+		User:         j.User,
+		Env:          j.Environment,
+		Hostname:     j.Hostname,
+	}
+	if j.Entrypoint != nil {
+		config.Entrypoint = args.GetArgs(*j.Entrypoint)
+	}
 	c, err := j.Client.CreateContainer(docker.CreateContainerOptions{
-		Config: &docker.Config{
-			Image:        j.Image,
-			AttachStdin:  false,
-			AttachStdout: true,
-			AttachStderr: true,
-			Tty:          j.TTY,
-			Cmd:          args.GetArgs(j.Command),
-			User:         j.User,
-			Env:          j.Environment,
-			Hostname:     j.Hostname,
-		},
+		Config:           config,
 		NetworkingConfig: &docker.NetworkingConfig{},
 		HostConfig: &docker.HostConfig{
 			Binds:       j.Volume,
