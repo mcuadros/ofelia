@@ -131,9 +131,10 @@ func (c *Config) buildSchedulerMiddlewares(sh *core.Scheduler) {
 	sh.Use(middlewares.NewMail(&c.Global.MailConfig))
 }
 
-func (c *Config) dockerLabelsUpdate(labels map[string]map[string]string) {
+func (c *Config) dockerLabelsUpdate(labels map[DockerContainerInfo]map[string]string) {
 	// Get the current labels
 	var parsedLabelConfig Config
+	parsedLabelConfig.logger = c.logger
 	parsedLabelConfig.buildFromDockerLabels(labels)
 
 	// Calculate the delta execJobs
