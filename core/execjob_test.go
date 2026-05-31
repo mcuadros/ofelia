@@ -2,9 +2,7 @@ package core
 
 import (
 	"bufio"
-	"bytes"
 	"context"
-	"io"
 	"net"
 
 	"github.com/moby/moby/client"
@@ -120,7 +118,3 @@ func (s *SuiteExecJob) TestRunUnexpectedExit(c *C) {
 	err := job.Run(&Context{Execution: e})
 	c.Assert(err, Equals, ErrUnexpected)
 }
-
-// keep import
-var _ = io.Discard
-var _ = bytes.NewReader

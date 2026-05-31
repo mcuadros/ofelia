@@ -2,10 +2,10 @@ package core
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"reflect"
 	"strings"
 	"sync"
@@ -14,7 +14,7 @@ import (
 	"github.com/armon/circbuf"
 	dockercliconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/registry"
 )
 
 var (
@@ -330,33 +330,17 @@ func buildEncodedAuth(reg string) string {
 		RegistryToken: authCfg.RegistryToken,
 	}
 
-	encoded, err := registry.EncodeAuthConfig(regAuth)
+	encoded, err := encodeAuthConfig(regAuth)
 	if err != nil {
 		return ""
 	}
 	return encoded
 }
 
-func consumePullResponse(reader io.Reader) error {
-	decoder := json.NewDecoder(reader)
-	for {
-		var msg struct {
-			ErrorDetail *struct {
-				Message string `json:"message"`
-			} `json:"errorDetail,omitempty"`
-			ErrorMessage string `json:"error,omitempty"`
-		}
-		if err := decoder.Decode(&msg); err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-		if msg.ErrorDetail != nil && msg.ErrorDetail.Message != "" {
-			return errors.New(msg.ErrorDetail.Message)
-		}
-		if msg.ErrorMessage != "" {
-			return errors.New(msg.ErrorMessage)
-		}
+func encodeAuthConfig(authConfig registry.AuthConfig) (string, error) {
+	buf, err := json.Marshal(authConfig)
+	if err != nil {
+		return "", err
 	}
+	return base64.URLEncoding.EncodeToString(buf), nil
 }

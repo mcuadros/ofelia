@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -11,7 +12,7 @@ import (
 	"time"
 
 	dockercliconfig "github.com/docker/cli/cli/config"
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/registry"
 	. "gopkg.in/check.v1"
 )
 
@@ -350,8 +351,7 @@ func (s *SuiteCommon) TestBuildEncodedAuthFromDockerConfig(c *C) {
 	encodedAuth := buildEncodedAuth("registry.example.com")
 	c.Assert(encodedAuth, Not(Equals), "")
 
-	auth, err := registry.DecodeAuthConfig(encodedAuth)
-	c.Assert(err, IsNil)
+	auth := decodeEncodedAuth(c, encodedAuth)
 	c.Assert(auth.Username, Equals, "user")
 	c.Assert(auth.Password, Equals, "pass")
 	c.Assert(auth.ServerAddress, Equals, "registry.example.com")
@@ -375,14 +375,12 @@ func (s *SuiteCommon) TestBuildEncodedAuthFromMultipleRegistries(c *C) {
 	c.Assert(err, IsNil)
 
 	encoded := buildEncodedAuth("registry1.example.com")
-	auth, err := registry.DecodeAuthConfig(encoded)
-	c.Assert(err, IsNil)
+	auth := decodeEncodedAuth(c, encoded)
 	c.Assert(auth.Username, Equals, "first")
 	c.Assert(auth.Password, Equals, "first-pass")
 
 	encoded = buildEncodedAuth("registry2.example.com")
-	auth, err = registry.DecodeAuthConfig(encoded)
-	c.Assert(err, IsNil)
+	auth = decodeEncodedAuth(c, encoded)
 	c.Assert(auth.Username, Equals, "second")
 	c.Assert(auth.Password, Equals, "second-pass")
 }
@@ -403,8 +401,7 @@ func (s *SuiteCommon) TestBuildEncodedAuthFromLegacyDockerCfg(c *C) {
 	c.Assert(err, IsNil)
 
 	encoded := buildEncodedAuth("legacy.example.com")
-	auth, decErr := registry.DecodeAuthConfig(encoded)
-	c.Assert(decErr, IsNil)
+	auth := decodeEncodedAuth(c, encoded)
 	c.Assert(auth.Username, Equals, "legacy")
 	c.Assert(auth.Password, Equals, "secret")
 }
@@ -425,8 +422,7 @@ func (s *SuiteCommon) TestBuildEncodedAuthDockerHubFallback(c *C) {
 	c.Assert(err, IsNil)
 
 	encoded := buildEncodedAuth("")
-	auth, decErr := registry.DecodeAuthConfig(encoded)
-	c.Assert(decErr, IsNil)
+	auth := decodeEncodedAuth(c, encoded)
 	c.Assert(auth.Username, Equals, "hub")
 	c.Assert(auth.Password, Equals, "token")
 }
@@ -456,4 +452,14 @@ func tempDir(c *C) (string, func()) {
 	return dir, func() {
 		c.Assert(os.RemoveAll(dir), IsNil)
 	}
+}
+
+func decodeEncodedAuth(c *C, encoded string) registry.AuthConfig {
+	buf, err := base64.URLEncoding.DecodeString(encoded)
+	c.Assert(err, IsNil)
+
+	var auth registry.AuthConfig
+	err = json.Unmarshal(buf, &auth)
+	c.Assert(err, IsNil)
+	return auth
 }

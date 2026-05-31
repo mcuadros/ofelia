@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"iter"
-	"strings"
 
 	"github.com/moby/moby/api/types/jsonstream"
 	"github.com/moby/moby/client"
@@ -183,4 +182,3 @@ func (n nopLogsResult) Close() error               { return nil }
 
 // Ensure the mock types satisfy the necessary interfaces.
 var _ io.ReadCloser = nopLogsResult{}
-var _ = strings.NewReader // keep import

@@ -121,7 +121,7 @@ func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 	go func() {
 		defer wg.Done()
 		for range svcChecker.C {
-			if svc.Service.CreatedAt.After(time.Now().Add(maxProcessDuration)) {
+			if time.Since(svc.Service.CreatedAt) > maxProcessDuration {
 				err = ErrMaxTimeRunning
 				return
 			}
@@ -137,7 +137,13 @@ func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 	wg.Wait()
 
 	ctx.Logger.Info("Service has completed", "id", svcID, "job", j.Name, "exit_code", exitCode)
-	return err
+	if err != nil {
+		return err
+	}
+	if exitCode != 0 {
+		return fmt.Errorf("error non-zero exit code: %d", exitCode)
+	}
+	return nil
 }
 
 func (j *RunServiceJob) findtaskstatus(ctx *Context, taskID string) (int, bool) {
@@ -151,7 +157,7 @@ func (j *RunServiceJob) findtaskstatus(ctx *Context, taskID string) (int, bool) 
 	}
 
 	if len(resp.Items) == 0 {
-		return 0, true
+		return 0, false
 	}
 
 	exitCode := 1
@@ -172,6 +178,11 @@ func (j *RunServiceJob) findtaskstatus(ctx *Context, taskID string) (int, bool) 
 		}
 
 		if stop {
+			if task.Status.ContainerStatus == nil {
+				exitCode = 255
+				done = true
+				break
+			}
 			exitCode = task.Status.ContainerStatus.ExitCode
 			if exitCode == 0 && task.Status.State == swarm.TaskStateRejected {
 				exitCode = 255
