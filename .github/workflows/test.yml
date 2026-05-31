@@ -5,6 +5,7 @@ on:
       - master
       - 0.3.x
       - 'renovate/**'
+      - taras/docker-client-migration
   pull_request:
     branches:
       - master
