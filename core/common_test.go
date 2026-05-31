@@ -333,7 +333,7 @@ func (s *SuiteCommon) TestParseRegistry(c *C) {
 func (s *SuiteCommon) TestBuildEncodedAuthFromDockerConfig(c *C) {
 	dir, cleanup := tempDir(c)
 	defer cleanup()
-	setDockerConfigDir(dir)
+	defer setDockerConfigDir(dir)()
 	resetDockerAuthCache()
 	defer resetDockerAuthCache()
 
@@ -360,7 +360,7 @@ func (s *SuiteCommon) TestBuildEncodedAuthFromDockerConfig(c *C) {
 func (s *SuiteCommon) TestBuildEncodedAuthFromMultipleRegistries(c *C) {
 	dir, cleanup := tempDir(c)
 	defer cleanup()
-	setDockerConfigDir(dir)
+	defer setDockerConfigDir(dir)()
 	resetDockerAuthCache()
 	defer resetDockerAuthCache()
 
@@ -388,7 +388,7 @@ func (s *SuiteCommon) TestBuildEncodedAuthFromMultipleRegistries(c *C) {
 func (s *SuiteCommon) TestBuildEncodedAuthFromLegacyDockerCfg(c *C) {
 	dir, cleanup := tempDir(c)
 	defer cleanup()
-	setDockerConfigDir(dir)
+	defer setDockerConfigDir(dir)()
 	resetDockerAuthCache()
 	defer resetDockerAuthCache()
 
@@ -409,7 +409,7 @@ func (s *SuiteCommon) TestBuildEncodedAuthFromLegacyDockerCfg(c *C) {
 func (s *SuiteCommon) TestBuildEncodedAuthDockerHubFallback(c *C) {
 	dir, cleanup := tempDir(c)
 	defer cleanup()
-	setDockerConfigDir(dir)
+	defer setDockerConfigDir(dir)()
 	resetDockerAuthCache()
 	defer resetDockerAuthCache()
 
@@ -430,7 +430,7 @@ func (s *SuiteCommon) TestBuildEncodedAuthDockerHubFallback(c *C) {
 func (s *SuiteCommon) TestBuildEncodedAuthMissingConfig(c *C) {
 	dir, cleanup := tempDir(c)
 	defer cleanup()
-	setDockerConfigDir(dir)
+	defer setDockerConfigDir(dir)()
 	resetDockerAuthCache()
 	defer resetDockerAuthCache()
 
@@ -442,8 +442,12 @@ func resetDockerAuthCache() {
 	dockerCfg = nil
 }
 
-func setDockerConfigDir(dir string) {
+func setDockerConfigDir(dir string) func() {
+	oldDir := dockercliconfig.Dir()
 	dockercliconfig.SetDir(dir)
+	return func() {
+		dockercliconfig.SetDir(oldDir)
+	}
 }
 
 func tempDir(c *C) (string, func()) {
