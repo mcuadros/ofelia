@@ -2,19 +2,18 @@ package core
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/armon/circbuf"
+	dockercliconfig "github.com/docker/cli/cli/config"
+	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
@@ -250,111 +249,19 @@ func randomID() string {
 // --- Docker auth and image helpers ---
 
 var (
-	dockerAuthOnce sync.Once
-	dockerAuth     map[string]registry.AuthConfig
+	dockerCfgOnce sync.Once
+	dockerCfg     *configfile.ConfigFile
 )
 
-func loadDockerAuth() map[string]registry.AuthConfig {
-	dockerAuthOnce.Do(func() {
-		dockerAuth = make(map[string]registry.AuthConfig)
-
-		for _, path := range dockerConfigPaths() {
-			cfgs, err := readDockerAuthFile(path)
-			if err != nil {
-				continue
-			}
-			for registry, auth := range cfgs {
-				if _, exists := dockerAuth[registry]; exists {
-					continue
-				}
-				dockerAuth[registry] = auth
-			}
-		}
-	})
-	return dockerAuth
-}
-
-func dockerConfigPaths() []string {
-	if dockerConfig := os.Getenv("DOCKER_CONFIG"); dockerConfig != "" {
-		return []string{
-			filepath.Join(dockerConfig, "plaintext-passwords.json"),
-			filepath.Join(dockerConfig, "config.json"),
-		}
-	}
-
-	home := os.Getenv("HOME")
-	if home == "" {
-		var err error
-		home, err = os.UserHomeDir()
+func loadDockerConfig() *configfile.ConfigFile {
+	dockerCfgOnce.Do(func() {
+		cfg, err := dockercliconfig.Load(dockercliconfig.Dir())
 		if err != nil {
-			return nil
+			return
 		}
-	}
-
-	return []string{
-		filepath.Join(home, ".docker", "plaintext-passwords.json"),
-		filepath.Join(home, ".docker", "config.json"),
-		filepath.Join(home, ".dockercfg"),
-	}
-}
-
-func readDockerAuthFile(path string) (map[string]registry.AuthConfig, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	var cfg struct {
-		Auths map[string]registry.AuthConfig `json:"auths"`
-	}
-	if err := json.Unmarshal(data, &cfg); err == nil && len(cfg.Auths) > 0 {
-		return normalizeDockerAuthConfigs(cfg.Auths), nil
-	}
-
-	var legacy map[string]registry.AuthConfig
-	if err := json.Unmarshal(data, &legacy); err != nil {
-		return nil, err
-	}
-	return normalizeDockerAuthConfigs(legacy), nil
-}
-
-func normalizeDockerAuthConfigs(cfgs map[string]registry.AuthConfig) map[string]registry.AuthConfig {
-	normalized := make(map[string]registry.AuthConfig, len(cfgs))
-	for server, auth := range cfgs {
-		if auth.Auth != "" && (auth.Username == "" || auth.Password == "") {
-			username, password, err := decodeDockerAuth(auth.Auth)
-			if err != nil {
-				continue
-			}
-			auth.Username = username
-			auth.Password = password
-			auth.Auth = ""
-		}
-
-		if isAuthConfigEmpty(auth) {
-			continue
-		}
-
-		auth.ServerAddress = server
-		normalized[server] = auth
-	}
-	return normalized
-}
-
-func decodeDockerAuth(auth string) (username, password string, err error) {
-	data, err := base64.StdEncoding.DecodeString(auth)
-	if err != nil {
-		data, err = base64.StdEncoding.WithPadding(base64.NoPadding).DecodeString(auth)
-	}
-	if err != nil {
-		return "", "", err
-	}
-
-	parts := strings.SplitN(string(data), ":", 2)
-	if len(parts) != 2 {
-		return "", "", errors.New("invalid docker auth entry")
-	}
-	return parts[0], parts[1], nil
+		dockerCfg = cfg
+	})
+	return dockerCfg
 }
 
 func parseRepositoryTag(repoTag string) (repository, tag string) {
@@ -404,46 +311,38 @@ func parseRegistry(repository string) string {
 }
 
 func buildEncodedAuth(reg string) string {
-	auth := buildAuthConfig(reg)
-	if isAuthConfigEmpty(auth) {
+	cfg := loadDockerConfig()
+	if cfg == nil {
 		return ""
 	}
 
-	encoded, err := registry.EncodeAuthConfig(auth)
+	hostname := reg
+	if hostname == "" {
+		hostname = "https://index.docker.io/v1/"
+	}
+
+	authCfg, err := cfg.GetAuthConfig(hostname)
+	if err != nil {
+		return ""
+	}
+
+	if authCfg.Username == "" && authCfg.Password == "" && authCfg.IdentityToken == "" {
+		return ""
+	}
+
+	regAuth := registry.AuthConfig{
+		Username:      authCfg.Username,
+		Password:      authCfg.Password,
+		ServerAddress: authCfg.ServerAddress,
+		IdentityToken: authCfg.IdentityToken,
+		RegistryToken: authCfg.RegistryToken,
+	}
+
+	encoded, err := registry.EncodeAuthConfig(regAuth)
 	if err != nil {
 		return ""
 	}
 	return encoded
-}
-
-func isAuthConfigEmpty(auth registry.AuthConfig) bool {
-	return auth.Username == "" &&
-		auth.Password == "" &&
-		auth.Auth == "" &&
-		auth.IdentityToken == "" &&
-		auth.RegistryToken == ""
-}
-
-func buildAuthConfig(reg string) registry.AuthConfig {
-	cfgs := loadDockerAuth()
-	if cfgs == nil {
-		return registry.AuthConfig{}
-	}
-
-	if v, ok := cfgs[reg]; ok {
-		return v
-	}
-
-	if reg == "" {
-		if v, ok := cfgs["https://index.docker.io/v2/"]; ok {
-			return v
-		}
-		if v, ok := cfgs["https://index.docker.io/v1/"]; ok {
-			return v
-		}
-	}
-
-	return registry.AuthConfig{}
 }
 
 func consumePullResponse(reader io.Reader) error {

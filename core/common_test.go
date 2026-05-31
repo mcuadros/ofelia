@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	dockercliconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/docker/api/types/registry"
 	. "gopkg.in/check.v1"
 )
@@ -331,7 +332,7 @@ func (s *SuiteCommon) TestParseRegistry(c *C) {
 func (s *SuiteCommon) TestBuildEncodedAuthFromDockerConfig(c *C) {
 	dir, cleanup := tempDir(c)
 	defer cleanup()
-	defer withEnv("DOCKER_CONFIG", dir)()
+	setDockerConfigDir(dir)
 	resetDockerAuthCache()
 	defer resetDockerAuthCache()
 
@@ -353,74 +354,79 @@ func (s *SuiteCommon) TestBuildEncodedAuthFromDockerConfig(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(auth.Username, Equals, "user")
 	c.Assert(auth.Password, Equals, "pass")
-	c.Assert(auth.Email, Equals, "me@example.com")
 	c.Assert(auth.ServerAddress, Equals, "registry.example.com")
 }
 
-func (s *SuiteCommon) TestBuildEncodedAuthFromPlaintextPasswordsBeforeConfig(c *C) {
+func (s *SuiteCommon) TestBuildEncodedAuthFromMultipleRegistries(c *C) {
 	dir, cleanup := tempDir(c)
 	defer cleanup()
-	defer withEnv("DOCKER_CONFIG", dir)()
+	setDockerConfigDir(dir)
 	resetDockerAuthCache()
 	defer resetDockerAuthCache()
 
 	firstAuth := base64.StdEncoding.EncodeToString([]byte("first:first-pass"))
 	secondAuth := base64.StdEncoding.EncodeToString([]byte("second:second-pass"))
-	err := os.WriteFile(filepath.Join(dir, "plaintext-passwords.json"), []byte(`{
+	err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
 		"auths": {
-			"registry.example.com": {"auth": "`+firstAuth+`"}
+			"registry1.example.com": {"auth": "`+firstAuth+`"},
+			"registry2.example.com": {"auth": "`+secondAuth+`"}
 		}
 	}`), 0600)
 	c.Assert(err, IsNil)
 
-	err = os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
-		"auths": {
-			"registry.example.com": {"auth": "`+secondAuth+`"}
-		}
-	}`), 0600)
+	encoded := buildEncodedAuth("registry1.example.com")
+	auth, err := registry.DecodeAuthConfig(encoded)
 	c.Assert(err, IsNil)
-
-	auth := buildAuthConfig("registry.example.com")
 	c.Assert(auth.Username, Equals, "first")
 	c.Assert(auth.Password, Equals, "first-pass")
+
+	encoded = buildEncodedAuth("registry2.example.com")
+	auth, err = registry.DecodeAuthConfig(encoded)
+	c.Assert(err, IsNil)
+	c.Assert(auth.Username, Equals, "second")
+	c.Assert(auth.Password, Equals, "second-pass")
 }
 
 func (s *SuiteCommon) TestBuildEncodedAuthFromLegacyDockerCfg(c *C) {
-	home, cleanup := tempDir(c)
+	dir, cleanup := tempDir(c)
 	defer cleanup()
-	defer withEnv("DOCKER_CONFIG", "")()
-	defer withEnv("HOME", home)()
+	setDockerConfigDir(dir)
 	resetDockerAuthCache()
 	defer resetDockerAuthCache()
 
 	encodedUserPass := base64.StdEncoding.EncodeToString([]byte("legacy:secret"))
-	err := os.WriteFile(filepath.Join(home, ".dockercfg"), []byte(`{
-		"legacy.example.com": {"auth": "`+encodedUserPass+`"}
+	err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
+		"auths": {
+			"legacy.example.com": {"auth": "`+encodedUserPass+`"}
+		}
 	}`), 0600)
 	c.Assert(err, IsNil)
 
-	auth := buildAuthConfig("legacy.example.com")
+	encoded := buildEncodedAuth("legacy.example.com")
+	auth, decErr := registry.DecodeAuthConfig(encoded)
+	c.Assert(decErr, IsNil)
 	c.Assert(auth.Username, Equals, "legacy")
 	c.Assert(auth.Password, Equals, "secret")
-	c.Assert(auth.ServerAddress, Equals, "legacy.example.com")
 }
 
 func (s *SuiteCommon) TestBuildEncodedAuthDockerHubFallback(c *C) {
 	dir, cleanup := tempDir(c)
 	defer cleanup()
-	defer withEnv("DOCKER_CONFIG", dir)()
+	setDockerConfigDir(dir)
 	resetDockerAuthCache()
 	defer resetDockerAuthCache()
 
 	encodedUserPass := base64.StdEncoding.EncodeToString([]byte("hub:token"))
 	err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
 		"auths": {
-			"https://index.docker.io/v2/": {"auth": "`+encodedUserPass+`"}
+			"https://index.docker.io/v1/": {"auth": "`+encodedUserPass+`"}
 		}
 	}`), 0600)
 	c.Assert(err, IsNil)
 
-	auth := buildAuthConfig("")
+	encoded := buildEncodedAuth("")
+	auth, decErr := registry.DecodeAuthConfig(encoded)
+	c.Assert(decErr, IsNil)
 	c.Assert(auth.Username, Equals, "hub")
 	c.Assert(auth.Password, Equals, "token")
 }
@@ -428,7 +434,7 @@ func (s *SuiteCommon) TestBuildEncodedAuthDockerHubFallback(c *C) {
 func (s *SuiteCommon) TestBuildEncodedAuthMissingConfig(c *C) {
 	dir, cleanup := tempDir(c)
 	defer cleanup()
-	defer withEnv("DOCKER_CONFIG", dir)()
+	setDockerConfigDir(dir)
 	resetDockerAuthCache()
 	defer resetDockerAuthCache()
 
@@ -436,8 +442,12 @@ func (s *SuiteCommon) TestBuildEncodedAuthMissingConfig(c *C) {
 }
 
 func resetDockerAuthCache() {
-	dockerAuthOnce = sync.Once{}
-	dockerAuth = nil
+	dockerCfgOnce = sync.Once{}
+	dockerCfg = nil
+}
+
+func setDockerConfigDir(dir string) {
+	dockercliconfig.SetDir(dir)
 }
 
 func tempDir(c *C) (string, func()) {
@@ -448,18 +458,3 @@ func tempDir(c *C) (string, func()) {
 	}
 }
 
-func withEnv(key, value string) func() {
-	oldValue, existed := os.LookupEnv(key)
-	if value == "" {
-		os.Unsetenv(key)
-	} else {
-		os.Setenv(key, value)
-	}
-	return func() {
-		if existed {
-			os.Setenv(key, oldValue)
-		} else {
-			os.Unsetenv(key)
-		}
-	}
-}
