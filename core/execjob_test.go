@@ -1,10 +1,11 @@
 package core
 
 import (
+	"bufio"
 	"bytes"
 	"context"
-	"io"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	. "gopkg.in/check.v1"
 )
@@ -24,11 +25,11 @@ func (s *SuiteExecJob) TestRun(c *C) {
 			c.Assert(ctr, Equals, ContainerFixture)
 			return container.ExecCreateResponse{ID: "exec-123"}, nil
 		},
-		ContainerExecAttachFn: func(ctx context.Context, execID string, config container.ExecAttachOptions) (HijackedResponse, error) {
+		ContainerExecAttachFn: func(ctx context.Context, execID string, config container.ExecAttachOptions) (types.HijackedResponse, error) {
 			c.Assert(execID, Equals, "exec-123")
 			c.Assert(config.Tty, Equals, true)
-			return HijackedResponse{
-				Reader: bytes.NewReader([]byte("output")),
+			return types.HijackedResponse{
+				Reader: bufio.NewReader(bytes.NewReader([]byte("output"))),
 			}, nil
 		},
 		ContainerExecInspectFn: func(ctx context.Context, execID string) (container.ExecInspect, error) {
@@ -61,8 +62,8 @@ func (s *SuiteExecJob) TestRun(c *C) {
 
 func (s *SuiteExecJob) TestRunNonZeroExit(c *C) {
 	mock := &mockDockerClient{
-		ContainerExecAttachFn: func(ctx context.Context, execID string, config container.ExecAttachOptions) (HijackedResponse, error) {
-			return HijackedResponse{Reader: io.LimitReader(nil, 0)}, nil
+		ContainerExecAttachFn: func(ctx context.Context, execID string, config container.ExecAttachOptions) (types.HijackedResponse, error) {
+			return types.HijackedResponse{Reader: bufio.NewReader(bytes.NewReader(nil))}, nil
 		},
 		ContainerExecInspectFn: func(ctx context.Context, execID string) (container.ExecInspect, error) {
 			return container.ExecInspect{ExitCode: 1}, nil
@@ -80,8 +81,8 @@ func (s *SuiteExecJob) TestRunNonZeroExit(c *C) {
 
 func (s *SuiteExecJob) TestRunUnexpectedExit(c *C) {
 	mock := &mockDockerClient{
-		ContainerExecAttachFn: func(ctx context.Context, execID string, config container.ExecAttachOptions) (HijackedResponse, error) {
-			return HijackedResponse{Reader: io.LimitReader(nil, 0)}, nil
+		ContainerExecAttachFn: func(ctx context.Context, execID string, config container.ExecAttachOptions) (types.HijackedResponse, error) {
+			return types.HijackedResponse{Reader: bufio.NewReader(bytes.NewReader(nil))}, nil
 		},
 		ContainerExecInspectFn: func(ctx context.Context, execID string) (container.ExecInspect, error) {
 			return container.ExecInspect{ExitCode: -1}, nil

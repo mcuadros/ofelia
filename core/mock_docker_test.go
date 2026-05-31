@@ -1,27 +1,31 @@
 package core
 
 import (
+	"bufio"
 	"context"
 	"io"
+	"strings"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/api/types/system"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type mockDockerClient struct {
 	InfoFn                  func(ctx context.Context) (system.Info, error)
 	ContainerListFn         func(ctx context.Context, options container.ListOptions) ([]container.Summary, error)
 	ContainerInspectFn      func(ctx context.Context, containerID string) (container.InspectResponse, error)
-	ContainerCreateFn       func(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.CreateResponse, error)
+	ContainerCreateFn       func(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *ocispec.Platform, containerName string) (container.CreateResponse, error)
 	ContainerStartFn        func(ctx context.Context, containerID string, options container.StartOptions) error
 	ContainerStopFn         func(ctx context.Context, containerID string, options container.StopOptions) error
 	ContainerRemoveFn       func(ctx context.Context, containerID string, options container.RemoveOptions) error
 	ContainerLogsFn         func(ctx context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error)
 	ContainerExecCreateFn   func(ctx context.Context, ctr string, config container.ExecOptions) (container.ExecCreateResponse, error)
-	ContainerExecAttachFn   func(ctx context.Context, execID string, config container.ExecAttachOptions) (HijackedResponse, error)
+	ContainerExecAttachFn   func(ctx context.Context, execID string, config container.ExecAttachOptions) (types.HijackedResponse, error)
 	ContainerExecInspectFn  func(ctx context.Context, execID string) (container.ExecInspect, error)
 	ImageListFn             func(ctx context.Context, options image.ListOptions) ([]image.Summary, error)
 	ImagePullFn             func(ctx context.Context, refStr string, options image.PullOptions) (io.ReadCloser, error)
@@ -54,9 +58,9 @@ func (m *mockDockerClient) ContainerInspect(ctx context.Context, containerID str
 	return container.InspectResponse{}, nil
 }
 
-func (m *mockDockerClient) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.CreateResponse, error) {
+func (m *mockDockerClient) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *ocispec.Platform, containerName string) (container.CreateResponse, error) {
 	if m.ContainerCreateFn != nil {
-		return m.ContainerCreateFn(ctx, config, hostConfig, networkingConfig, containerName)
+		return m.ContainerCreateFn(ctx, config, hostConfig, networkingConfig, platform, containerName)
 	}
 	return container.CreateResponse{ID: "mock-container-id"}, nil
 }
@@ -96,11 +100,11 @@ func (m *mockDockerClient) ContainerExecCreate(ctx context.Context, ctr string, 
 	return container.ExecCreateResponse{ID: "mock-exec-id"}, nil
 }
 
-func (m *mockDockerClient) ContainerExecAttach(ctx context.Context, execID string, config container.ExecAttachOptions) (HijackedResponse, error) {
+func (m *mockDockerClient) ContainerExecAttach(ctx context.Context, execID string, config container.ExecAttachOptions) (types.HijackedResponse, error) {
 	if m.ContainerExecAttachFn != nil {
 		return m.ContainerExecAttachFn(ctx, execID, config)
 	}
-	return HijackedResponse{Reader: io.LimitReader(nil, 0)}, nil
+	return types.HijackedResponse{Reader: bufio.NewReader(strings.NewReader(""))}, nil
 }
 
 func (m *mockDockerClient) ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error) {

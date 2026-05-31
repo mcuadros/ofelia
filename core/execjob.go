@@ -77,7 +77,9 @@ func (j *ExecJob) startExec(e *Execution) error {
 	if err != nil {
 		return fmt.Errorf("error starting exec: %s", err)
 	}
-	defer resp.Close()
+	if resp.Conn != nil {
+		defer resp.Close()
+	}
 
 	if j.TTY {
 		_, err = io.Copy(e.OutputStream, resp.Reader)

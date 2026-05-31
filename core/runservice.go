@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"sync"
@@ -61,7 +60,9 @@ func (j *RunServiceJob) pullImage() error {
 		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
 	}
 	defer reader.Close()
-	_, _ = io.Copy(io.Discard, reader)
+	if err := consumePullResponse(reader); err != nil {
+		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
+	}
 	return nil
 }
 

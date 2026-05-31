@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -257,29 +258,103 @@ func loadDockerAuth() map[string]registry.AuthConfig {
 	dockerAuthOnce.Do(func() {
 		dockerAuth = make(map[string]registry.AuthConfig)
 
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return
-		}
-
-		data, err := os.ReadFile(filepath.Join(home, ".docker", "config.json"))
-		if err != nil {
-			return
-		}
-
-		var cfg struct {
-			Auths map[string]registry.AuthConfig `json:"auths"`
-		}
-		if err := json.Unmarshal(data, &cfg); err != nil {
-			return
-		}
-
-		for k, v := range cfg.Auths {
-			v.ServerAddress = k
-			dockerAuth[k] = v
+		for _, path := range dockerConfigPaths() {
+			cfgs, err := readDockerAuthFile(path)
+			if err != nil {
+				continue
+			}
+			for registry, auth := range cfgs {
+				if _, exists := dockerAuth[registry]; exists {
+					continue
+				}
+				dockerAuth[registry] = auth
+			}
 		}
 	})
 	return dockerAuth
+}
+
+func dockerConfigPaths() []string {
+	if dockerConfig := os.Getenv("DOCKER_CONFIG"); dockerConfig != "" {
+		return []string{
+			filepath.Join(dockerConfig, "plaintext-passwords.json"),
+			filepath.Join(dockerConfig, "config.json"),
+		}
+	}
+
+	home := os.Getenv("HOME")
+	if home == "" {
+		var err error
+		home, err = os.UserHomeDir()
+		if err != nil {
+			return nil
+		}
+	}
+
+	return []string{
+		filepath.Join(home, ".docker", "plaintext-passwords.json"),
+		filepath.Join(home, ".docker", "config.json"),
+		filepath.Join(home, ".dockercfg"),
+	}
+}
+
+func readDockerAuthFile(path string) (map[string]registry.AuthConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg struct {
+		Auths map[string]registry.AuthConfig `json:"auths"`
+	}
+	if err := json.Unmarshal(data, &cfg); err == nil && len(cfg.Auths) > 0 {
+		return normalizeDockerAuthConfigs(cfg.Auths), nil
+	}
+
+	var legacy map[string]registry.AuthConfig
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return nil, err
+	}
+	return normalizeDockerAuthConfigs(legacy), nil
+}
+
+func normalizeDockerAuthConfigs(cfgs map[string]registry.AuthConfig) map[string]registry.AuthConfig {
+	normalized := make(map[string]registry.AuthConfig, len(cfgs))
+	for server, auth := range cfgs {
+		if auth.Auth != "" && (auth.Username == "" || auth.Password == "") {
+			username, password, err := decodeDockerAuth(auth.Auth)
+			if err != nil {
+				continue
+			}
+			auth.Username = username
+			auth.Password = password
+			auth.Auth = ""
+		}
+
+		if isAuthConfigEmpty(auth) {
+			continue
+		}
+
+		auth.ServerAddress = server
+		normalized[server] = auth
+	}
+	return normalized
+}
+
+func decodeDockerAuth(auth string) (username, password string, err error) {
+	data, err := base64.StdEncoding.DecodeString(auth)
+	if err != nil {
+		data, err = base64.StdEncoding.WithPadding(base64.NoPadding).DecodeString(auth)
+	}
+	if err != nil {
+		return "", "", err
+	}
+
+	parts := strings.SplitN(string(data), ":", 2)
+	if len(parts) != 2 {
+		return "", "", errors.New("invalid docker auth entry")
+	}
+	return parts[0], parts[1], nil
 }
 
 func parseRepositoryTag(repoTag string) (repository, tag string) {
@@ -330,14 +405,23 @@ func parseRegistry(repository string) string {
 
 func buildEncodedAuth(reg string) string {
 	auth := buildAuthConfig(reg)
-	if auth.Username == "" && auth.Password == "" && auth.IdentityToken == "" {
+	if isAuthConfigEmpty(auth) {
 		return ""
 	}
-	data, err := json.Marshal(auth)
+
+	encoded, err := registry.EncodeAuthConfig(auth)
 	if err != nil {
 		return ""
 	}
-	return base64.URLEncoding.EncodeToString(data)
+	return encoded
+}
+
+func isAuthConfigEmpty(auth registry.AuthConfig) bool {
+	return auth.Username == "" &&
+		auth.Password == "" &&
+		auth.Auth == "" &&
+		auth.IdentityToken == "" &&
+		auth.RegistryToken == ""
 }
 
 func buildAuthConfig(reg string) registry.AuthConfig {
@@ -360,4 +444,28 @@ func buildAuthConfig(reg string) registry.AuthConfig {
 	}
 
 	return registry.AuthConfig{}
+}
+
+func consumePullResponse(reader io.Reader) error {
+	decoder := json.NewDecoder(reader)
+	for {
+		var msg struct {
+			ErrorDetail *struct {
+				Message string `json:"message"`
+			} `json:"errorDetail,omitempty"`
+			ErrorMessage string `json:"error,omitempty"`
+		}
+		if err := decoder.Decode(&msg); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+		if msg.ErrorDetail != nil && msg.ErrorDetail.Message != "" {
+			return errors.New(msg.ErrorDetail.Message)
+		}
+		if msg.ErrorMessage != "" {
+			return errors.New(msg.ErrorMessage)
+		}
+	}
 }

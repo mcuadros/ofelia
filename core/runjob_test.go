@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/strslice"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	. "gopkg.in/check.v1"
 )
 
@@ -34,12 +35,14 @@ func (s *SuiteRunJob) TestRun(c *C) {
 	for _, tc := range testCases {
 		var createdConfig *container.Config
 		var inspectCount atomic.Int32
+		var started bool
+		var removed bool
 
 		mock := &mockDockerClient{
 			ImageListFn: func(ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
 				return []image.Summary{{}}, nil
 			},
-			ContainerCreateFn: func(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.CreateResponse, error) {
+			ContainerCreateFn: func(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *ocispec.Platform, containerName string) (container.CreateResponse, error) {
 				createdConfig = config
 				c.Assert(hostConfig.Binds, DeepEquals, []string{"/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"})
 				return container.CreateResponse{ID: "cnt-123"}, nil
@@ -52,7 +55,13 @@ func (s *SuiteRunJob) TestRun(c *C) {
 				c.Assert(containerID, Equals, "cnt-123")
 				return nil
 			},
+			ContainerStartFn: func(ctx context.Context, containerID string, options container.StartOptions) error {
+				c.Assert(containerID, Equals, "cnt-123")
+				started = true
+				return nil
+			},
 			ContainerInspectFn: func(ctx context.Context, containerID string) (container.InspectResponse, error) {
+				c.Assert(containerID, Equals, "cnt-123")
 				count := inspectCount.Add(1)
 				if count <= 2 {
 					return container.InspectResponse{
@@ -68,7 +77,16 @@ func (s *SuiteRunJob) TestRun(c *C) {
 				}, nil
 			},
 			ContainerLogsFn: func(ctx context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error) {
+				c.Assert(containerID, Equals, "cnt-123")
+				c.Assert(options.ShowStdout, Equals, true)
+				c.Assert(options.ShowStderr, Equals, true)
+				c.Assert(options.Since, Not(Equals), "")
 				return io.NopCloser(bytes.NewReader([]byte("log output"))), nil
+			},
+			ContainerRemoveFn: func(ctx context.Context, containerID string, options container.RemoveOptions) error {
+				c.Assert(containerID, Equals, "cnt-123")
+				removed = true
+				return nil
 			},
 		}
 
@@ -99,6 +117,8 @@ func (s *SuiteRunJob) TestRun(c *C) {
 		c.Assert(createdConfig.User, Equals, "foo")
 		c.Assert(createdConfig.Image, Equals, ImageFixture)
 		c.Assert([]string(createdConfig.Env), DeepEquals, job.Environment)
+		c.Assert(started, Equals, true)
+		c.Assert(removed, Equals, true)
 	}
 }
 
@@ -146,6 +166,21 @@ func (s *SuiteRunJob) TestRunExistingContainer(c *C) {
 
 	err := job.Run(ctx)
 	c.Assert(err, IsNil)
+}
+
+func (s *SuiteRunJob) TestPullImageReturnsStreamError(c *C) {
+	mock := &mockDockerClient{
+		ImagePullFn: func(ctx context.Context, refStr string, options image.PullOptions) (io.ReadCloser, error) {
+			c.Assert(refStr, Equals, "private:latest")
+			return io.NopCloser(bytes.NewReader([]byte(`{"errorDetail":{"message":"denied"}}`))), nil
+		},
+	}
+
+	job := &RunJob{Client: mock}
+	job.Image = "private"
+
+	err := job.pullImage()
+	c.Assert(err, ErrorMatches, `error pulling image "private": denied`)
 }
 
 func (s *SuiteRunJob) TestBuildPullImageOptionsBareImage(c *C) {

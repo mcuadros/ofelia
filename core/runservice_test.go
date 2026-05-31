@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"strings"
@@ -80,6 +81,23 @@ func (s *SuiteRunServiceJob) TestRun(c *C) {
 
 	c.Assert(createdSpec.TaskTemplate.ContainerSpec.Command, DeepEquals, []string{"echo", "-a", "foo", "bar"})
 	c.Assert(createdSpec.TaskTemplate.ContainerSpec.Image, Equals, ServiceImageFixture)
+	c.Assert(createdSpec.TaskTemplate.Networks, DeepEquals, []swarm.NetworkAttachmentConfig{{Target: "foo"}})
+	c.Assert(createdSpec.TaskTemplate.RestartPolicy.Condition, Equals, swarm.RestartPolicyConditionNone)
+}
+
+func (s *SuiteRunServiceJob) TestPullImageReturnsStreamError(c *C) {
+	mock := &mockDockerClient{
+		ImagePullFn: func(ctx context.Context, refStr string, options image.PullOptions) (io.ReadCloser, error) {
+			c.Assert(refStr, Equals, "private:latest")
+			return io.NopCloser(bytes.NewReader([]byte(`{"errorDetail":{"message":"denied"}}`))), nil
+		},
+	}
+
+	job := &RunServiceJob{Client: mock}
+	job.Image = "private"
+
+	err := job.pullImage()
+	c.Assert(err, ErrorMatches, `error pulling image "private": denied`)
 }
 
 func (s *SuiteRunServiceJob) TestBuildPullImageOptionsBareImage(c *C) {

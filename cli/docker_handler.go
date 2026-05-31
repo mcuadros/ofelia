@@ -6,16 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/swarm"
-	"github.com/docker/docker/api/types/system"
 	"github.com/docker/docker/client"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/mcuadros/ofelia/core"
@@ -56,7 +51,7 @@ func buildDockerClient() (core.DockerClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &dockerClientAdapter{cli}, nil
+	return cli, nil
 }
 
 func NewDockerHandler(config *Config, dockerFilters []string, configsFromLabels bool, logger core.Logger) (*DockerHandler, error) {
@@ -311,92 +306,4 @@ func getContainerID(mountinfoFilePath string) (string, error) {
 	}
 
 	return "", os.ErrNotExist
-}
-
-// dockerClientAdapter adapts the official *client.Client to satisfy core.DockerClient.
-type dockerClientAdapter struct {
-	c *client.Client
-}
-
-func (a *dockerClientAdapter) Info(ctx context.Context) (system.Info, error) {
-	return a.c.Info(ctx)
-}
-
-func (a *dockerClientAdapter) ContainerList(ctx context.Context, options container.ListOptions) ([]container.Summary, error) {
-	return a.c.ContainerList(ctx, options)
-}
-
-func (a *dockerClientAdapter) ContainerInspect(ctx context.Context, containerID string) (container.InspectResponse, error) {
-	return a.c.ContainerInspect(ctx, containerID)
-}
-
-func (a *dockerClientAdapter) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.CreateResponse, error) {
-	return a.c.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, containerName)
-}
-
-func (a *dockerClientAdapter) ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error {
-	return a.c.ContainerStart(ctx, containerID, options)
-}
-
-func (a *dockerClientAdapter) ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error {
-	return a.c.ContainerStop(ctx, containerID, options)
-}
-
-func (a *dockerClientAdapter) ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error {
-	return a.c.ContainerRemove(ctx, containerID, options)
-}
-
-func (a *dockerClientAdapter) ContainerLogs(ctx context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error) {
-	return a.c.ContainerLogs(ctx, containerID, options)
-}
-
-func (a *dockerClientAdapter) ContainerExecCreate(ctx context.Context, ctr string, config container.ExecOptions) (container.ExecCreateResponse, error) {
-	return a.c.ContainerExecCreate(ctx, ctr, config)
-}
-
-func (a *dockerClientAdapter) ContainerExecAttach(ctx context.Context, execID string, config container.ExecAttachOptions) (core.HijackedResponse, error) {
-	resp, err := a.c.ContainerExecAttach(ctx, execID, config)
-	if err != nil {
-		return core.HijackedResponse{}, err
-	}
-	return core.HijackedResponse{
-		Conn:   resp.Conn,
-		Reader: resp.Reader,
-	}, nil
-}
-
-func (a *dockerClientAdapter) ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error) {
-	return a.c.ContainerExecInspect(ctx, execID)
-}
-
-func (a *dockerClientAdapter) ImageList(ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
-	return a.c.ImageList(ctx, options)
-}
-
-func (a *dockerClientAdapter) ImagePull(ctx context.Context, refStr string, options image.PullOptions) (io.ReadCloser, error) {
-	return a.c.ImagePull(ctx, refStr, options)
-}
-
-func (a *dockerClientAdapter) NetworkList(ctx context.Context, options network.ListOptions) ([]network.Inspect, error) {
-	return a.c.NetworkList(ctx, options)
-}
-
-func (a *dockerClientAdapter) NetworkConnect(ctx context.Context, networkID, containerID string, config *network.EndpointSettings) error {
-	return a.c.NetworkConnect(ctx, networkID, containerID, config)
-}
-
-func (a *dockerClientAdapter) ServiceCreate(ctx context.Context, service swarm.ServiceSpec, options swarm.ServiceCreateOptions) (swarm.ServiceCreateResponse, error) {
-	return a.c.ServiceCreate(ctx, service, options)
-}
-
-func (a *dockerClientAdapter) ServiceInspectWithRaw(ctx context.Context, serviceID string, options swarm.ServiceInspectOptions) (swarm.Service, []byte, error) {
-	return a.c.ServiceInspectWithRaw(ctx, serviceID, options)
-}
-
-func (a *dockerClientAdapter) ServiceRemove(ctx context.Context, serviceID string) error {
-	return a.c.ServiceRemove(ctx, serviceID)
-}
-
-func (a *dockerClientAdapter) TaskList(ctx context.Context, options swarm.TaskListOptions) ([]swarm.Task, error) {
-	return a.c.TaskList(ctx, options)
 }

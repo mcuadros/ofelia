@@ -1,11 +1,16 @@
 package core
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types/registry"
 	. "gopkg.in/check.v1"
 )
 
@@ -321,4 +326,140 @@ func (s *SuiteCommon) TestParseRegistry(c *C) {
 	c.Assert(parseRegistry("example.com:port/image"), Equals, "example.com:port")
 	c.Assert(parseRegistry("dir/image"), Equals, "")
 	c.Assert(parseRegistry("image"), Equals, "")
+}
+
+func (s *SuiteCommon) TestBuildEncodedAuthFromDockerConfig(c *C) {
+	dir, cleanup := tempDir(c)
+	defer cleanup()
+	defer withEnv("DOCKER_CONFIG", dir)()
+	resetDockerAuthCache()
+	defer resetDockerAuthCache()
+
+	encodedUserPass := base64.StdEncoding.EncodeToString([]byte("user:pass"))
+	err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
+		"auths": {
+			"registry.example.com": {
+				"auth": "`+encodedUserPass+`",
+				"email": "me@example.com"
+			}
+		}
+	}`), 0600)
+	c.Assert(err, IsNil)
+
+	encodedAuth := buildEncodedAuth("registry.example.com")
+	c.Assert(encodedAuth, Not(Equals), "")
+
+	auth, err := registry.DecodeAuthConfig(encodedAuth)
+	c.Assert(err, IsNil)
+	c.Assert(auth.Username, Equals, "user")
+	c.Assert(auth.Password, Equals, "pass")
+	c.Assert(auth.Email, Equals, "me@example.com")
+	c.Assert(auth.ServerAddress, Equals, "registry.example.com")
+}
+
+func (s *SuiteCommon) TestBuildEncodedAuthFromPlaintextPasswordsBeforeConfig(c *C) {
+	dir, cleanup := tempDir(c)
+	defer cleanup()
+	defer withEnv("DOCKER_CONFIG", dir)()
+	resetDockerAuthCache()
+	defer resetDockerAuthCache()
+
+	firstAuth := base64.StdEncoding.EncodeToString([]byte("first:first-pass"))
+	secondAuth := base64.StdEncoding.EncodeToString([]byte("second:second-pass"))
+	err := os.WriteFile(filepath.Join(dir, "plaintext-passwords.json"), []byte(`{
+		"auths": {
+			"registry.example.com": {"auth": "`+firstAuth+`"}
+		}
+	}`), 0600)
+	c.Assert(err, IsNil)
+
+	err = os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
+		"auths": {
+			"registry.example.com": {"auth": "`+secondAuth+`"}
+		}
+	}`), 0600)
+	c.Assert(err, IsNil)
+
+	auth := buildAuthConfig("registry.example.com")
+	c.Assert(auth.Username, Equals, "first")
+	c.Assert(auth.Password, Equals, "first-pass")
+}
+
+func (s *SuiteCommon) TestBuildEncodedAuthFromLegacyDockerCfg(c *C) {
+	home, cleanup := tempDir(c)
+	defer cleanup()
+	defer withEnv("DOCKER_CONFIG", "")()
+	defer withEnv("HOME", home)()
+	resetDockerAuthCache()
+	defer resetDockerAuthCache()
+
+	encodedUserPass := base64.StdEncoding.EncodeToString([]byte("legacy:secret"))
+	err := os.WriteFile(filepath.Join(home, ".dockercfg"), []byte(`{
+		"legacy.example.com": {"auth": "`+encodedUserPass+`"}
+	}`), 0600)
+	c.Assert(err, IsNil)
+
+	auth := buildAuthConfig("legacy.example.com")
+	c.Assert(auth.Username, Equals, "legacy")
+	c.Assert(auth.Password, Equals, "secret")
+	c.Assert(auth.ServerAddress, Equals, "legacy.example.com")
+}
+
+func (s *SuiteCommon) TestBuildEncodedAuthDockerHubFallback(c *C) {
+	dir, cleanup := tempDir(c)
+	defer cleanup()
+	defer withEnv("DOCKER_CONFIG", dir)()
+	resetDockerAuthCache()
+	defer resetDockerAuthCache()
+
+	encodedUserPass := base64.StdEncoding.EncodeToString([]byte("hub:token"))
+	err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
+		"auths": {
+			"https://index.docker.io/v2/": {"auth": "`+encodedUserPass+`"}
+		}
+	}`), 0600)
+	c.Assert(err, IsNil)
+
+	auth := buildAuthConfig("")
+	c.Assert(auth.Username, Equals, "hub")
+	c.Assert(auth.Password, Equals, "token")
+}
+
+func (s *SuiteCommon) TestBuildEncodedAuthMissingConfig(c *C) {
+	dir, cleanup := tempDir(c)
+	defer cleanup()
+	defer withEnv("DOCKER_CONFIG", dir)()
+	resetDockerAuthCache()
+	defer resetDockerAuthCache()
+
+	c.Assert(buildEncodedAuth("missing.example.com"), Equals, "")
+}
+
+func resetDockerAuthCache() {
+	dockerAuthOnce = sync.Once{}
+	dockerAuth = nil
+}
+
+func tempDir(c *C) (string, func()) {
+	dir, err := os.MkdirTemp("", "ofelia-test-")
+	c.Assert(err, IsNil)
+	return dir, func() {
+		c.Assert(os.RemoveAll(dir), IsNil)
+	}
+}
+
+func withEnv(key, value string) func() {
+	oldValue, existed := os.LookupEnv(key)
+	if value == "" {
+		os.Unsetenv(key)
+	} else {
+		os.Setenv(key, value)
+	}
+	return func() {
+		if existed {
+			os.Setenv(key, oldValue)
+		} else {
+			os.Unsetenv(key)
+		}
+	}
 }

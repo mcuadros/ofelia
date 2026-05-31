@@ -167,7 +167,9 @@ func (j *RunJob) pullImage() error {
 		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
 	}
 	defer reader.Close()
-	_, _ = io.Copy(io.Discard, reader)
+	if err := consumePullResponse(reader); err != nil {
+		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
+	}
 	return nil
 }
 
@@ -190,7 +192,7 @@ func (j *RunJob) buildContainer() (string, error) {
 	resp, err := j.Client.ContainerCreate(context.Background(), config, &container.HostConfig{
 		Binds:       j.Volume,
 		VolumesFrom: j.VolumesFrom,
-	}, &network.NetworkingConfig{}, "")
+	}, &network.NetworkingConfig{}, nil, "")
 	if err != nil {
 		return "", fmt.Errorf("error creating container: %s", err)
 	}
