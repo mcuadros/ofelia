@@ -457,4 +457,3 @@ func tempDir(c *C) (string, func()) {
 		c.Assert(os.RemoveAll(dir), IsNil)
 	}
 }
-

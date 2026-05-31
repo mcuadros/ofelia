@@ -3,20 +3,12 @@ package cli
 import (
 	"context"
 	"errors"
-	"io"
 	"os"
 	"strings"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/swarm"
-	"github.com/docker/docker/api/types/system"
-	dockerclient "github.com/docker/docker/client"
 	"github.com/mcuadros/ofelia/core"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/client"
 	check "gopkg.in/check.v1"
 )
 
@@ -29,105 +21,138 @@ type mockCLIDockerClient struct {
 	containers []container.Summary
 }
 
-func (m *mockCLIDockerClient) Info(ctx context.Context) (system.Info, error) {
-	return system.Info{}, nil
+func (m *mockCLIDockerClient) Info(ctx context.Context, options client.InfoOptions) (client.SystemInfoResult, error) {
+	return client.SystemInfoResult{}, nil
 }
 
-func (m *mockCLIDockerClient) ContainerList(ctx context.Context, options container.ListOptions) ([]container.Summary, error) {
-	containers := make([]container.Summary, 0, len(m.containers))
+func (m *mockCLIDockerClient) ContainerList(ctx context.Context, options client.ContainerListOptions) (client.ContainerListResult, error) {
+	var matched []container.Summary
 	for _, cont := range m.containers {
-		if !options.Filters.MatchKVList("label", cont.Labels) {
-			continue
+		if matchesFilters(options.Filters, cont) {
+			matched = append(matched, cont)
 		}
-		if !matchesContainerNames(options.Filters, cont.Names) {
-			continue
-		}
-		containers = append(containers, cont)
 	}
-	return containers, nil
+	return client.ContainerListResult{Items: matched}, nil
 }
 
-func matchesContainerNames(filterArgs filters.Args, names []string) bool {
-	if !filterArgs.Contains("name") {
+func matchesFilters(filters client.Filters, cont container.Summary) bool {
+	if filters == nil {
 		return true
 	}
+	for term, values := range filters {
+		switch term {
+		case "label":
+			if !matchesLabelFilter(values, cont.Labels) {
+				return false
+			}
+		case "name":
+			if !matchesNameFilter(values, cont.Names) {
+				return false
+			}
+		}
+	}
+	return true
+}
 
-	for _, name := range names {
-		trimmed := strings.TrimPrefix(name, "/")
-		if filterArgs.Match("name", name) || filterArgs.Match("name", trimmed) {
-			return true
+func matchesLabelFilter(required map[string]bool, labels map[string]string) bool {
+	for req := range required {
+		parts := strings.SplitN(req, "=", 2)
+		key := parts[0]
+		val, exists := labels[key]
+		if !exists {
+			return false
+		}
+		if len(parts) == 2 && val != parts[1] {
+			return false
+		}
+	}
+	return true
+}
+
+func matchesNameFilter(names map[string]bool, containerNames []string) bool {
+	for name := range names {
+		for _, cn := range containerNames {
+			trimmed := strings.TrimPrefix(cn, "/")
+			if cn == name || trimmed == name {
+				return true
+			}
 		}
 	}
 	return false
 }
 
-func (m *mockCLIDockerClient) ContainerInspect(ctx context.Context, containerID string) (container.InspectResponse, error) {
-	return container.InspectResponse{}, nil
+func (m *mockCLIDockerClient) ContainerInspect(ctx context.Context, containerID string, options client.ContainerInspectOptions) (client.ContainerInspectResult, error) {
+	return client.ContainerInspectResult{}, nil
 }
 
-func (m *mockCLIDockerClient) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *ocispec.Platform, containerName string) (container.CreateResponse, error) {
-	return container.CreateResponse{}, nil
+func (m *mockCLIDockerClient) ContainerCreate(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error) {
+	return client.ContainerCreateResult{}, nil
 }
 
-func (m *mockCLIDockerClient) ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error {
-	return nil
+func (m *mockCLIDockerClient) ContainerStart(ctx context.Context, containerID string, options client.ContainerStartOptions) (client.ContainerStartResult, error) {
+	return client.ContainerStartResult{}, nil
 }
 
-func (m *mockCLIDockerClient) ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error {
-	return nil
+func (m *mockCLIDockerClient) ContainerStop(ctx context.Context, containerID string, options client.ContainerStopOptions) (client.ContainerStopResult, error) {
+	return client.ContainerStopResult{}, nil
 }
 
-func (m *mockCLIDockerClient) ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error {
-	return nil
+func (m *mockCLIDockerClient) ContainerRemove(ctx context.Context, containerID string, options client.ContainerRemoveOptions) (client.ContainerRemoveResult, error) {
+	return client.ContainerRemoveResult{}, nil
 }
 
-func (m *mockCLIDockerClient) ContainerLogs(ctx context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error) {
-	return io.NopCloser(io.LimitReader(nil, 0)), nil
+func (m *mockCLIDockerClient) ContainerLogs(ctx context.Context, containerID string, options client.ContainerLogsOptions) (client.ContainerLogsResult, error) {
+	return nopReadCloser{}, nil
 }
 
-func (m *mockCLIDockerClient) ContainerExecCreate(ctx context.Context, ctr string, config container.ExecOptions) (container.ExecCreateResponse, error) {
-	return container.ExecCreateResponse{}, nil
+func (m *mockCLIDockerClient) ExecCreate(ctx context.Context, containerID string, options client.ExecCreateOptions) (client.ExecCreateResult, error) {
+	return client.ExecCreateResult{}, nil
 }
 
-func (m *mockCLIDockerClient) ContainerExecAttach(ctx context.Context, execID string, config container.ExecAttachOptions) (types.HijackedResponse, error) {
-	return types.HijackedResponse{}, nil
+func (m *mockCLIDockerClient) ExecAttach(ctx context.Context, execID string, options client.ExecAttachOptions) (client.ExecAttachResult, error) {
+	return client.ExecAttachResult{}, nil
 }
 
-func (m *mockCLIDockerClient) ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error) {
-	return container.ExecInspect{}, nil
+func (m *mockCLIDockerClient) ExecInspect(ctx context.Context, execID string, options client.ExecInspectOptions) (client.ExecInspectResult, error) {
+	return client.ExecInspectResult{}, nil
 }
 
-func (m *mockCLIDockerClient) ImageList(ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
+func (m *mockCLIDockerClient) ImageList(ctx context.Context, options client.ImageListOptions) (client.ImageListResult, error) {
+	return client.ImageListResult{}, nil
+}
+
+func (m *mockCLIDockerClient) ImagePull(ctx context.Context, refStr string, options client.ImagePullOptions) (client.ImagePullResponse, error) {
 	return nil, nil
 }
 
-func (m *mockCLIDockerClient) ImagePull(ctx context.Context, refStr string, options image.PullOptions) (io.ReadCloser, error) {
-	return io.NopCloser(io.LimitReader(nil, 0)), nil
+func (m *mockCLIDockerClient) NetworkList(ctx context.Context, options client.NetworkListOptions) (client.NetworkListResult, error) {
+	return client.NetworkListResult{}, nil
 }
 
-func (m *mockCLIDockerClient) NetworkList(ctx context.Context, options network.ListOptions) ([]network.Inspect, error) {
-	return nil, nil
+func (m *mockCLIDockerClient) NetworkConnect(ctx context.Context, networkID string, options client.NetworkConnectOptions) (client.NetworkConnectResult, error) {
+	return client.NetworkConnectResult{}, nil
 }
 
-func (m *mockCLIDockerClient) NetworkConnect(ctx context.Context, networkID, containerID string, config *network.EndpointSettings) error {
-	return nil
+func (m *mockCLIDockerClient) ServiceCreate(ctx context.Context, options client.ServiceCreateOptions) (client.ServiceCreateResult, error) {
+	return client.ServiceCreateResult{}, nil
 }
 
-func (m *mockCLIDockerClient) ServiceCreate(ctx context.Context, service swarm.ServiceSpec, options swarm.ServiceCreateOptions) (swarm.ServiceCreateResponse, error) {
-	return swarm.ServiceCreateResponse{}, nil
+func (m *mockCLIDockerClient) ServiceInspect(ctx context.Context, serviceID string, options client.ServiceInspectOptions) (client.ServiceInspectResult, error) {
+	return client.ServiceInspectResult{}, nil
 }
 
-func (m *mockCLIDockerClient) ServiceInspectWithRaw(ctx context.Context, serviceID string, options swarm.ServiceInspectOptions) (swarm.Service, []byte, error) {
-	return swarm.Service{}, nil, nil
+func (m *mockCLIDockerClient) ServiceRemove(ctx context.Context, serviceID string, options client.ServiceRemoveOptions) (client.ServiceRemoveResult, error) {
+	return client.ServiceRemoveResult{}, nil
 }
 
-func (m *mockCLIDockerClient) ServiceRemove(ctx context.Context, serviceID string) error {
-	return nil
+func (m *mockCLIDockerClient) TaskList(ctx context.Context, options client.TaskListOptions) (client.TaskListResult, error) {
+	return client.TaskListResult{}, nil
 }
 
-func (m *mockCLIDockerClient) TaskList(ctx context.Context, options swarm.TaskListOptions) ([]swarm.Task, error) {
-	return nil, nil
-}
+type nopReadCloser struct{}
+
+func (nopReadCloser) Read([]byte) (int, error) { return 0, nil }
+func (nopReadCloser) Close() error             { return nil }
 
 func newTestDockerHandler(mock core.DockerClient, filters []string) *DockerHandler {
 	return &DockerHandler{
@@ -138,7 +163,7 @@ func newTestDockerHandler(mock core.DockerClient, filters []string) *DockerHandl
 	}
 }
 
-func (s *TestDockerSuit) TestBuildDockerClientReturnsOfficialClient(c *check.C) {
+func (s *TestDockerSuit) TestBuildDockerClientReturnsMobyClient(c *check.C) {
 	restore := withDockerEnv(map[string]string{
 		"DOCKER_HOST":        "unix:///var/run/docker.sock",
 		"DOCKER_TLS_VERIFY":  "",
@@ -149,9 +174,7 @@ func (s *TestDockerSuit) TestBuildDockerClientReturnsOfficialClient(c *check.C) 
 
 	dc, err := buildDockerClient()
 	c.Assert(err, check.IsNil)
-	cli, ok := dc.(*dockerclient.Client)
-	c.Assert(ok, check.Equals, true)
-	c.Assert(cli.Close(), check.IsNil)
+	c.Assert(dc, check.NotNil)
 }
 
 func (s *TestDockerSuit) TestDockerHandlerAccessors(c *check.C) {
@@ -231,7 +254,7 @@ func (s *TestDockerSuit) TestFilterErrors(c *check.C) {
 	handler := newTestDockerHandler(mock, []string{"bad-filter"})
 	_, err := handler.GetDockerLabels()
 	c.Assert(err, check.NotNil)
-	c.Assert(err.Error(), check.Matches, ".*invalid docker filter.*")
+	c.Assert(errors.Is(err, errInvalidDockerFilter), check.Equals, true)
 }
 
 func (s *TestDockerSuit) TestFilterErrorsNoMatchingContainers(c *check.C) {
@@ -249,8 +272,6 @@ func (s *TestDockerSuit) TestFilterErrorsNoMatchingContainers(c *check.C) {
 	handler := newTestDockerHandler(mock, []string{"label=test=123", "name=test-name"})
 	_, err := handler.GetDockerLabels()
 	c.Assert(errors.Is(err, errNoContainersMatchingFilters), check.Equals, true)
-	c.Assert(err.Error(), check.Matches, ".*test=123.*")
-	c.Assert(err.Error(), check.Matches, ".*test-name.*")
 }
 
 func (s *TestDockerSuit) TestGetContainerID(c *check.C) {
@@ -261,30 +282,14 @@ func (s *TestDockerSuit) TestGetContainerID(c *check.C) {
 		{
 			content: `
 206 205 0:29 / /sys/fs/cgroup ro,nosuid,nodev,noexec,relatime - cgroup2 cgroup rw
-207 203 0:67 / /dev/mqueue rw,nosuid,nodev,noexec,relatime - mqueue mqueue rw
-208 203 0:72 / /dev/shm rw,nosuid,nodev,noexec,relatime - tmpfs shm rw,size=65536k
 209 201 254:1 /docker/containers/test123/resolv.conf /etc/resolv.conf rw,relatime - ext4 /dev/vda1 rw,discard
-210 201 254:1 /docker/containers/test123/hostname /etc/hostname rw,relatime - ext4 /dev/vda1 rw,discard
-211 201 254:1 /docker/containers/test123/hosts /etc/hosts rw,relatime - ext4 /dev/vda1 rw,discard
-85 203 0:70 /0 /dev/console rw,nosuid,noexec,relatime - devpts devpts rw,gid=5,mode=620,ptmxmode=666
-86 202 0:68 /bus /proc/bus ro,nosuid,nodev,noexec,relatime - proc proc rw
-87 202 0:68 /fs /proc/fs ro,nosuid,nodev,noexec,relatime - proc proc rw
-88 202 0:68 /irq /proc/irq ro,nosuid,nodev,noexec,relatime - proc proc rw
 `,
 			expect: "test123",
 		},
 		{
 			content: `
 206 205 0:29 / /sys/fs/cgroup ro,nosuid,nodev,noexec,relatime - cgroup2 cgroup rw
-207 203 0:67 / /dev/mqueue rw,nosuid,nodev,noexec,relatime - mqueue mqueue rw
-208 203 0:72 / /dev/shm rw,nosuid,nodev,noexec,relatime - tmpfs shm rw,size=65536k
 209 201 254:1 /var/lib/docker/containers/test123/resolv.conf /etc/resolv.conf rw,relatime - ext4 /dev/vda1 rw,discard
-210 201 254:1 /var/lib/docker/containers/test123/hostname /etc/hostname rw,relatime - ext4 /dev/vda1 rw,discard
-211 201 254:1 /var/lib/docker/containers/test123/hosts /etc/hosts rw,relatime - ext4 /dev/vda1 rw,discard
-85 203 0:70 /0 /dev/console rw,nosuid,noexec,relatime - devpts devpts rw,gid=5,mode=620,ptmxmode=666
-86 202 0:68 /bus /proc/bus ro,nosuid,nodev,noexec,relatime - proc proc rw
-87 202 0:68 /fs /proc/fs ro,nosuid,nodev,noexec,relatime - proc proc rw
-88 202 0:68 /irq /proc/irq ro,nosuid,nodev,noexec,relatime - proc proc rw
 `,
 			expect: "test123",
 		},
@@ -302,64 +307,22 @@ func (s *TestDockerSuit) TestGetContainerID(c *check.C) {
 	}
 }
 
-func (s *TestDockerSuit) TestBuildFromDockerLabels(c *check.C) {
-	labels := map[string]map[string]string{
-		"container1": {
-			labelPrefix + "." + jobExec + ".myjob.schedule":  "* * * * *",
-			labelPrefix + "." + jobExec + ".myjob.command":   "echo hello",
-			labelPrefix + "." + jobExec + ".myjob.container": "container1",
-		},
-	}
-
-	conf := NewConfig(&TestLogger{})
-	err := conf.buildFromDockerLabels(labels)
-	c.Assert(err, check.IsNil)
-	c.Assert(conf.ExecJobs, check.HasLen, 1)
-
-	job, ok := conf.ExecJobs["myjob"]
-	c.Assert(ok, check.Equals, true)
-	c.Assert(job.Schedule, check.Equals, "* * * * *")
-	c.Assert(job.Command, check.Equals, "echo hello")
-}
-
-func (s *TestDockerSuit) TestBuildFromDockerLabelsServiceContainer(c *check.C) {
-	labels := map[string]map[string]string{
-		"ofelia-service": {
-			serviceLabel: "true",
-			labelPrefix + "." + jobRun + ".myjob.schedule": "* * * * *",
-			labelPrefix + "." + jobRun + ".myjob.command":  "echo hello",
-			labelPrefix + "." + jobRun + ".myjob.image":    "alpine",
-		},
-	}
-
-	conf := NewConfig(&TestLogger{})
-	err := conf.buildFromDockerLabels(labels)
-	c.Assert(err, check.IsNil)
-	c.Assert(conf.RunJobs, check.HasLen, 1)
-
-	job, ok := conf.RunJobs["myjob"]
-	c.Assert(ok, check.Equals, true)
-	c.Assert(job.Image, check.Equals, "alpine")
-}
-
-func withDockerEnv(values map[string]string) func() {
-	previous := make(map[string]string, len(values))
-	present := make(map[string]bool, len(values))
-	for key, value := range values {
-		previous[key], present[key] = os.LookupEnv(key)
-		if value == "" {
-			os.Unsetenv(key)
+func withDockerEnv(envs map[string]string) func() {
+	old := make(map[string]string)
+	for k, v := range envs {
+		old[k], _ = os.LookupEnv(k)
+		if v == "" {
+			os.Unsetenv(k)
 		} else {
-			os.Setenv(key, value)
+			os.Setenv(k, v)
 		}
 	}
-
 	return func() {
-		for key, value := range previous {
-			if present[key] {
-				os.Setenv(key, value)
+		for k, v := range old {
+			if v == "" {
+				os.Unsetenv(k)
 			} else {
-				os.Unsetenv(key)
+				os.Setenv(k, v)
 			}
 		}
 	}

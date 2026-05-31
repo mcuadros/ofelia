@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"io"
+	"net"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
+	"github.com/moby/moby/client"
 	. "gopkg.in/check.v1"
 )
 
@@ -17,24 +18,32 @@ type SuiteExecJob struct{}
 var _ = Suite(&SuiteExecJob{})
 
 func (s *SuiteExecJob) TestRun(c *C) {
-	var createdOpts container.ExecOptions
+	var createdOpts client.ExecCreateOptions
 
 	mock := &mockDockerClient{
-		ContainerExecCreateFn: func(ctx context.Context, ctr string, config container.ExecOptions) (container.ExecCreateResponse, error) {
-			createdOpts = config
-			c.Assert(ctr, Equals, ContainerFixture)
-			return container.ExecCreateResponse{ID: "exec-123"}, nil
+		ExecCreateFn: func(ctx context.Context, containerID string, options client.ExecCreateOptions) (client.ExecCreateResult, error) {
+			createdOpts = options
+			c.Assert(containerID, Equals, ContainerFixture)
+			return client.ExecCreateResult{ID: "exec-123"}, nil
 		},
-		ContainerExecAttachFn: func(ctx context.Context, execID string, config container.ExecAttachOptions) (types.HijackedResponse, error) {
+		ExecAttachFn: func(ctx context.Context, execID string, options client.ExecAttachOptions) (client.ExecAttachResult, error) {
 			c.Assert(execID, Equals, "exec-123")
-			c.Assert(config.Tty, Equals, true)
-			return types.HijackedResponse{
-				Reader: bufio.NewReader(bytes.NewReader([]byte("output"))),
+			c.Assert(options.TTY, Equals, true)
+			serverConn, clientConn := net.Pipe()
+			go func() {
+				serverConn.Write([]byte("output"))
+				serverConn.Close()
+			}()
+			return client.ExecAttachResult{
+				HijackedResponse: client.HijackedResponse{
+					Conn:   clientConn,
+					Reader: bufio.NewReader(clientConn),
+				},
 			}, nil
 		},
-		ContainerExecInspectFn: func(ctx context.Context, execID string) (container.ExecInspect, error) {
+		ExecInspectFn: func(ctx context.Context, execID string, options client.ExecInspectOptions) (client.ExecInspectResult, error) {
 			c.Assert(execID, Equals, "exec-123")
-			return container.ExecInspect{ExitCode: 0}, nil
+			return client.ExecInspectResult{ExitCode: 0}, nil
 		},
 	}
 
@@ -52,7 +61,7 @@ func (s *SuiteExecJob) TestRun(c *C) {
 
 	c.Assert(createdOpts.Cmd, DeepEquals, []string{"echo", "-a", "foo bar"})
 	c.Assert(createdOpts.User, Equals, "foo")
-	c.Assert(createdOpts.Tty, Equals, true)
+	c.Assert(createdOpts.TTY, Equals, true)
 	c.Assert(createdOpts.Env, DeepEquals, []string{"test_Key1=value1", "test_Key2=value2"})
 	c.Assert(createdOpts.AttachStdout, Equals, true)
 	c.Assert(createdOpts.AttachStderr, Equals, true)
@@ -62,11 +71,18 @@ func (s *SuiteExecJob) TestRun(c *C) {
 
 func (s *SuiteExecJob) TestRunNonZeroExit(c *C) {
 	mock := &mockDockerClient{
-		ContainerExecAttachFn: func(ctx context.Context, execID string, config container.ExecAttachOptions) (types.HijackedResponse, error) {
-			return types.HijackedResponse{Reader: bufio.NewReader(bytes.NewReader(nil))}, nil
+		ExecAttachFn: func(ctx context.Context, execID string, options client.ExecAttachOptions) (client.ExecAttachResult, error) {
+			serverConn, clientConn := net.Pipe()
+			serverConn.Close()
+			return client.ExecAttachResult{
+				HijackedResponse: client.HijackedResponse{
+					Conn:   clientConn,
+					Reader: bufio.NewReader(clientConn),
+				},
+			}, nil
 		},
-		ContainerExecInspectFn: func(ctx context.Context, execID string) (container.ExecInspect, error) {
-			return container.ExecInspect{ExitCode: 1}, nil
+		ExecInspectFn: func(ctx context.Context, execID string, options client.ExecInspectOptions) (client.ExecInspectResult, error) {
+			return client.ExecInspectResult{ExitCode: 1}, nil
 		},
 	}
 
@@ -81,11 +97,18 @@ func (s *SuiteExecJob) TestRunNonZeroExit(c *C) {
 
 func (s *SuiteExecJob) TestRunUnexpectedExit(c *C) {
 	mock := &mockDockerClient{
-		ContainerExecAttachFn: func(ctx context.Context, execID string, config container.ExecAttachOptions) (types.HijackedResponse, error) {
-			return types.HijackedResponse{Reader: bufio.NewReader(bytes.NewReader(nil))}, nil
+		ExecAttachFn: func(ctx context.Context, execID string, options client.ExecAttachOptions) (client.ExecAttachResult, error) {
+			serverConn, clientConn := net.Pipe()
+			serverConn.Close()
+			return client.ExecAttachResult{
+				HijackedResponse: client.HijackedResponse{
+					Conn:   clientConn,
+					Reader: bufio.NewReader(clientConn),
+				},
+			}, nil
 		},
-		ContainerExecInspectFn: func(ctx context.Context, execID string) (container.ExecInspect, error) {
-			return container.ExecInspect{ExitCode: -1}, nil
+		ExecInspectFn: func(ctx context.Context, execID string, options client.ExecInspectOptions) (client.ExecInspectResult, error) {
+			return client.ExecInspectResult{ExitCode: -1}, nil
 		},
 	}
 
@@ -97,3 +120,7 @@ func (s *SuiteExecJob) TestRunUnexpectedExit(c *C) {
 	err := job.Run(&Context{Execution: e})
 	c.Assert(err, Equals, ErrUnexpected)
 }
+
+// keep import
+var _ = io.Discard
+var _ = bytes.NewReader

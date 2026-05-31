@@ -14,8 +14,6 @@ import (
 	"github.com/armon/circbuf"
 	dockercliconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
 )
 
@@ -276,12 +274,6 @@ func parseRepositoryTag(repoTag string) (repository, tag string) {
 		return repoTag, ""
 	}
 	return repoTag[:n], repoTag[n+1:]
-}
-
-func buildFindLocalImageOptions(img string) image.ListOptions {
-	return image.ListOptions{
-		Filters: filters.NewArgs(filters.Arg("reference", img)),
-	}
 }
 
 func buildPullOptions(img string) (string, string) {

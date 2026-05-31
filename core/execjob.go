@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/gobs/args"
+	"github.com/moby/moby/client"
 )
 
 type ExecJob struct {
@@ -53,11 +53,11 @@ func (j *ExecJob) Run(ctx *Context) error {
 }
 
 func (j *ExecJob) buildExec() (string, error) {
-	resp, err := j.Client.ContainerExecCreate(context.Background(), j.Container, container.ExecOptions{
+	resp, err := j.Client.ExecCreate(context.Background(), j.Container, client.ExecCreateOptions{
 		AttachStdin:  false,
 		AttachStdout: true,
 		AttachStderr: true,
-		Tty:          j.TTY,
+		TTY:          j.TTY,
 		Cmd:          args.GetArgs(j.Command),
 		User:         j.User,
 		Env:          j.Environment,
@@ -71,15 +71,13 @@ func (j *ExecJob) buildExec() (string, error) {
 }
 
 func (j *ExecJob) startExec(e *Execution) error {
-	resp, err := j.Client.ContainerExecAttach(context.Background(), j.execID, container.ExecAttachOptions{
-		Tty: j.TTY,
+	resp, err := j.Client.ExecAttach(context.Background(), j.execID, client.ExecAttachOptions{
+		TTY: j.TTY,
 	})
 	if err != nil {
 		return fmt.Errorf("error starting exec: %s", err)
 	}
-	if resp.Conn != nil {
-		defer resp.Close()
-	}
+	defer resp.Close()
 
 	if j.TTY {
 		_, err = io.Copy(e.OutputStream, resp.Reader)
@@ -93,8 +91,8 @@ func (j *ExecJob) startExec(e *Execution) error {
 	return nil
 }
 
-func (j *ExecJob) inspectExec() (container.ExecInspect, error) {
-	i, err := j.Client.ContainerExecInspect(context.Background(), j.execID)
+func (j *ExecJob) inspectExec() (client.ExecInspectResult, error) {
+	i, err := j.Client.ExecInspect(context.Background(), j.execID, client.ExecInspectOptions{})
 	if err != nil {
 		return i, fmt.Errorf("error inspecting exec: %s", err)
 	}

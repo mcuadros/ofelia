@@ -10,10 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/mcuadros/ofelia/core"
+	"github.com/moby/moby/client"
 )
 
 const (
@@ -71,7 +70,7 @@ func NewDockerHandler(config *Config, dockerFilters []string, configsFromLabels 
 		return nil, err
 	}
 
-	_, err = c.dockerClient.Info(context.Background())
+	_, err = c.dockerClient.Info(context.Background(), client.InfoOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +117,7 @@ func (c *DockerHandler) WaitForLabels() {
 	}
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		_, inspectErr := c.dockerClient.ContainerInspect(context.Background(), id)
+		_, inspectErr := c.dockerClient.ContainerInspect(context.Background(), id, client.ContainerInspectOptions{})
 		if inspectErr == nil {
 			c.logger.Debug("Found ofelia container", "container_id", id)
 			return
@@ -129,27 +128,25 @@ func (c *DockerHandler) WaitForLabels() {
 }
 
 func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) {
-	filterArgs := core.NewFilterArgs(map[string][]string{
-		"label": {requiredLabelFilter},
-	})
+	filters := client.Filters{}.Add("label", requiredLabelFilter)
 	for _, f := range c.filters {
 		key, value, err := parseFilter(f)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s", err, f)
 		}
-		filterArgs.Add(key, value)
+		filters = filters.Add(key, value)
 	}
 
-	conts, err := c.dockerClient.ContainerList(context.Background(), container.ListOptions{Filters: filterArgs})
+	result, err := c.dockerClient.ContainerList(context.Background(), client.ContainerListOptions{Filters: filters})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errFailedToListContainers, err)
-	} else if len(conts) == 0 {
-		return nil, fmt.Errorf("%w: %v", errNoContainersMatchingFilters, filterArgs)
+	} else if len(result.Items) == 0 {
+		return nil, fmt.Errorf("%w: %v", errNoContainersMatchingFilters, filters)
 	}
 
 	var labels = make(map[string]map[string]string)
 
-	for _, cont := range conts {
+	for _, cont := range result.Items {
 		if len(cont.Names) > 0 && len(cont.Labels) > 0 {
 			name := strings.TrimPrefix(cont.Names[0], "/")
 			filtered := make(map[string]string)

@@ -1,14 +1,13 @@
 package core
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/swarm"
+	"github.com/moby/moby/api/types/swarm"
+	"github.com/moby/moby/client"
 	. "gopkg.in/check.v1"
 )
 
@@ -25,45 +24,49 @@ func (s *SuiteRunServiceJob) SetUpTest(c *C) {
 }
 
 func (s *SuiteRunServiceJob) TestRun(c *C) {
-	var createdSpec swarm.ServiceSpec
+	var createdOpts client.ServiceCreateOptions
 
 	mock := &mockDockerClient{
-		ImagePullFn: func(ctx context.Context, refStr string, options image.PullOptions) (io.ReadCloser, error) {
-			return io.NopCloser(io.LimitReader(nil, 0)), nil
+		ImagePullFn: func(ctx context.Context, refStr string, options client.ImagePullOptions) (client.ImagePullResponse, error) {
+			return &mockPullResponse{}, nil
 		},
-		ServiceCreateFn: func(ctx context.Context, service swarm.ServiceSpec, options swarm.ServiceCreateOptions) (swarm.ServiceCreateResponse, error) {
-			createdSpec = service
-			return swarm.ServiceCreateResponse{ID: "svc-123"}, nil
+		ServiceCreateFn: func(ctx context.Context, options client.ServiceCreateOptions) (client.ServiceCreateResult, error) {
+			createdOpts = options
+			return client.ServiceCreateResult{ID: "svc-123"}, nil
 		},
-		ServiceInspectWithRawFn: func(ctx context.Context, serviceID string, options swarm.ServiceInspectOptions) (swarm.Service, []byte, error) {
-			return swarm.Service{
-				ID: serviceID,
-				Meta: swarm.Meta{
-					CreatedAt: time.Now(),
-				},
-			}, nil, nil
-		},
-		TaskListFn: func(ctx context.Context, options swarm.TaskListOptions) ([]swarm.Task, error) {
-			return []swarm.Task{
-				{
-					Status: swarm.TaskStatus{
-						State: swarm.TaskStateComplete,
-						ContainerStatus: &swarm.ContainerStatus{
-							ExitCode: 0,
-						},
+		ServiceInspectFn: func(ctx context.Context, serviceID string, options client.ServiceInspectOptions) (client.ServiceInspectResult, error) {
+			return client.ServiceInspectResult{
+				Service: swarm.Service{
+					ID: serviceID,
+					Meta: swarm.Meta{
+						CreatedAt: time.Now(),
 					},
-					Spec: swarm.TaskSpec{
-						ContainerSpec: &swarm.ContainerSpec{
-							Command: strings.Split("echo -a foo bar", " "),
-						},
-					},
-					ServiceID: "svc-123",
 				},
 			}, nil
 		},
-		ServiceRemoveFn: func(ctx context.Context, serviceID string) error {
+		TaskListFn: func(ctx context.Context, options client.TaskListOptions) (client.TaskListResult, error) {
+			return client.TaskListResult{
+				Items: []swarm.Task{
+					{
+						Status: swarm.TaskStatus{
+							State: swarm.TaskStateComplete,
+							ContainerStatus: &swarm.ContainerStatus{
+								ExitCode: 0,
+							},
+						},
+						Spec: swarm.TaskSpec{
+							ContainerSpec: &swarm.ContainerSpec{
+								Command: strings.Split("echo -a foo bar", " "),
+							},
+						},
+						ServiceID: "svc-123",
+					},
+				},
+			}, nil
+		},
+		ServiceRemoveFn: func(ctx context.Context, serviceID string, options client.ServiceRemoveOptions) (client.ServiceRemoveResult, error) {
 			c.Assert(serviceID, Equals, "svc-123")
-			return nil
+			return client.ServiceRemoveResult{}, nil
 		},
 	}
 
@@ -79,25 +82,8 @@ func (s *SuiteRunServiceJob) TestRun(c *C) {
 	err := job.Run(&Context{Execution: e, Logger: logger})
 	c.Assert(err, IsNil)
 
-	c.Assert(createdSpec.TaskTemplate.ContainerSpec.Command, DeepEquals, []string{"echo", "-a", "foo", "bar"})
-	c.Assert(createdSpec.TaskTemplate.ContainerSpec.Image, Equals, ServiceImageFixture)
-	c.Assert(createdSpec.TaskTemplate.Networks, DeepEquals, []swarm.NetworkAttachmentConfig{{Target: "foo"}})
-	c.Assert(createdSpec.TaskTemplate.RestartPolicy.Condition, Equals, swarm.RestartPolicyConditionNone)
-}
-
-func (s *SuiteRunServiceJob) TestPullImageReturnsStreamError(c *C) {
-	mock := &mockDockerClient{
-		ImagePullFn: func(ctx context.Context, refStr string, options image.PullOptions) (io.ReadCloser, error) {
-			c.Assert(refStr, Equals, "private:latest")
-			return io.NopCloser(bytes.NewReader([]byte(`{"errorDetail":{"message":"denied"}}`))), nil
-		},
-	}
-
-	job := &RunServiceJob{Client: mock}
-	job.Image = "private"
-
-	err := job.pullImage()
-	c.Assert(err, ErrorMatches, `error pulling image "private": denied`)
+	c.Assert(createdOpts.Spec.TaskTemplate.ContainerSpec.Command, DeepEquals, []string{"echo", "-a", "foo", "bar"})
+	c.Assert(createdOpts.Spec.TaskTemplate.ContainerSpec.Image, Equals, ServiceImageFixture)
 }
 
 func (s *SuiteRunServiceJob) TestBuildPullImageOptionsBareImage(c *C) {

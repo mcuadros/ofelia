@@ -7,12 +7,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/gobs/args"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 )
 
 type RunJob struct {
@@ -92,11 +91,11 @@ func (j *RunJob) Run(ctx *Context) error {
 			return err
 		}
 	} else {
-		resp, inspectErr := j.Client.ContainerInspect(context.Background(), j.Container)
+		resp, inspectErr := j.Client.ContainerInspect(context.Background(), j.Container, client.ContainerInspectOptions{})
 		if inspectErr != nil {
 			return inspectErr
 		}
-		containerID = resp.ID
+		containerID = resp.Container.ID
 	}
 
 	j.containerID = containerID
@@ -127,7 +126,7 @@ func (j *RunJob) Run(ctx *Context) error {
 }
 
 func (j *RunJob) fetchLogs(ctx *Context, startTime time.Time) error {
-	reader, err := j.Client.ContainerLogs(context.Background(), j.containerID, container.LogsOptions{
+	reader, err := j.Client.ContainerLogs(context.Background(), j.containerID, client.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Since:      startTime.Format(time.RFC3339Nano),
@@ -146,12 +145,14 @@ func (j *RunJob) fetchLogs(ctx *Context, startTime time.Time) error {
 }
 
 func (j *RunJob) searchLocalImage() error {
-	imgs, err := j.Client.ImageList(context.Background(), buildFindLocalImageOptions(j.Image))
+	resp, err := j.Client.ImageList(context.Background(), client.ImageListOptions{
+		Filters: client.Filters{}.Add("reference", j.Image),
+	})
 	if err != nil {
 		return err
 	}
 
-	if len(imgs) != 1 {
+	if len(resp.Items) != 1 {
 		return ErrLocalImageNotFound
 	}
 
@@ -160,14 +161,14 @@ func (j *RunJob) searchLocalImage() error {
 
 func (j *RunJob) pullImage() error {
 	ref, encodedAuth := buildPullOptions(j.Image)
-	reader, err := j.Client.ImagePull(context.Background(), ref, image.PullOptions{
+	resp, err := j.Client.ImagePull(context.Background(), ref, client.ImagePullOptions{
 		RegistryAuth: encodedAuth,
 	})
 	if err != nil {
 		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
 	}
-	defer reader.Close()
-	if err := consumePullResponse(reader); err != nil {
+	defer resp.Close()
+	if err := resp.Wait(context.Background()); err != nil {
 		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
 	}
 	return nil
@@ -189,20 +190,26 @@ func (j *RunJob) buildContainer() (string, error) {
 		config.Entrypoint = args.GetArgs(*j.Entrypoint)
 	}
 
-	resp, err := j.Client.ContainerCreate(context.Background(), config, &container.HostConfig{
-		Binds:       j.Volume,
-		VolumesFrom: j.VolumesFrom,
-	}, &network.NetworkingConfig{}, nil, "")
+	resp, err := j.Client.ContainerCreate(context.Background(), client.ContainerCreateOptions{
+		Config: config,
+		HostConfig: &container.HostConfig{
+			Binds:       j.Volume,
+			VolumesFrom: j.VolumesFrom,
+		},
+		NetworkingConfig: &network.NetworkingConfig{},
+	})
 	if err != nil {
 		return "", fmt.Errorf("error creating container: %s", err)
 	}
 
 	if j.Network != "" {
-		networkFilter := filters.NewArgs(filters.Arg("name", j.Network))
-		networks, err := j.Client.NetworkList(context.Background(), network.ListOptions{Filters: networkFilter})
+		networkFilter := client.Filters{}.Add("name", j.Network)
+		networks, err := j.Client.NetworkList(context.Background(), client.NetworkListOptions{Filters: networkFilter})
 		if err == nil {
-			for _, net := range networks {
-				if err := j.Client.NetworkConnect(context.Background(), net.ID, resp.ID, nil); err != nil {
+			for _, net := range networks.Items {
+				if _, err := j.Client.NetworkConnect(context.Background(), net.ID, client.NetworkConnectOptions{
+					Container: resp.ID,
+				}); err != nil {
 					return resp.ID, fmt.Errorf("error connecting container to network: %s", err)
 				}
 			}
@@ -213,12 +220,14 @@ func (j *RunJob) buildContainer() (string, error) {
 }
 
 func (j *RunJob) startContainer() error {
-	return j.Client.ContainerStart(context.Background(), j.containerID, container.StartOptions{})
+	_, err := j.Client.ContainerStart(context.Background(), j.containerID, client.ContainerStartOptions{})
+	return err
 }
 
 func (j *RunJob) stopContainer(timeout uint) error {
 	t := int(timeout)
-	return j.Client.ContainerStop(context.Background(), j.containerID, container.StopOptions{Timeout: &t})
+	_, err := j.Client.ContainerStop(context.Background(), j.containerID, client.ContainerStopOptions{Timeout: &t})
+	return err
 }
 
 const (
@@ -236,19 +245,19 @@ func (j *RunJob) watchContainer() error {
 			return ErrMaxTimeRunning
 		}
 
-		resp, err := j.Client.ContainerInspect(context.Background(), j.containerID)
+		resp, err := j.Client.ContainerInspect(context.Background(), j.containerID, client.ContainerInspectOptions{})
 		if err != nil {
 			return err
 		}
 
-		if resp.State != nil && !resp.State.Running {
-			switch resp.State.ExitCode {
+		if resp.Container.State != nil && !resp.Container.State.Running {
+			switch resp.Container.State.ExitCode {
 			case 0:
 				return nil
 			case -1:
 				return ErrUnexpected
 			default:
-				return fmt.Errorf("error non-zero exit code: %d", resp.State.ExitCode)
+				return fmt.Errorf("error non-zero exit code: %d", resp.Container.State.ExitCode)
 			}
 		}
 	}
@@ -259,5 +268,6 @@ func (j *RunJob) deleteContainer() error {
 		return nil
 	}
 
-	return j.Client.ContainerRemove(context.Background(), j.containerID, container.RemoveOptions{})
+	_, err := j.Client.ContainerRemove(context.Background(), j.containerID, client.ContainerRemoveOptions{})
+	return err
 }
