@@ -2,14 +2,21 @@ package core
 
 import (
 	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/armon/circbuf"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/registry"
 )
 
 var (
@@ -239,28 +246,73 @@ func randomID() string {
 	return fmt.Sprintf("%x", b)
 }
 
-func buildFindLocalImageOptions(image string) docker.ListImagesOptions {
-	return docker.ListImagesOptions{
-		Filters: map[string][]string{
-			"reference": {image},
-		},
+// --- Docker auth and image helpers ---
+
+var (
+	dockerAuthOnce sync.Once
+	dockerAuth     map[string]registry.AuthConfig
+)
+
+func loadDockerAuth() map[string]registry.AuthConfig {
+	dockerAuthOnce.Do(func() {
+		dockerAuth = make(map[string]registry.AuthConfig)
+
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return
+		}
+
+		data, err := os.ReadFile(filepath.Join(home, ".docker", "config.json"))
+		if err != nil {
+			return
+		}
+
+		var cfg struct {
+			Auths map[string]registry.AuthConfig `json:"auths"`
+		}
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			return
+		}
+
+		for k, v := range cfg.Auths {
+			v.ServerAddress = k
+			dockerAuth[k] = v
+		}
+	})
+	return dockerAuth
+}
+
+func parseRepositoryTag(repoTag string) (repository, tag string) {
+	if n := strings.IndexRune(repoTag, '@'); n >= 0 {
+		repoTag = repoTag[:n]
+	}
+	n := strings.LastIndexByte(repoTag, ':')
+	if n < 0 {
+		return repoTag, ""
+	}
+	if strings.Contains(repoTag[n+1:], "/") {
+		return repoTag, ""
+	}
+	return repoTag[:n], repoTag[n+1:]
+}
+
+func buildFindLocalImageOptions(img string) image.ListOptions {
+	return image.ListOptions{
+		Filters: filters.NewArgs(filters.Arg("reference", img)),
 	}
 }
 
-func buildPullOptions(image string) (docker.PullImageOptions, docker.AuthConfiguration) {
-	repository, tag := docker.ParseRepositoryTag(image)
-
+func buildPullOptions(img string) (string, string) {
+	repository, tag := parseRepositoryTag(img)
 	registry := parseRegistry(repository)
 
 	if tag == "" {
 		tag = "latest"
 	}
 
-	return docker.PullImageOptions{
-		Repository: repository,
-		Registry:   registry,
-		Tag:        tag,
-	}, buildAuthConfiguration(registry)
+	ref := repository + ":" + tag
+	encodedAuth := buildEncodedAuth(registry)
+	return ref, encodedAuth
 }
 
 func parseRegistry(repository string) string {
@@ -276,26 +328,36 @@ func parseRegistry(repository string) string {
 	return ""
 }
 
-func buildAuthConfiguration(registry string) docker.AuthConfiguration {
-	var auth docker.AuthConfiguration
-	if dockercfg == nil {
-		return auth
+func buildEncodedAuth(reg string) string {
+	auth := buildAuthConfig(reg)
+	if auth.Username == "" && auth.Password == "" && auth.IdentityToken == "" {
+		return ""
+	}
+	data, err := json.Marshal(auth)
+	if err != nil {
+		return ""
+	}
+	return base64.URLEncoding.EncodeToString(data)
+}
+
+func buildAuthConfig(reg string) registry.AuthConfig {
+	cfgs := loadDockerAuth()
+	if cfgs == nil {
+		return registry.AuthConfig{}
 	}
 
-	if v, ok := dockercfg.Configs[registry]; ok {
+	if v, ok := cfgs[reg]; ok {
 		return v
 	}
 
-	// try to fetch configs from docker hub default registry urls
-	// see example here: https://www.projectatomic.io/blog/2016/03/docker-credentials-store/
-	if registry == "" {
-		if v, ok := dockercfg.Configs["https://index.docker.io/v2/"]; ok {
+	if reg == "" {
+		if v, ok := cfgs["https://index.docker.io/v2/"]; ok {
 			return v
 		}
-		if v, ok := dockercfg.Configs["https://index.docker.io/v1/"]; ok {
+		if v, ok := cfgs["https://index.docker.io/v1/"]; ok {
 			return v
 		}
 	}
 
-	return auth
+	return registry.AuthConfig{}
 }

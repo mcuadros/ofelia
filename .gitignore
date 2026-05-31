@@ -4,3 +4,4 @@ debug
 build
 bin
 *coverage*
+vendor
