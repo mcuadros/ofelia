@@ -91,15 +91,12 @@ func (s *SuiteRunServiceJob) TestRun(c *C) {
 func (s *SuiteRunServiceJob) TestPullImageError(c *C) {
 	mock := &mockDockerClient{
 		ImagePullFn: func(ctx context.Context, refStr string, options client.ImagePullOptions) (client.ImagePullResponse, error) {
-			c.Assert(refStr, Equals, "private:latest")
+			c.Assert(refStr, Equals, "docker.io/library/private:latest")
 			return &mockPullResponseWithError{err: "denied"}, nil
 		},
 	}
 
-	job := &RunServiceJob{Client: mock}
-	job.Image = "private"
-
-	err := job.pullImage()
+	err := pullImage(mock, "private", context.Background())
 	c.Assert(err, ErrorMatches, `error pulling image "private": denied`)
 }
 
@@ -198,12 +195,12 @@ func (s *SuiteRunServiceJob) TestWatchContainerTimesOut(c *C) {
 
 func (s *SuiteRunServiceJob) TestBuildPullImageOptionsBareImage(c *C) {
 	ref, _ := buildPullOptions("foo")
-	c.Assert(ref, Equals, "foo:latest")
+	c.Assert(ref, Equals, "docker.io/library/foo:latest")
 }
 
 func (s *SuiteRunServiceJob) TestBuildPullImageOptionsVersion(c *C) {
 	ref, _ := buildPullOptions("foo:qux")
-	c.Assert(ref, Equals, "foo:qux")
+	c.Assert(ref, Equals, "docker.io/library/foo:qux")
 }
 
 func (s *SuiteRunServiceJob) TestBuildPullImageOptionsRegistry(c *C) {

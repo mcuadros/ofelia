@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -323,11 +322,20 @@ func (*TestLogger) Error(format string, args ...any)   {}
 func (*TestLogger) Info(format string, args ...any)    {}
 func (*TestLogger) Warning(format string, args ...any) {}
 
-func (s *SuiteCommon) TestParseRegistry(c *C) {
-	c.Assert(parseRegistry("example.com:port/dir/image"), Equals, "example.com:port")
-	c.Assert(parseRegistry("example.com:port/image"), Equals, "example.com:port")
-	c.Assert(parseRegistry("dir/image"), Equals, "")
-	c.Assert(parseRegistry("image"), Equals, "")
+func (s *SuiteCommon) TestBuildPullOptionsWithDigest(c *C) {
+	digest := "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	ref, _ := buildPullOptions("registry.io/app@" + digest)
+	c.Assert(ref, Equals, "registry.io/app@"+digest)
+}
+
+func (s *SuiteCommon) TestBuildPullOptionsBareImage(c *C) {
+	ref, _ := buildPullOptions("myimage")
+	c.Assert(ref, Equals, "docker.io/library/myimage:latest")
+}
+
+func (s *SuiteCommon) TestBuildPullOptionsWithTag(c *C) {
+	ref, _ := buildPullOptions("quay.io/org/app:v1.2")
+	c.Assert(ref, Equals, "quay.io/org/app:v1.2")
 }
 
 func (s *SuiteCommon) TestBuildEncodedAuthFromDockerConfig(c *C) {
@@ -438,8 +446,10 @@ func (s *SuiteCommon) TestBuildEncodedAuthMissingConfig(c *C) {
 }
 
 func resetDockerAuthCache() {
-	dockerCfgOnce = sync.Once{}
+	dockerCfgMu.Lock()
+	defer dockerCfgMu.Unlock()
 	dockerCfg = nil
+	dockerCfgLoaded = false
 }
 
 func setDockerConfigDir(dir string) func() {

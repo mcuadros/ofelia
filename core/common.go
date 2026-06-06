@@ -1,20 +1,21 @@
 package core
 
 import (
+	"context"
 	"crypto/rand"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/armon/circbuf"
+	"github.com/distribution/reference"
 	dockercliconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
+	"github.com/moby/moby/api/pkg/authconfig"
 	"github.com/moby/moby/api/types/registry"
+	"github.com/moby/moby/client"
 )
 
 var (
@@ -46,6 +47,7 @@ type Job interface {
 }
 
 type Context struct {
+	Ctx       context.Context
 	Scheduler *Scheduler
 	Logger    Logger
 	Job       Job
@@ -58,12 +60,20 @@ type Context struct {
 
 func NewContext(s *Scheduler, j Job, e *Execution) *Context {
 	return &Context{
+		Ctx:         context.Background(),
 		Scheduler:   s,
 		Logger:      s.Logger,
 		Job:         j,
 		Execution:   e,
 		middlewares: j.Middlewares(),
 	}
+}
+
+func (c *Context) Context() context.Context {
+	if c.Ctx != nil {
+		return c.Ctx
+	}
+	return context.Background()
 }
 
 func (c *Context) Start() {
@@ -247,59 +257,36 @@ func randomID() string {
 // --- Docker auth and image helpers ---
 
 var (
-	dockerCfgOnce sync.Once
-	dockerCfg     *configfile.ConfigFile
+	dockerCfgMu     sync.Mutex
+	dockerCfg       *configfile.ConfigFile
+	dockerCfgLoaded bool
 )
 
 func loadDockerConfig() *configfile.ConfigFile {
-	dockerCfgOnce.Do(func() {
-		cfg, err := dockercliconfig.Load(dockercliconfig.Dir())
-		if err != nil {
-			return
-		}
-		dockerCfg = cfg
-	})
+	dockerCfgMu.Lock()
+	defer dockerCfgMu.Unlock()
+	if dockerCfgLoaded {
+		return dockerCfg
+	}
+	cfg, err := dockercliconfig.Load(dockercliconfig.Dir())
+	if err != nil {
+		return nil
+	}
+	dockerCfg = cfg
+	dockerCfgLoaded = true
 	return dockerCfg
 }
 
-func parseRepositoryTag(repoTag string) (repository, tag string) {
-	if n := strings.IndexRune(repoTag, '@'); n >= 0 {
-		repoTag = repoTag[:n]
-	}
-	n := strings.LastIndexByte(repoTag, ':')
-	if n < 0 {
-		return repoTag, ""
-	}
-	if strings.Contains(repoTag[n+1:], "/") {
-		return repoTag, ""
-	}
-	return repoTag[:n], repoTag[n+1:]
-}
-
 func buildPullOptions(img string) (string, string) {
-	repository, tag := parseRepositoryTag(img)
-	registry := parseRegistry(repository)
-
-	if tag == "" {
-		tag = "latest"
+	named, err := reference.ParseNormalizedNamed(img)
+	if err != nil {
+		return img + ":latest", ""
 	}
-
-	ref := repository + ":" + tag
-	encodedAuth := buildEncodedAuth(registry)
+	named = reference.TagNameOnly(named)
+	ref := named.String()
+	domain := reference.Domain(named)
+	encodedAuth := buildEncodedAuth(domain)
 	return ref, encodedAuth
-}
-
-func parseRegistry(repository string) string {
-	parts := strings.Split(repository, "/")
-	if len(parts) < 2 {
-		return ""
-	}
-
-	if strings.ContainsAny(parts[0], ".:") || len(parts) > 2 {
-		return parts[0]
-	}
-
-	return ""
 }
 
 func buildEncodedAuth(reg string) string {
@@ -330,17 +317,24 @@ func buildEncodedAuth(reg string) string {
 		RegistryToken: authCfg.RegistryToken,
 	}
 
-	encoded, err := encodeAuthConfig(regAuth)
+	encoded, err := authconfig.Encode(regAuth)
 	if err != nil {
 		return ""
 	}
 	return encoded
 }
 
-func encodeAuthConfig(authConfig registry.AuthConfig) (string, error) {
-	buf, err := json.Marshal(authConfig)
+func pullImage(dc DockerClient, image string, ctx context.Context) error {
+	ref, encodedAuth := buildPullOptions(image)
+	resp, err := dc.ImagePull(ctx, ref, client.ImagePullOptions{
+		RegistryAuth: encodedAuth,
+	})
 	if err != nil {
-		return "", err
+		return fmt.Errorf("error pulling image %q: %s", image, err)
 	}
-	return base64.URLEncoding.EncodeToString(buf), nil
+	defer resp.Close()
+	if err := resp.Wait(ctx); err != nil {
+		return fmt.Errorf("error pulling image %q: %s", image, err)
+	}
+	return nil
 }

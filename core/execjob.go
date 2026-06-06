@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"fmt"
 	"io"
 
@@ -26,18 +25,18 @@ func NewExecJob(c DockerClient) *ExecJob {
 }
 
 func (j *ExecJob) Run(ctx *Context) error {
-	execID, err := j.buildExec()
+	execID, err := j.buildExec(ctx)
 	if err != nil {
 		return err
 	}
 
 	j.execID = execID
 
-	if err := j.startExec(ctx.Execution); err != nil {
+	if err := j.startExec(ctx); err != nil {
 		return err
 	}
 
-	inspect, err := j.inspectExec()
+	inspect, err := j.inspectExec(ctx)
 	if err != nil {
 		return err
 	}
@@ -52,8 +51,8 @@ func (j *ExecJob) Run(ctx *Context) error {
 	}
 }
 
-func (j *ExecJob) buildExec() (string, error) {
-	resp, err := j.Client.ExecCreate(context.Background(), j.Container, client.ExecCreateOptions{
+func (j *ExecJob) buildExec(ctx *Context) (string, error) {
+	resp, err := j.Client.ExecCreate(ctx.Context(), j.Container, client.ExecCreateOptions{
 		AttachStdin:  false,
 		AttachStdout: true,
 		AttachStderr: true,
@@ -70,8 +69,8 @@ func (j *ExecJob) buildExec() (string, error) {
 	return resp.ID, nil
 }
 
-func (j *ExecJob) startExec(e *Execution) error {
-	resp, err := j.Client.ExecAttach(context.Background(), j.execID, client.ExecAttachOptions{
+func (j *ExecJob) startExec(ctx *Context) error {
+	resp, err := j.Client.ExecAttach(ctx.Context(), j.execID, client.ExecAttachOptions{
 		TTY: j.TTY,
 	})
 	if err != nil {
@@ -80,9 +79,9 @@ func (j *ExecJob) startExec(e *Execution) error {
 	defer resp.Close()
 
 	if j.TTY {
-		_, err = io.Copy(e.OutputStream, resp.Reader)
+		_, err = io.Copy(ctx.Execution.OutputStream, resp.Reader)
 	} else {
-		_, err = stdcopy.StdCopy(e.OutputStream, e.ErrorStream, resp.Reader)
+		_, err = stdcopy.StdCopy(ctx.Execution.OutputStream, ctx.Execution.ErrorStream, resp.Reader)
 	}
 	if err != nil {
 		return fmt.Errorf("error reading exec output: %s", err)
@@ -91,8 +90,8 @@ func (j *ExecJob) startExec(e *Execution) error {
 	return nil
 }
 
-func (j *ExecJob) inspectExec() (client.ExecInspectResult, error) {
-	i, err := j.Client.ExecInspect(context.Background(), j.execID, client.ExecInspectOptions{})
+func (j *ExecJob) inspectExec(ctx *Context) (client.ExecInspectResult, error) {
+	i, err := j.Client.ExecInspect(ctx.Context(), j.execID, client.ExecInspectOptions{})
 	if err != nil {
 		return i, fmt.Errorf("error inspecting exec: %s", err)
 	}

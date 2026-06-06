@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"strconv"
@@ -54,20 +53,20 @@ func (j *RunJob) Run(ctx *Context) error {
 			var pullError error
 
 			if pull {
-				if pullError = j.pullImage(); pullError == nil {
+				if pullError = pullImage(j.Client, j.Image, ctx.Context()); pullError == nil {
 					ctx.Logger.Debug("Pulled new image", "image", j.Image, "pull", pull)
 					return nil
 				}
 			}
 
-			searchErr := j.searchLocalImage()
+			searchErr := j.searchLocalImage(ctx)
 			if searchErr == nil {
 				ctx.Logger.Debug("Found image locally", "image", j.Image, "pull", pull)
 				return nil
 			}
 
 			if !pull && searchErr == ErrLocalImageNotFound {
-				if pullError = j.pullImage(); pullError == nil {
+				if pullError = pullImage(j.Client, j.Image, ctx.Context()); pullError == nil {
 					ctx.Logger.Debug("Pulled new image", "image", j.Image, "pull", pull)
 					return nil
 				}
@@ -86,12 +85,12 @@ func (j *RunJob) Run(ctx *Context) error {
 			return err
 		}
 
-		containerID, err = j.buildContainer()
+		containerID, err = j.buildContainer(ctx)
 		if err != nil {
 			return err
 		}
 	} else {
-		resp, inspectErr := j.Client.ContainerInspect(context.Background(), j.Container, client.ContainerInspectOptions{})
+		resp, inspectErr := j.Client.ContainerInspect(ctx.Context(), j.Container, client.ContainerInspectOptions{})
 		if inspectErr != nil {
 			return inspectErr
 		}
@@ -102,18 +101,18 @@ func (j *RunJob) Run(ctx *Context) error {
 
 	if j.Container == "" {
 		defer func() {
-			if delErr := j.deleteContainer(); delErr != nil {
+			if delErr := j.deleteContainer(ctx); delErr != nil {
 				ctx.Warn("failed to delete container: " + delErr.Error())
 			}
 		}()
 	}
 
 	startTime := time.Now()
-	if err := j.startContainer(); err != nil {
+	if err := j.startContainer(ctx); err != nil {
 		return err
 	}
 
-	err = j.watchContainer()
+	err = j.watchContainer(ctx)
 	if err == ErrUnexpected {
 		return err
 	}
@@ -126,7 +125,7 @@ func (j *RunJob) Run(ctx *Context) error {
 }
 
 func (j *RunJob) fetchLogs(ctx *Context, startTime time.Time) error {
-	reader, err := j.Client.ContainerLogs(context.Background(), j.containerID, client.ContainerLogsOptions{
+	reader, err := j.Client.ContainerLogs(ctx.Context(), j.containerID, client.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Since:      startTime.Format(time.RFC3339Nano),
@@ -144,8 +143,8 @@ func (j *RunJob) fetchLogs(ctx *Context, startTime time.Time) error {
 	return err
 }
 
-func (j *RunJob) searchLocalImage() error {
-	resp, err := j.Client.ImageList(context.Background(), client.ImageListOptions{
+func (j *RunJob) searchLocalImage(ctx *Context) error {
+	resp, err := j.Client.ImageList(ctx.Context(), client.ImageListOptions{
 		Filters: client.Filters{}.Add("reference", j.Image),
 	})
 	if err != nil {
@@ -159,22 +158,7 @@ func (j *RunJob) searchLocalImage() error {
 	return nil
 }
 
-func (j *RunJob) pullImage() error {
-	ref, encodedAuth := buildPullOptions(j.Image)
-	resp, err := j.Client.ImagePull(context.Background(), ref, client.ImagePullOptions{
-		RegistryAuth: encodedAuth,
-	})
-	if err != nil {
-		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
-	}
-	defer resp.Close()
-	if err := resp.Wait(context.Background()); err != nil {
-		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
-	}
-	return nil
-}
-
-func (j *RunJob) buildContainer() (string, error) {
+func (j *RunJob) buildContainer(ctx *Context) (string, error) {
 	config := &container.Config{
 		Image:        j.Image,
 		AttachStdin:  false,
@@ -190,7 +174,7 @@ func (j *RunJob) buildContainer() (string, error) {
 		config.Entrypoint = args.GetArgs(*j.Entrypoint)
 	}
 
-	resp, err := j.Client.ContainerCreate(context.Background(), client.ContainerCreateOptions{
+	resp, err := j.Client.ContainerCreate(ctx.Context(), client.ContainerCreateOptions{
 		Config: config,
 		HostConfig: &container.HostConfig{
 			Binds:       j.Volume,
@@ -204,10 +188,10 @@ func (j *RunJob) buildContainer() (string, error) {
 
 	if j.Network != "" {
 		networkFilter := client.Filters{}.Add("name", j.Network)
-		networks, err := j.Client.NetworkList(context.Background(), client.NetworkListOptions{Filters: networkFilter})
+		networks, err := j.Client.NetworkList(ctx.Context(), client.NetworkListOptions{Filters: networkFilter})
 		if err == nil {
 			for _, net := range networks.Items {
-				if _, err := j.Client.NetworkConnect(context.Background(), net.ID, client.NetworkConnectOptions{
+				if _, err := j.Client.NetworkConnect(ctx.Context(), net.ID, client.NetworkConnectOptions{
 					Container: resp.ID,
 				}); err != nil {
 					return resp.ID, fmt.Errorf("error connecting container to network: %s", err)
@@ -219,14 +203,14 @@ func (j *RunJob) buildContainer() (string, error) {
 	return resp.ID, nil
 }
 
-func (j *RunJob) startContainer() error {
-	_, err := j.Client.ContainerStart(context.Background(), j.containerID, client.ContainerStartOptions{})
+func (j *RunJob) startContainer(ctx *Context) error {
+	_, err := j.Client.ContainerStart(ctx.Context(), j.containerID, client.ContainerStartOptions{})
 	return err
 }
 
-func (j *RunJob) stopContainer(timeout uint) error {
+func (j *RunJob) stopContainer(ctx *Context, timeout uint) error {
 	t := int(timeout)
-	_, err := j.Client.ContainerStop(context.Background(), j.containerID, client.ContainerStopOptions{Timeout: &t})
+	_, err := j.Client.ContainerStop(ctx.Context(), j.containerID, client.ContainerStopOptions{Timeout: &t})
 	return err
 }
 
@@ -235,7 +219,7 @@ const (
 	maxProcessDuration = time.Hour * 24
 )
 
-func (j *RunJob) watchContainer() error {
+func (j *RunJob) watchContainer(ctx *Context) error {
 	var r time.Duration
 	for {
 		time.Sleep(watchDuration)
@@ -245,12 +229,15 @@ func (j *RunJob) watchContainer() error {
 			return ErrMaxTimeRunning
 		}
 
-		resp, err := j.Client.ContainerInspect(context.Background(), j.containerID, client.ContainerInspectOptions{})
+		resp, err := j.Client.ContainerInspect(ctx.Context(), j.containerID, client.ContainerInspectOptions{})
 		if err != nil {
 			return err
 		}
 
-		if resp.Container.State != nil && !resp.Container.State.Running {
+		if resp.Container.State == nil {
+			return fmt.Errorf("container %s has nil state", j.containerID)
+		}
+		if !resp.Container.State.Running {
 			switch resp.Container.State.ExitCode {
 			case 0:
 				return nil
@@ -263,11 +250,11 @@ func (j *RunJob) watchContainer() error {
 	}
 }
 
-func (j *RunJob) deleteContainer() error {
+func (j *RunJob) deleteContainer(ctx *Context) error {
 	if delete, _ := strconv.ParseBool(j.Delete); !delete {
 		return nil
 	}
 
-	_, err := j.Client.ContainerRemove(context.Background(), j.containerID, client.ContainerRemoveOptions{})
+	_, err := j.Client.ContainerRemove(ctx.Context(), j.containerID, client.ContainerRemoveOptions{})
 	return err
 }

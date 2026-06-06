@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -32,11 +31,11 @@ func NewRunServiceJob(c DockerClient) *RunServiceJob {
 }
 
 func (j *RunServiceJob) Run(ctx *Context) error {
-	if err := j.pullImage(); err != nil {
+	if err := pullImage(j.Client, j.Image, ctx.Context()); err != nil {
 		return err
 	}
 
-	svcID, err := j.buildService()
+	svcID, err := j.buildService(ctx)
 	if err != nil {
 		return err
 	}
@@ -50,22 +49,7 @@ func (j *RunServiceJob) Run(ctx *Context) error {
 	return j.deleteService(ctx, svcID)
 }
 
-func (j *RunServiceJob) pullImage() error {
-	ref, encodedAuth := buildPullOptions(j.Image)
-	resp, err := j.Client.ImagePull(context.Background(), ref, client.ImagePullOptions{
-		RegistryAuth: encodedAuth,
-	})
-	if err != nil {
-		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
-	}
-	defer resp.Close()
-	if err := resp.Wait(context.Background()); err != nil {
-		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
-	}
-	return nil
-}
-
-func (j *RunServiceJob) buildService() (string, error) {
+func (j *RunServiceJob) buildService(ctx *Context) (string, error) {
 	max := uint64(1)
 
 	spec := swarm.ServiceSpec{}
@@ -88,7 +72,7 @@ func (j *RunServiceJob) buildService() (string, error) {
 		spec.TaskTemplate.ContainerSpec.Command = strings.Split(j.Command, " ")
 	}
 
-	resp, err := j.Client.ServiceCreate(context.Background(), client.ServiceCreateOptions{
+	resp, err := j.Client.ServiceCreate(ctx.Context(), client.ServiceCreateOptions{
 		Spec: spec,
 	})
 	if err != nil {
@@ -103,24 +87,25 @@ const (
 	timeoutError = -998
 )
 
-var svcChecker = time.NewTicker(watchDuration)
-
 func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 	exitCode := swarmError
 
 	ctx.Logger.Info("Checking for service termination", "id", svcID, "job", j.Name)
 
-	svc, err := j.Client.ServiceInspect(context.Background(), svcID, client.ServiceInspectOptions{})
+	svc, err := j.Client.ServiceInspect(ctx.Context(), svcID, client.ServiceInspectOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to inspect service %s: %s", svcID, err.Error())
 	}
+
+	ticker := time.NewTicker(watchDuration)
+	defer ticker.Stop()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
-		for range svcChecker.C {
+		for range ticker.C {
 			if time.Since(svc.Service.CreatedAt) > maxProcessDuration {
 				err = ErrMaxTimeRunning
 				return
@@ -147,7 +132,7 @@ func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 }
 
 func (j *RunServiceJob) findtaskstatus(ctx *Context, taskID string) (int, bool) {
-	resp, err := j.Client.TaskList(context.Background(), client.TaskListOptions{
+	resp, err := j.Client.TaskList(ctx.Context(), client.TaskListOptions{
 		Filters: client.Filters{}.Add("service", taskID),
 	})
 
@@ -199,7 +184,7 @@ func (j *RunServiceJob) deleteService(ctx *Context, svcID string) error {
 		return nil
 	}
 
-	_, err := j.Client.ServiceRemove(context.Background(), svcID, client.ServiceRemoveOptions{})
+	_, err := j.Client.ServiceRemove(ctx.Context(), svcID, client.ServiceRemoveOptions{})
 	if err != nil && errdefs.IsNotFound(err) {
 		ctx.Logger.Warning("Service cannot be removed. An error may have happened, "+
 			"or it might have been removed by another process", "id", svcID)
