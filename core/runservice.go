@@ -137,7 +137,7 @@ func (j *RunServiceJob) findtaskstatus(ctx *Context, taskID string) (int, bool) 
 	})
 
 	if err != nil {
-		ctx.Logger.Error("Failed to find task ID. Considering the task terminated.", "id", taskID, "error", err)
+		ctx.Logger.Error("Failed to list tasks, will retry", "id", taskID, "error", err)
 		return 0, false
 	}
 

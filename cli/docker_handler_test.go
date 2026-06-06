@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"strings"
 
@@ -151,7 +152,7 @@ func (m *mockCLIDockerClient) TaskList(ctx context.Context, options client.TaskL
 
 type nopReadCloser struct{}
 
-func (nopReadCloser) Read([]byte) (int, error) { return 0, nil }
+func (nopReadCloser) Read([]byte) (int, error) { return 0, io.EOF }
 func (nopReadCloser) Close() error             { return nil }
 
 func newTestDockerHandler(mock core.DockerClient, filters []string) *DockerHandler {
@@ -308,9 +309,14 @@ func (s *TestDockerSuit) TestGetContainerID(c *check.C) {
 }
 
 func withDockerEnv(envs map[string]string) func() {
-	old := make(map[string]string)
+	type envEntry struct {
+		value string
+		isSet bool
+	}
+	old := make(map[string]envEntry)
 	for k, v := range envs {
-		old[k], _ = os.LookupEnv(k)
+		val, ok := os.LookupEnv(k)
+		old[k] = envEntry{value: val, isSet: ok}
 		if v == "" {
 			os.Unsetenv(k)
 		} else {
@@ -318,11 +324,11 @@ func withDockerEnv(envs map[string]string) func() {
 		}
 	}
 	return func() {
-		for k, v := range old {
-			if v == "" {
+		for k, e := range old {
+			if !e.isSet {
 				os.Unsetenv(k)
 			} else {
-				os.Setenv(k, v)
+				os.Setenv(k, e.value)
 			}
 		}
 	}
