@@ -93,7 +93,7 @@ func (c *DockerHandler) watch() {
 	for range ticker.C {
 		labels, err := c.GetDockerLabels()
 		if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
-			c.logger.Debug("failed to get Docker labels", "error", err)
+			c.logger.Debug("Failed to get Docker labels", "error", err)
 		}
 		c.notifier.dockerLabelsUpdate(labels)
 	}

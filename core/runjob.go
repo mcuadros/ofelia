@@ -103,7 +103,7 @@ func (j *RunJob) Run(ctx *Context) error {
 	if j.Container == "" {
 		defer func() {
 			if delErr := j.deleteContainer(ctx); delErr != nil {
-				ctx.Warn("failed to delete container: " + delErr.Error())
+				ctx.Warn("Failed to delete container", "error", delErr)
 			}
 		}()
 	}
@@ -119,7 +119,7 @@ func (j *RunJob) Run(ctx *Context) error {
 	}
 
 	if logsErr := j.fetchLogs(ctx, startTime); logsErr != nil {
-		ctx.Warn("failed to fetch container logs: " + logsErr.Error())
+		ctx.Warn("Failed to fetch container logs", "error", logsErr)
 	}
 
 	return err

@@ -103,6 +103,6 @@ func (c *DaemonCommand) shutdown() error {
 		return nil
 	}
 
-	c.Logger.Warning("Waiting for running jobs.")
+	c.Logger.Warning("Waiting for running jobs")
 	return c.scheduler.Stop()
 }

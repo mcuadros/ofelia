@@ -44,13 +44,13 @@ func (s *Scheduler) AddJob(j Job) error {
 
 	id, err := s.cron.AddJob(j.GetSchedule(), &jobWrapper{s, j})
 	if err != nil {
-		s.Logger.Warning("Failed to register job.", "job", j.GetName(), "command", j.GetCommand(), "schedule", j.GetSchedule(), "error", err)
+		s.Logger.Warning("Failed to register job", "job", j.GetName(), "command", j.GetCommand(), "schedule", j.GetSchedule(), "error", err)
 		return err
 	}
 
 	j.SetCronJobID(int(id))
 	j.Use(s.Middlewares()...)
-	s.Logger.Info("New job registered", "job", j.GetName(), "command", j.GetCommand(), "schedule", j.GetSchedule(), "id", id)
+	s.Logger.Info("New job registered", "job", j.GetName(), "command", j.GetCommand(), "schedule", j.GetSchedule(), "cron_id", id)
 	return nil
 }
 

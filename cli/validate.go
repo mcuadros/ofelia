@@ -12,7 +12,7 @@ type ValidateCommand struct {
 
 // Execute runs the validation command
 func (c *ValidateCommand) Execute(args []string) error {
-	c.Logger.Debug("Validating config... ", "config", c.ConfigFile)
+	c.Logger.Debug("Validating config", "config", c.ConfigFile)
 	config, err := BuildFromFile(c.ConfigFile, c.Logger)
 	if err != nil {
 		c.Logger.Error("Failed to validate config", "config", c.ConfigFile, "error", err)

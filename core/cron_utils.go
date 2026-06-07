@@ -10,9 +10,9 @@ func NewCronUtils(l Logger) *CronUtils {
 }
 
 func (c *CronUtils) Info(msg string, keysAndValues ...any) {
-	c.Logger.Debug("cron update", append(keysAndValues, "cron", msg)...)
+	c.Logger.Debug("Cron update", append(keysAndValues, "cron", msg)...)
 }
 
 func (c *CronUtils) Error(err error, msg string, keysAndValues ...interface{}) {
-	c.Logger.Error("cron error", append(keysAndValues, "cron", msg, "error", err)...)
+	c.Logger.Error("Cron error", append(keysAndValues, "cron", msg, "error", err)...)
 }
