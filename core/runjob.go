@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/distribution/reference"
 	"github.com/gobs/args"
 	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
@@ -144,8 +145,13 @@ func (j *RunJob) fetchLogs(ctx *Context, startTime time.Time) error {
 }
 
 func (j *RunJob) searchLocalImage(ctx *Context) error {
+	filterRef := j.Image
+	if named, err := reference.ParseNormalizedNamed(j.Image); err == nil {
+		filterRef = reference.FamiliarString(reference.TagNameOnly(named))
+	}
+
 	resp, err := j.Client.ImageList(ctx.Context(), client.ImageListOptions{
-		Filters: client.Filters{}.Add("reference", j.Image),
+		Filters: client.Filters{}.Add("reference", filterRef),
 	})
 	if err != nil {
 		return err
