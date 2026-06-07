@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/mcuadros/ofelia/core"
+	"github.com/moby/moby/api/types/events"
 	"github.com/moby/moby/client"
 )
 
@@ -35,6 +37,7 @@ type DockerHandler struct {
 	configsFromLabels bool
 	logger            core.Logger
 	filters           []string
+	cancel            context.CancelFunc
 }
 
 type labelConfigUpdater interface {
@@ -76,26 +79,88 @@ func NewDockerHandler(config *Config, dockerFilters []string, configsFromLabels 
 	}
 
 	if c.configsFromLabels {
-		go c.watch()
+		ctx, cancel := context.WithCancel(context.Background())
+		c.cancel = cancel
+		go c.watch(ctx)
 	}
 	return c, nil
+}
+
+func (c *DockerHandler) Close() {
+	if c.cancel != nil {
+		c.cancel()
+	}
 }
 
 func (c *DockerHandler) ConfigFromLabelsEnabled() bool {
 	return c.configsFromLabels
 }
 
-func (c *DockerHandler) watch() {
-	const pollInterval = 10 * time.Second
-	c.logger.Debug("Watching for Docker labels changes...", "interval", pollInterval)
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-	for range ticker.C {
-		labels, err := c.GetDockerLabels()
-		if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
-			c.logger.Debug("Failed to get Docker labels", "error", err)
+func (c *DockerHandler) watch(ctx context.Context) {
+	filters := client.Filters(nil).
+		Add("type", string(events.ContainerEventType)).
+		Add("label", requiredLabelFilter)
+
+	c.logger.Debug("Listening for Docker events to hot reload configs...", "filters", filters)
+
+	for {
+		result := c.dockerClient.Events(ctx, client.EventsListOptions{Filters: filters})
+
+		if err := c.consumeEvents(result); err != nil {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+			c.logger.Debug("Docker event stream error, reconnecting...", "error", err)
+			time.Sleep(5 * time.Second)
 		}
-		c.notifier.dockerLabelsUpdate(labels)
+	}
+}
+
+func (c *DockerHandler) consumeEvents(result client.EventsResult) error {
+	for {
+		select {
+		case event, ok := <-result.Messages:
+			if !ok {
+				return io.EOF
+			}
+			if !isReloadAction(event.Action) {
+				continue
+			}
+			c.logger.Debug("Refreshing configurations due to Docker event",
+				"action", event.Action,
+				"container", event.Actor.Attributes["name"],
+				"id", event.Actor.ID,
+			)
+			labels, err := c.GetDockerLabels()
+			if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
+				c.logger.Debug("Failed to get Docker labels", "error", err)
+			}
+			c.notifier.dockerLabelsUpdate(labels)
+		case err, ok := <-result.Err:
+			if !ok {
+				return io.EOF
+			}
+			return err
+		}
+	}
+}
+
+func isReloadAction(action events.Action) bool {
+	switch action {
+	case events.ActionCreate,
+		events.ActionStart,
+		events.ActionRestart,
+		events.ActionStop,
+		events.ActionKill,
+		events.ActionDie,
+		events.ActionDestroy,
+		events.ActionPause,
+		events.ActionUnPause,
+		events.ActionRename,
+		events.ActionUpdate:
+		return true
+	default:
+		return false
 	}
 }
 

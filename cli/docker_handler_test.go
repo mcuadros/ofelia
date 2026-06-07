@@ -9,6 +9,7 @@ import (
 
 	"github.com/mcuadros/ofelia/core"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/events"
 	"github.com/moby/moby/client"
 	check "gopkg.in/check.v1"
 )
@@ -24,6 +25,13 @@ type mockCLIDockerClient struct {
 
 func (m *mockCLIDockerClient) Info(ctx context.Context, options client.InfoOptions) (client.SystemInfoResult, error) {
 	return client.SystemInfoResult{}, nil
+}
+
+func (m *mockCLIDockerClient) Events(ctx context.Context, options client.EventsListOptions) client.EventsResult {
+	return client.EventsResult{
+		Messages: make(<-chan events.Message),
+		Err:      make(<-chan error),
+	}
 }
 
 func (m *mockCLIDockerClient) ContainerList(ctx context.Context, options client.ContainerListOptions) (client.ContainerListResult, error) {

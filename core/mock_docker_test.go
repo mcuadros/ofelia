@@ -5,12 +5,14 @@ import (
 	"io"
 	"iter"
 
+	"github.com/moby/moby/api/types/events"
 	"github.com/moby/moby/api/types/jsonstream"
 	"github.com/moby/moby/client"
 )
 
 type mockDockerClient struct {
 	InfoFn             func(ctx context.Context, options client.InfoOptions) (client.SystemInfoResult, error)
+	EventsFn           func(ctx context.Context, options client.EventsListOptions) client.EventsResult
 	ContainerListFn    func(ctx context.Context, options client.ContainerListOptions) (client.ContainerListResult, error)
 	ContainerInspectFn func(ctx context.Context, containerID string, options client.ContainerInspectOptions) (client.ContainerInspectResult, error)
 	ContainerCreateFn  func(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error)
@@ -36,6 +38,16 @@ func (m *mockDockerClient) Info(ctx context.Context, options client.InfoOptions)
 		return m.InfoFn(ctx, options)
 	}
 	return client.SystemInfoResult{}, nil
+}
+
+func (m *mockDockerClient) Events(ctx context.Context, options client.EventsListOptions) client.EventsResult {
+	if m.EventsFn != nil {
+		return m.EventsFn(ctx, options)
+	}
+	return client.EventsResult{
+		Messages: make(<-chan events.Message),
+		Err:      make(<-chan error),
+	}
 }
 
 func (m *mockDockerClient) ContainerList(ctx context.Context, options client.ContainerListOptions) (client.ContainerListResult, error) {

@@ -10,6 +10,7 @@ import (
 // The official *client.Client from github.com/moby/moby/client satisfies this interface.
 type DockerClient interface {
 	Info(ctx context.Context, options client.InfoOptions) (client.SystemInfoResult, error)
+	Events(ctx context.Context, options client.EventsListOptions) client.EventsResult
 
 	ContainerList(ctx context.Context, options client.ContainerListOptions) (client.ContainerListResult, error)
 	ContainerInspect(ctx context.Context, containerID string, options client.ContainerInspectOptions) (client.ContainerInspectResult, error)
