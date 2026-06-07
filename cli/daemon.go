@@ -12,9 +12,10 @@ import (
 // DaemonCommand daemon process
 type DaemonCommand struct {
 	ConfigFile        string   `long:"config" description:"configuration file" default:"/etc/ofelia.conf"`
-	DockerLabelConfig bool     `short:"d" long:"docker" description:"continiously poll docker labels for configurations"`
+	DockerLabelConfig bool     `short:"d" long:"docker" description:"listen for docker events and reload job configurations from container labels"`
 	DockerFilters     []string `short:"f" long:"docker-filter" description:"filter to select docker containers. https://docs.docker.com/reference/cli/docker/container/ls/#filter"`
 	scheduler         *core.Scheduler
+	dockerHandler     *DockerHandler
 	signals           chan os.Signal
 	done              chan bool
 	Logger            core.Logger
@@ -63,12 +64,14 @@ func (c *DaemonCommand) boot() (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to create docker handler: %w", err)
 	}
+	c.dockerHandler = config.dockerHandler
 
 	err = config.InitializeApp()
 	if err != nil {
 		return fmt.Errorf("can't start the app: %w", err)
 	}
 
+	config.dockerHandler.StartWatching()
 	c.scheduler = config.sh
 
 	return err
@@ -99,6 +102,9 @@ func (c *DaemonCommand) setSignals() {
 
 func (c *DaemonCommand) shutdown() error {
 	<-c.done
+	if c.dockerHandler != nil {
+		c.dockerHandler.Close()
+	}
 	if !c.scheduler.IsRunning() {
 		return nil
 	}

@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/mcuadros/ofelia/core"
+	"github.com/moby/moby/api/types/events"
 	"github.com/moby/moby/client"
 )
 
@@ -35,6 +37,7 @@ type DockerHandler struct {
 	configsFromLabels bool
 	logger            core.Logger
 	filters           []string
+	cancel            context.CancelFunc
 }
 
 type labelConfigUpdater interface {
@@ -75,27 +78,130 @@ func NewDockerHandler(config *Config, dockerFilters []string, configsFromLabels 
 		return nil, err
 	}
 
-	if c.configsFromLabels {
-		go c.watch()
-	}
 	return c, nil
+}
+
+func (c *DockerHandler) StartWatching() {
+	if !c.configsFromLabels || c.cancel != nil {
+		return
+	}
+	if c.cancel != nil {
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	c.cancel = cancel
+	go c.watch(ctx)
+}
+
+func (c *DockerHandler) Close() {
+	if c.cancel != nil {
+		c.cancel()
+		c.cancel = nil
+	}
 }
 
 func (c *DockerHandler) ConfigFromLabelsEnabled() bool {
 	return c.configsFromLabels
 }
 
-func (c *DockerHandler) watch() {
-	const pollInterval = 10 * time.Second
-	c.logger.Debug("Watching for Docker labels changes...", "interval", pollInterval)
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-	for range ticker.C {
-		labels, err := c.GetDockerLabels()
-		if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
-			c.logger.Debug("Failed to get Docker labels", "error", err)
+func (c *DockerHandler) watch(ctx context.Context) {
+	filters := client.Filters{}.
+		Add("type", string(events.ContainerEventType))
+
+	for _, f := range c.filters {
+		key, value, err := parseFilter(f)
+		if err != nil {
+			continue
 		}
-		c.notifier.dockerLabelsUpdate(labels)
+		if key == "label" {
+			filters = filters.Add(key, value)
+		} else {
+			c.logger.Debug("Docker event filter not applicable to event stream, applied only to container list", "filter", f)
+		}
+	}
+
+	c.logger.Debug("Listening for Docker events to hot reload configs...", "filters", filters)
+
+	for {
+		result := c.dockerClient.Events(ctx, client.EventsListOptions{Filters: filters})
+
+		if err := c.consumeEvents(ctx, result); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			c.logger.Debug("Docker event stream error, reconnecting...", "error", err)
+			select {
+			case <-time.After(5 * time.Second):
+			case <-ctx.Done():
+				return
+			}
+			c.reconcile(ctx)
+		}
+	}
+}
+
+func (c *DockerHandler) consumeEvents(ctx context.Context, result client.EventsResult) error {
+	const debounceInterval = 500 * time.Millisecond
+	debounce := time.NewTimer(debounceInterval)
+	debounce.Stop()
+	defer debounce.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case event, ok := <-result.Messages:
+			if !ok {
+				return io.EOF
+			}
+			if !isReloadAction(event.Action) {
+				continue
+			}
+			c.logger.Debug("Docker event received",
+				"action", event.Action,
+				"container", event.Actor.Attributes["name"],
+				"id", event.Actor.ID,
+			)
+			debounce.Reset(debounceInterval)
+		case <-debounce.C:
+			c.reconcile(ctx)
+		case err, ok := <-result.Err:
+			if !ok {
+				return io.EOF
+			}
+			return err
+		}
+	}
+}
+
+func (c *DockerHandler) reconcile(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+	labels, err := c.GetDockerLabels(ctx)
+	if err != nil && !errors.Is(err, errNoContainersMatchingFilters) {
+		c.logger.Debug("Failed to reconcile Docker labels", "error", err)
+		return
+	}
+	c.notifier.dockerLabelsUpdate(labels)
+}
+
+func isReloadAction(action events.Action) bool {
+	switch action {
+	case events.ActionCreate,
+		events.ActionStart,
+		events.ActionRestart,
+		events.ActionStop,
+		events.ActionKill,
+		events.ActionDie,
+		events.ActionDestroy,
+		events.ActionPause,
+		events.ActionUnPause,
+		events.ActionRename,
+		events.ActionUpdate:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -127,7 +233,7 @@ func (c *DockerHandler) WaitForLabels() {
 	}
 }
 
-func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) {
+func (c *DockerHandler) GetDockerLabels(ctx context.Context) (map[string]map[string]string, error) {
 	filters := client.Filters{}.Add("label", requiredLabelFilter)
 	for _, f := range c.filters {
 		key, value, err := parseFilter(f)
@@ -137,7 +243,7 @@ func (c *DockerHandler) GetDockerLabels() (map[string]map[string]string, error) 
 		filters = filters.Add(key, value)
 	}
 
-	result, err := c.dockerClient.ContainerList(context.Background(), client.ContainerListOptions{Filters: filters})
+	result, err := c.dockerClient.ContainerList(ctx, client.ContainerListOptions{Filters: filters})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errFailedToListContainers, err)
 	} else if len(result.Items) == 0 {
