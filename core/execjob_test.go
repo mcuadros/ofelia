@@ -1,65 +1,51 @@
 package core
 
 import (
-	"archive/tar"
-	"bytes"
-	"encoding/json"
-	"net/http"
+	"bufio"
+	"context"
+	"net"
 
-	docker "github.com/fsouza/go-dockerclient"
-	"github.com/fsouza/go-dockerclient/testing"
+	"github.com/moby/moby/client"
 	. "gopkg.in/check.v1"
 )
 
 const ContainerFixture = "test-container"
 
-type SuiteExecJob struct {
-	server *testing.DockerServer
-	client *docker.Client
-}
+type SuiteExecJob struct{}
 
 var _ = Suite(&SuiteExecJob{})
 
-// overwrite version handler, because
-// exec configuration Env is only supported in API#1.25 and above
-// https://github.com/fsouza/go-dockerclient/blob/0f57349a7248b9b35ad2193ffe70953d5893e2b8/testing/server.go#L1607
-func versionDockerHandler(w http.ResponseWriter, r *http.Request) {
-	envs := map[string]interface{}{
-		"Version":       "1.10.1",
-		"Os":            "linux",
-		"KernelVersion": "3.13.0-77-generic",
-		"GoVersion":     "go1.17.1",
-		"GitCommit":     "9e83765",
-		"Arch":          "amd64",
-		"ApiVersion":    "1.27",
-		"BuildTime":     "2015-12-01T07:09:13.444803460+00:00",
-		"Experimental":  false,
-	}
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(envs)
-
-}
-
-func (s *SuiteExecJob) SetUpTest(c *C) {
-	var err error
-	s.server, err = testing.NewServer("127.0.0.1:0", nil, nil)
-	c.Assert(err, IsNil)
-
-	s.server.CustomHandler("/version", http.HandlerFunc(versionDockerHandler))
-
-	s.client, err = docker.NewClient(s.server.URL())
-	c.Assert(err, IsNil)
-
-	s.buildContainer(c)
-}
-
 func (s *SuiteExecJob) TestRun(c *C) {
-	var executed bool
-	s.server.PrepareExec("*", func() {
-		executed = true
-	})
+	var createdOpts client.ExecCreateOptions
 
-	job := &ExecJob{Client: s.client}
+	mock := &mockDockerClient{
+		ExecCreateFn: func(ctx context.Context, containerID string, options client.ExecCreateOptions) (client.ExecCreateResult, error) {
+			createdOpts = options
+			c.Assert(containerID, Equals, ContainerFixture)
+			return client.ExecCreateResult{ID: "exec-123"}, nil
+		},
+		ExecAttachFn: func(ctx context.Context, execID string, options client.ExecAttachOptions) (client.ExecAttachResult, error) {
+			c.Assert(execID, Equals, "exec-123")
+			c.Assert(options.TTY, Equals, true)
+			serverConn, clientConn := net.Pipe()
+			go func() {
+				serverConn.Write([]byte("output"))
+				serverConn.Close()
+			}()
+			return client.ExecAttachResult{
+				HijackedResponse: client.HijackedResponse{
+					Conn:   clientConn,
+					Reader: bufio.NewReader(clientConn),
+				},
+			}, nil
+		},
+		ExecInspectFn: func(ctx context.Context, execID string, options client.ExecInspectOptions) (client.ExecInspectResult, error) {
+			c.Assert(execID, Equals, "exec-123")
+			return client.ExecInspectResult{ExitCode: 0}, nil
+		},
+	}
+
+	job := &ExecJob{Client: mock}
 	job.Container = ContainerFixture
 	job.Command = `echo -a "foo bar"`
 	job.Environment = []string{"test_Key1=value1", "test_Key2=value2"}
@@ -70,38 +56,65 @@ func (s *SuiteExecJob) TestRun(c *C) {
 
 	err := job.Run(&Context{Execution: e})
 	c.Assert(err, IsNil)
-	c.Assert(executed, Equals, true)
 
-	container, err := s.client.InspectContainer(ContainerFixture)
-	c.Assert(err, IsNil)
-	c.Assert(len(container.ExecIDs) > 0, Equals, true)
+	c.Assert(createdOpts.Cmd, DeepEquals, []string{"echo", "-a", "foo bar"})
+	c.Assert(createdOpts.User, Equals, "foo")
+	c.Assert(createdOpts.TTY, Equals, true)
+	c.Assert(createdOpts.Env, DeepEquals, []string{"test_Key1=value1", "test_Key2=value2"})
+	c.Assert(createdOpts.AttachStdout, Equals, true)
+	c.Assert(createdOpts.AttachStderr, Equals, true)
 
-	exec, err := job.inspectExec()
-	c.Assert(err, IsNil)
-	c.Assert(exec.ProcessConfig.EntryPoint, Equals, "echo")
-	c.Assert(exec.ProcessConfig.Arguments, DeepEquals, []string{"-a", "foo bar"})
-	c.Assert(exec.ProcessConfig.User, Equals, "foo")
-	c.Assert(exec.ProcessConfig.Tty, Equals, true)
-	// no way to check for env :|
+	c.Assert(e.OutputStream.String(), Equals, "output")
 }
 
-func (s *SuiteExecJob) buildContainer(c *C) {
-	inputbuf := bytes.NewBuffer(nil)
-	tr := tar.NewWriter(inputbuf)
-	tr.WriteHeader(&tar.Header{Name: "Dockerfile"})
-	tr.Write([]byte("FROM base\n"))
-	tr.Close()
+func (s *SuiteExecJob) TestRunNonZeroExit(c *C) {
+	mock := &mockDockerClient{
+		ExecAttachFn: func(ctx context.Context, execID string, options client.ExecAttachOptions) (client.ExecAttachResult, error) {
+			serverConn, clientConn := net.Pipe()
+			serverConn.Close()
+			return client.ExecAttachResult{
+				HijackedResponse: client.HijackedResponse{
+					Conn:   clientConn,
+					Reader: bufio.NewReader(clientConn),
+				},
+			}, nil
+		},
+		ExecInspectFn: func(ctx context.Context, execID string, options client.ExecInspectOptions) (client.ExecInspectResult, error) {
+			return client.ExecInspectResult{ExitCode: 1}, nil
+		},
+	}
 
-	err := s.client.BuildImage(docker.BuildImageOptions{
-		Name:         "test",
-		InputStream:  inputbuf,
-		OutputStream: bytes.NewBuffer(nil),
-	})
-	c.Assert(err, IsNil)
+	job := &ExecJob{Client: mock}
+	job.Container = ContainerFixture
+	job.Command = "fail"
 
-	_, err = s.client.CreateContainer(docker.CreateContainerOptions{
-		Name:   ContainerFixture,
-		Config: &docker.Config{Image: "test"},
-	})
+	e := NewExecution()
+	err := job.Run(&Context{Execution: e})
+	c.Assert(err, ErrorMatches, "error non-zero exit code: 1")
+}
 
+func (s *SuiteExecJob) TestRunUnexpectedExit(c *C) {
+	mock := &mockDockerClient{
+		ExecAttachFn: func(ctx context.Context, execID string, options client.ExecAttachOptions) (client.ExecAttachResult, error) {
+			serverConn, clientConn := net.Pipe()
+			serverConn.Close()
+			return client.ExecAttachResult{
+				HijackedResponse: client.HijackedResponse{
+					Conn:   clientConn,
+					Reader: bufio.NewReader(clientConn),
+				},
+			}, nil
+		},
+		ExecInspectFn: func(ctx context.Context, execID string, options client.ExecInspectOptions) (client.ExecInspectResult, error) {
+			return client.ExecInspectResult{ExitCode: -1}, nil
+		},
+	}
+
+	job := &ExecJob{Client: mock}
+	job.Container = ContainerFixture
+	job.Command = "fail"
+
+	e := NewExecution()
+	err := job.Run(&Context{Execution: e})
+	c.Assert(err, Equals, ErrUnexpected)
 }

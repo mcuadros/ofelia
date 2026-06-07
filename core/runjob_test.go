@@ -1,36 +1,26 @@
 package core
 
 import (
-	"archive/tar"
 	"bytes"
+	"context"
+	"fmt"
 	"io"
-	"time"
+	"iter"
+	"sync/atomic"
 
-	docker "github.com/fsouza/go-dockerclient"
-	"github.com/fsouza/go-dockerclient/testing"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
+	"github.com/moby/moby/api/types/jsonstream"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 	. "gopkg.in/check.v1"
 )
 
 const ImageFixture = "test-image"
 
-type SuiteRunJob struct {
-	server *testing.DockerServer
-	client *docker.Client
-}
+type SuiteRunJob struct{}
 
 var _ = Suite(&SuiteRunJob{})
-
-func (s *SuiteRunJob) SetUpTest(c *C) {
-	var err error
-	s.server, err = testing.NewServer("127.0.0.1:0", nil, nil)
-	c.Assert(err, IsNil)
-
-	s.client, err = docker.NewClient(s.server.URL())
-	c.Assert(err, IsNil)
-
-	s.buildImage(c)
-	s.createNetwork(c)
-}
 
 func (s *SuiteRunJob) TestRun(c *C) {
 	overridenEntrypoint := "/bin/bash -c"
@@ -45,12 +35,70 @@ func (s *SuiteRunJob) TestRun(c *C) {
 	}
 
 	for _, tc := range testCases {
-		job := &RunJob{Client: s.client}
+		var createdOpts client.ContainerCreateOptions
+		var inspectCount atomic.Int32
+		var started bool
+		var removed bool
+
+		mock := &mockDockerClient{
+			ImageListFn: func(ctx context.Context, options client.ImageListOptions) (client.ImageListResult, error) {
+				return client.ImageListResult{Items: []image.Summary{{}}}, nil
+			},
+			ContainerCreateFn: func(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error) {
+				createdOpts = options
+				c.Assert(options.HostConfig.Binds, DeepEquals, []string{"/test/tmp:/test/tmp:ro", "/test/tmp:/test/tmp:rw"})
+				return client.ContainerCreateResult{ID: "cnt-123"}, nil
+			},
+			NetworkListFn: func(ctx context.Context, options client.NetworkListOptions) (client.NetworkListResult, error) {
+				return client.NetworkListResult{Items: []network.Summary{{Network: network.Network{ID: "net-123", Name: "foo"}}}}, nil
+			},
+			NetworkConnectFn: func(ctx context.Context, networkID string, options client.NetworkConnectOptions) (client.NetworkConnectResult, error) {
+				c.Assert(networkID, Equals, "net-123")
+				c.Assert(options.Container, Equals, "cnt-123")
+				return client.NetworkConnectResult{}, nil
+			},
+			ContainerStartFn: func(ctx context.Context, containerID string, options client.ContainerStartOptions) (client.ContainerStartResult, error) {
+				c.Assert(containerID, Equals, "cnt-123")
+				started = true
+				return client.ContainerStartResult{}, nil
+			},
+			ContainerInspectFn: func(ctx context.Context, containerID string, options client.ContainerInspectOptions) (client.ContainerInspectResult, error) {
+				c.Assert(containerID, Equals, "cnt-123")
+				count := inspectCount.Add(1)
+				if count <= 2 {
+					return client.ContainerInspectResult{
+						Container: container.InspectResponse{
+							State: &container.State{Running: true},
+						},
+					}, nil
+				}
+				return client.ContainerInspectResult{
+					Container: container.InspectResponse{
+						State: &container.State{Running: false, ExitCode: 0},
+					},
+				}, nil
+			},
+			ContainerLogsFn: func(ctx context.Context, containerID string, options client.ContainerLogsOptions) (client.ContainerLogsResult, error) {
+				c.Assert(containerID, Equals, "cnt-123")
+				c.Assert(options.ShowStdout, Equals, true)
+				c.Assert(options.ShowStderr, Equals, true)
+				c.Assert(options.Since, Not(Equals), "")
+				return io.NopCloser(bytes.NewReader([]byte("log output"))), nil
+			},
+			ContainerRemoveFn: func(ctx context.Context, containerID string, options client.ContainerRemoveOptions) (client.ContainerRemoveResult, error) {
+				c.Assert(containerID, Equals, "cnt-123")
+				removed = true
+				return client.ContainerRemoveResult{}, nil
+			},
+		}
+
+		job := &RunJob{Client: mock}
 		job.Image = ImageFixture
 		job.Command = `echo -a "foo bar"`
 		job.User = "foo"
 		job.TTY = true
 		job.Delete = "true"
+		job.Pull = "false"
 		job.Network = "foo"
 		job.Hostname = "test-host"
 		job.Name = "test"
@@ -63,83 +111,102 @@ func (s *SuiteRunJob) TestRun(c *C) {
 		ctx.Logger = NewSlogLogger(io.Discard)
 		ctx.Job = job
 
-		go func() {
-			// Docker Test Server doesn't actually start container
-			// so "job.Run" will hang until container is stopped
-			if err := job.Run(ctx); err != nil {
-				c.Fatal(err)
-			}
-		}()
-
-		time.Sleep(200 * time.Millisecond)
-		container, err := job.getContainer()
-		c.Assert(err, IsNil)
-		c.Assert(container.Config.Entrypoint, DeepEquals, tc.expectedEntrypoint)
-		c.Assert(container.Config.Cmd, DeepEquals, []string{"echo", "-a", "foo bar"})
-		c.Assert(container.Config.User, Equals, job.User)
-		c.Assert(container.Config.Image, Equals, job.Image)
-		c.Assert(container.State.Running, Equals, true)
-		c.Assert(container.Config.Env, DeepEquals, job.Environment)
-
-		// this doesn't seem to be working with DockerTestServer
-		// c.Assert(container.Config.Hostname, Equals, job.Hostname)
-		// c.Assert(container.HostConfig.Binds, DeepEquals, job.Volume)
-
-		// stop container, we don't need it anymore
-		err = job.stopContainer(0)
+		err := job.Run(ctx)
 		c.Assert(err, IsNil)
 
-		// wait and double check if container was deleted on "stop"
-		time.Sleep(watchDuration * 2)
-		container, _ = job.getContainer()
-		c.Assert(container, IsNil)
-
-		containers, err := s.client.ListContainers(docker.ListContainersOptions{All: true})
-		c.Assert(err, IsNil)
-		c.Assert(containers, HasLen, 0)
+		c.Assert(createdOpts.Config.Entrypoint, DeepEquals, tc.expectedEntrypoint)
+		c.Assert(createdOpts.Config.Cmd, DeepEquals, []string{"echo", "-a", "foo bar"})
+		c.Assert(createdOpts.Config.User, Equals, "foo")
+		c.Assert(createdOpts.Config.Image, Equals, ImageFixture)
+		c.Assert([]string(createdOpts.Config.Env), DeepEquals, job.Environment)
+		c.Assert(started, Equals, true)
+		c.Assert(removed, Equals, true)
 	}
 }
 
+func (s *SuiteRunJob) TestRunExistingContainer(c *C) {
+	var inspectCount atomic.Int32
+
+	mock := &mockDockerClient{
+		ContainerInspectFn: func(ctx context.Context, containerID string, options client.ContainerInspectOptions) (client.ContainerInspectResult, error) {
+			count := inspectCount.Add(1)
+			if count == 1 {
+				return client.ContainerInspectResult{
+					Container: container.InspectResponse{
+						ID:    "existing-cnt",
+						State: &container.State{Running: true},
+					},
+				}, nil
+			}
+			if count <= 3 {
+				return client.ContainerInspectResult{
+					Container: container.InspectResponse{
+						State: &container.State{Running: true},
+					},
+				}, nil
+			}
+			return client.ContainerInspectResult{
+				Container: container.InspectResponse{
+					State: &container.State{Running: false, ExitCode: 0},
+				},
+			}, nil
+		},
+		ContainerLogsFn: func(ctx context.Context, containerID string, options client.ContainerLogsOptions) (client.ContainerLogsResult, error) {
+			return io.NopCloser(bytes.NewReader(nil)), nil
+		},
+	}
+
+	job := &RunJob{Client: mock}
+	job.Container = "my-container"
+	job.Command = "echo hello"
+	job.Name = "test"
+
+	ctx := &Context{}
+	ctx.Execution = NewExecution()
+	ctx.Logger = NewSlogLogger(io.Discard)
+	ctx.Job = job
+
+	err := job.Run(ctx)
+	c.Assert(err, IsNil)
+}
+
+func (s *SuiteRunJob) TestPullImageError(c *C) {
+	mock := &mockDockerClient{
+		ImagePullFn: func(ctx context.Context, refStr string, options client.ImagePullOptions) (client.ImagePullResponse, error) {
+			c.Assert(refStr, Equals, "docker.io/library/private:latest")
+			return &mockPullResponseWithError{err: "denied"}, nil
+		},
+	}
+
+	err := pullImage(mock, "private", context.Background())
+	c.Assert(err, ErrorMatches, `error pulling image "private": denied`)
+}
+
 func (s *SuiteRunJob) TestBuildPullImageOptionsBareImage(c *C) {
-	o, _ := buildPullOptions("foo")
-	c.Assert(o.Repository, Equals, "foo")
-	c.Assert(o.Tag, Equals, "latest")
-	c.Assert(o.Registry, Equals, "")
+	ref, _ := buildPullOptions("foo")
+	c.Assert(ref, Equals, "docker.io/library/foo:latest")
 }
 
 func (s *SuiteRunJob) TestBuildPullImageOptionsVersion(c *C) {
-	o, _ := buildPullOptions("foo:qux")
-	c.Assert(o.Repository, Equals, "foo")
-	c.Assert(o.Tag, Equals, "qux")
-	c.Assert(o.Registry, Equals, "")
+	ref, _ := buildPullOptions("foo:qux")
+	c.Assert(ref, Equals, "docker.io/library/foo:qux")
 }
 
 func (s *SuiteRunJob) TestBuildPullImageOptionsRegistry(c *C) {
-	o, _ := buildPullOptions("quay.io/srcd/rest:qux")
-	c.Assert(o.Repository, Equals, "quay.io/srcd/rest")
-	c.Assert(o.Tag, Equals, "qux")
-	c.Assert(o.Registry, Equals, "quay.io")
+	ref, _ := buildPullOptions("quay.io/srcd/rest:qux")
+	c.Assert(ref, Equals, "quay.io/srcd/rest:qux")
 }
 
-func (s *SuiteRunJob) buildImage(c *C) {
-	inputbuf := bytes.NewBuffer(nil)
-	tr := tar.NewWriter(inputbuf)
-	tr.WriteHeader(&tar.Header{Name: "Dockerfile"})
-	tr.Write([]byte("FROM base\n"))
-	tr.Close()
-
-	err := s.client.BuildImage(docker.BuildImageOptions{
-		Name:         ImageFixture,
-		InputStream:  inputbuf,
-		OutputStream: bytes.NewBuffer(nil),
-	})
-	c.Assert(err, IsNil)
+// mockPullResponseWithError simulates a pull that returns an error via Wait.
+type mockPullResponseWithError struct {
+	err string
 }
 
-func (s *SuiteRunJob) createNetwork(c *C) {
-	_, err := s.client.CreateNetwork(docker.CreateNetworkOptions{
-		Name:   "foo",
-		Driver: "bridge",
-	})
-	c.Assert(err, IsNil)
+func (m *mockPullResponseWithError) Read(p []byte) (int, error) { return 0, io.EOF }
+func (m *mockPullResponseWithError) Close() error               { return nil }
+func (m *mockPullResponseWithError) Wait(_ context.Context) error {
+	return fmt.Errorf("%s", m.err)
+}
+func (m *mockPullResponseWithError) JSONMessages(_ context.Context) iter.Seq2[jsonstream.Message, error] {
+	return func(yield func(jsonstream.Message, error) bool) {}
 }

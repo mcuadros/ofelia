@@ -1,11 +1,17 @@
 package core
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	dockercliconfig "github.com/docker/cli/cli/config"
+	"github.com/moby/moby/api/types/registry"
 	. "gopkg.in/check.v1"
 )
 
@@ -316,9 +322,158 @@ func (*TestLogger) Error(format string, args ...any)   {}
 func (*TestLogger) Info(format string, args ...any)    {}
 func (*TestLogger) Warning(format string, args ...any) {}
 
-func (s *SuiteCommon) TestParseRegistry(c *C) {
-	c.Assert(parseRegistry("example.com:port/dir/image"), Equals, "example.com:port")
-	c.Assert(parseRegistry("example.com:port/image"), Equals, "example.com:port")
-	c.Assert(parseRegistry("dir/image"), Equals, "")
-	c.Assert(parseRegistry("image"), Equals, "")
+func (s *SuiteCommon) TestBuildPullOptionsWithDigest(c *C) {
+	digest := "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	ref, _ := buildPullOptions("registry.io/app@" + digest)
+	c.Assert(ref, Equals, "registry.io/app@"+digest)
+}
+
+func (s *SuiteCommon) TestBuildPullOptionsBareImage(c *C) {
+	ref, _ := buildPullOptions("myimage")
+	c.Assert(ref, Equals, "docker.io/library/myimage:latest")
+}
+
+func (s *SuiteCommon) TestBuildPullOptionsWithTag(c *C) {
+	ref, _ := buildPullOptions("quay.io/org/app:v1.2")
+	c.Assert(ref, Equals, "quay.io/org/app:v1.2")
+}
+
+func (s *SuiteCommon) TestBuildEncodedAuthFromDockerConfig(c *C) {
+	dir, cleanup := tempDir(c)
+	defer cleanup()
+	defer setDockerConfigDir(dir)()
+	resetDockerAuthCache()
+	defer resetDockerAuthCache()
+
+	encodedUserPass := base64.StdEncoding.EncodeToString([]byte("user:pass"))
+	err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
+		"auths": {
+			"registry.example.com": {
+				"auth": "`+encodedUserPass+`",
+				"email": "me@example.com"
+			}
+		}
+	}`), 0600)
+	c.Assert(err, IsNil)
+
+	encodedAuth := buildEncodedAuth("registry.example.com")
+	c.Assert(encodedAuth, Not(Equals), "")
+
+	auth := decodeEncodedAuth(c, encodedAuth)
+	c.Assert(auth.Username, Equals, "user")
+	c.Assert(auth.Password, Equals, "pass")
+	c.Assert(auth.ServerAddress, Equals, "registry.example.com")
+}
+
+func (s *SuiteCommon) TestBuildEncodedAuthFromMultipleRegistries(c *C) {
+	dir, cleanup := tempDir(c)
+	defer cleanup()
+	defer setDockerConfigDir(dir)()
+	resetDockerAuthCache()
+	defer resetDockerAuthCache()
+
+	firstAuth := base64.StdEncoding.EncodeToString([]byte("first:first-pass"))
+	secondAuth := base64.StdEncoding.EncodeToString([]byte("second:second-pass"))
+	err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
+		"auths": {
+			"registry1.example.com": {"auth": "`+firstAuth+`"},
+			"registry2.example.com": {"auth": "`+secondAuth+`"}
+		}
+	}`), 0600)
+	c.Assert(err, IsNil)
+
+	encoded := buildEncodedAuth("registry1.example.com")
+	auth := decodeEncodedAuth(c, encoded)
+	c.Assert(auth.Username, Equals, "first")
+	c.Assert(auth.Password, Equals, "first-pass")
+
+	encoded = buildEncodedAuth("registry2.example.com")
+	auth = decodeEncodedAuth(c, encoded)
+	c.Assert(auth.Username, Equals, "second")
+	c.Assert(auth.Password, Equals, "second-pass")
+}
+
+func (s *SuiteCommon) TestBuildEncodedAuthFromLegacyDockerCfg(c *C) {
+	dir, cleanup := tempDir(c)
+	defer cleanup()
+	defer setDockerConfigDir(dir)()
+	resetDockerAuthCache()
+	defer resetDockerAuthCache()
+
+	encodedUserPass := base64.StdEncoding.EncodeToString([]byte("legacy:secret"))
+	err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
+		"auths": {
+			"legacy.example.com": {"auth": "`+encodedUserPass+`"}
+		}
+	}`), 0600)
+	c.Assert(err, IsNil)
+
+	encoded := buildEncodedAuth("legacy.example.com")
+	auth := decodeEncodedAuth(c, encoded)
+	c.Assert(auth.Username, Equals, "legacy")
+	c.Assert(auth.Password, Equals, "secret")
+}
+
+func (s *SuiteCommon) TestBuildEncodedAuthDockerHubFallback(c *C) {
+	dir, cleanup := tempDir(c)
+	defer cleanup()
+	defer setDockerConfigDir(dir)()
+	resetDockerAuthCache()
+	defer resetDockerAuthCache()
+
+	encodedUserPass := base64.StdEncoding.EncodeToString([]byte("hub:token"))
+	err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
+		"auths": {
+			"https://index.docker.io/v1/": {"auth": "`+encodedUserPass+`"}
+		}
+	}`), 0600)
+	c.Assert(err, IsNil)
+
+	encoded := buildEncodedAuth("")
+	auth := decodeEncodedAuth(c, encoded)
+	c.Assert(auth.Username, Equals, "hub")
+	c.Assert(auth.Password, Equals, "token")
+}
+
+func (s *SuiteCommon) TestBuildEncodedAuthMissingConfig(c *C) {
+	dir, cleanup := tempDir(c)
+	defer cleanup()
+	defer setDockerConfigDir(dir)()
+	resetDockerAuthCache()
+	defer resetDockerAuthCache()
+
+	c.Assert(buildEncodedAuth("missing.example.com"), Equals, "")
+}
+
+func resetDockerAuthCache() {
+	dockerCfgMu.Lock()
+	defer dockerCfgMu.Unlock()
+	dockerCfg = nil
+	dockerCfgLoaded = false
+}
+
+func setDockerConfigDir(dir string) func() {
+	oldDir := dockercliconfig.Dir()
+	dockercliconfig.SetDir(dir)
+	return func() {
+		dockercliconfig.SetDir(oldDir)
+	}
+}
+
+func tempDir(c *C) (string, func()) {
+	dir, err := os.MkdirTemp("", "ofelia-test-")
+	c.Assert(err, IsNil)
+	return dir, func() {
+		c.Assert(os.RemoveAll(dir), IsNil)
+	}
+}
+
+func decodeEncodedAuth(c *C, encoded string) registry.AuthConfig {
+	buf, err := base64.URLEncoding.DecodeString(encoded)
+	c.Assert(err, IsNil)
+
+	var auth registry.AuthConfig
+	err = json.Unmarshal(buf, &auth)
+	c.Assert(err, IsNil)
+	return auth
 }

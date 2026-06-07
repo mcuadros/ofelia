@@ -2,23 +2,22 @@ package core
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"time"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/distribution/reference"
 	"github.com/gobs/args"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 )
-
-var dockercfg *docker.AuthConfigurations
-
-func init() {
-	dockercfg, _ = docker.NewAuthConfigurationsFromDockerCfg()
-}
 
 type RunJob struct {
 	BareJob `mapstructure:",squash"`
-	Client  *docker.Client `json:"-"`
-	User    string         `default:"root"`
+	Client  DockerClient `json:"-"`
+	User    string       `default:"root"`
 
 	TTY bool `default:"false"`
 
@@ -41,12 +40,12 @@ type RunJob struct {
 	containerID string
 }
 
-func NewRunJob(c *docker.Client) *RunJob {
+func NewRunJob(c DockerClient) *RunJob {
 	return &RunJob{Client: c}
 }
 
 func (j *RunJob) Run(ctx *Context) error {
-	var container *docker.Container
+	var containerID string
 	var err error
 	pull, _ := strconv.ParseBool(j.Pull)
 
@@ -54,26 +53,21 @@ func (j *RunJob) Run(ctx *Context) error {
 		if err = func() error {
 			var pullError error
 
-			// if Pull option "true"
-			// try pulling image first
 			if pull {
-				if pullError = j.pullImage(); pullError == nil {
+				if pullError = pullImage(j.Client, j.Image, ctx.Context()); pullError == nil {
 					ctx.Logger.Debug("Pulled new image", "image", j.Image, "pull", pull)
 					return nil
 				}
 			}
 
-			// if Pull option "false"
-			// try to find image locally first
-			searchErr := j.searchLocalImage()
+			searchErr := j.searchLocalImage(ctx)
 			if searchErr == nil {
 				ctx.Logger.Debug("Found image locally", "image", j.Image, "pull", pull)
 				return nil
 			}
 
-			// if couldn't find image locally, still try to pull
 			if !pull && searchErr == ErrLocalImageNotFound {
-				if pullError = j.pullImage(); pullError == nil {
+				if pullError = pullImage(j.Client, j.Image, ctx.Context()); pullError == nil {
 					ctx.Logger.Debug("Pulled new image", "image", j.Image, "pull", pull)
 					return nil
 				}
@@ -92,79 +86,86 @@ func (j *RunJob) Run(ctx *Context) error {
 			return err
 		}
 
-		container, err = j.buildContainer()
+		containerID, err = j.buildContainer(ctx)
 		if err != nil {
 			return err
 		}
 	} else {
-		container, err = j.Client.InspectContainer(j.Container)
-		if err != nil {
-			return err
+		resp, inspectErr := j.Client.ContainerInspect(ctx.Context(), j.Container, client.ContainerInspectOptions{})
+		if inspectErr != nil {
+			return inspectErr
 		}
+		containerID = resp.Container.ID
 	}
 
-	if container != nil {
-		j.containerID = container.ID
-	}
+	j.containerID = containerID
 
-	// cleanup container if it is a created one
 	if j.Container == "" {
 		defer func() {
-			if delErr := j.deleteContainer(); delErr != nil {
+			if delErr := j.deleteContainer(ctx); delErr != nil {
 				ctx.Warn("failed to delete container: " + delErr.Error())
 			}
 		}()
 	}
 
 	startTime := time.Now()
-	if err := j.startContainer(); err != nil {
+	if err := j.startContainer(ctx); err != nil {
 		return err
 	}
 
-	err = j.watchContainer()
+	err = j.watchContainer(ctx)
 	if err == ErrUnexpected {
 		return err
 	}
 
-	if logsErr := j.Client.Logs(docker.LogsOptions{
-		Container:    container.ID,
-		OutputStream: ctx.Execution.OutputStream,
-		ErrorStream:  ctx.Execution.ErrorStream,
-		Stdout:       true,
-		Stderr:       true,
-		Since:        startTime.Unix(),
-		RawTerminal:  j.TTY,
-	}); logsErr != nil {
+	if logsErr := j.fetchLogs(ctx, startTime); logsErr != nil {
 		ctx.Warn("failed to fetch container logs: " + logsErr.Error())
 	}
 
 	return err
 }
 
-func (j *RunJob) searchLocalImage() error {
-	imgs, err := j.Client.ListImages(buildFindLocalImageOptions(j.Image))
+func (j *RunJob) fetchLogs(ctx *Context, startTime time.Time) error {
+	reader, err := j.Client.ContainerLogs(ctx.Context(), j.containerID, client.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Since:      startTime.Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	if j.TTY {
+		_, err = io.Copy(ctx.Execution.OutputStream, reader)
+	} else {
+		_, err = stdcopy.StdCopy(ctx.Execution.OutputStream, ctx.Execution.ErrorStream, reader)
+	}
+	return err
+}
+
+func (j *RunJob) searchLocalImage(ctx *Context) error {
+	filterRef := j.Image
+	if named, err := reference.ParseNormalizedNamed(j.Image); err == nil {
+		filterRef = reference.FamiliarString(reference.TagNameOnly(named))
+	}
+
+	resp, err := j.Client.ImageList(ctx.Context(), client.ImageListOptions{
+		Filters: client.Filters{}.Add("reference", filterRef),
+	})
 	if err != nil {
 		return err
 	}
 
-	if len(imgs) != 1 {
+	if len(resp.Items) != 1 {
 		return ErrLocalImageNotFound
 	}
 
 	return nil
 }
 
-func (j *RunJob) pullImage() error {
-	o, a := buildPullOptions(j.Image)
-	if err := j.Client.PullImage(o, a); err != nil {
-		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
-	}
-
-	return nil
-}
-
-func (j *RunJob) buildContainer() (*docker.Container, error) {
-	config := &docker.Config{
+func (j *RunJob) buildContainer(ctx *Context) (string, error) {
+	config := &container.Config{
 		Image:        j.Image,
 		AttachStdin:  false,
 		AttachStdout: true,
@@ -178,51 +179,45 @@ func (j *RunJob) buildContainer() (*docker.Container, error) {
 	if j.Entrypoint != nil {
 		config.Entrypoint = args.GetArgs(*j.Entrypoint)
 	}
-	c, err := j.Client.CreateContainer(docker.CreateContainerOptions{
-		Config:           config,
-		NetworkingConfig: &docker.NetworkingConfig{},
-		HostConfig: &docker.HostConfig{
+
+	resp, err := j.Client.ContainerCreate(ctx.Context(), client.ContainerCreateOptions{
+		Config: config,
+		HostConfig: &container.HostConfig{
 			Binds:       j.Volume,
 			VolumesFrom: j.VolumesFrom,
 		},
+		NetworkingConfig: &network.NetworkingConfig{},
 	})
-
 	if err != nil {
-		return c, fmt.Errorf("error creating exec: %s", err)
+		return "", fmt.Errorf("error creating container: %s", err)
 	}
 
 	if j.Network != "" {
-		networkOpts := docker.NetworkFilterOpts{}
-		networkOpts["name"] = map[string]bool{}
-		networkOpts["name"][j.Network] = true
-		if networks, err := j.Client.FilteredListNetworks(networkOpts); err == nil {
-			for _, network := range networks {
-				if err := j.Client.ConnectNetwork(network.ID, docker.NetworkConnectionOptions{
-					Container: c.ID,
+		networkFilter := client.Filters{}.Add("name", j.Network)
+		networks, err := j.Client.NetworkList(ctx.Context(), client.NetworkListOptions{Filters: networkFilter})
+		if err == nil {
+			for _, net := range networks.Items {
+				if _, err := j.Client.NetworkConnect(ctx.Context(), net.ID, client.NetworkConnectOptions{
+					Container: resp.ID,
 				}); err != nil {
-					return c, fmt.Errorf("error connecting container to network: %s", err)
+					return resp.ID, fmt.Errorf("error connecting container to network: %s", err)
 				}
 			}
 		}
 	}
 
-	return c, nil
+	return resp.ID, nil
 }
 
-func (j *RunJob) startContainer() error {
-	return j.Client.StartContainer(j.containerID, &docker.HostConfig{})
+func (j *RunJob) startContainer(ctx *Context) error {
+	_, err := j.Client.ContainerStart(ctx.Context(), j.containerID, client.ContainerStartOptions{})
+	return err
 }
 
-func (j *RunJob) stopContainer(timeout uint) error {
-	return j.Client.StopContainer(j.containerID, timeout)
-}
-
-func (j *RunJob) getContainer() (*docker.Container, error) {
-	container, err := j.Client.InspectContainer(j.containerID)
-	if err != nil {
-		return nil, err
-	}
-	return container, nil
+func (j *RunJob) stopContainer(ctx *Context, timeout uint) error {
+	t := int(timeout)
+	_, err := j.Client.ContainerStop(ctx.Context(), j.containerID, client.ContainerStopOptions{Timeout: &t})
+	return err
 }
 
 const (
@@ -230,8 +225,7 @@ const (
 	maxProcessDuration = time.Hour * 24
 )
 
-func (j *RunJob) watchContainer() error {
-	var s docker.State
+func (j *RunJob) watchContainer(ctx *Context) error {
 	var r time.Duration
 	for {
 		time.Sleep(watchDuration)
@@ -241,33 +235,32 @@ func (j *RunJob) watchContainer() error {
 			return ErrMaxTimeRunning
 		}
 
-		c, err := j.Client.InspectContainer(j.containerID)
+		resp, err := j.Client.ContainerInspect(ctx.Context(), j.containerID, client.ContainerInspectOptions{})
 		if err != nil {
 			return err
 		}
 
-		if !c.State.Running {
-			s = c.State
-			break
+		if resp.Container.State == nil {
+			return fmt.Errorf("container %s has nil state", j.containerID)
 		}
-	}
-
-	switch s.ExitCode {
-	case 0:
-		return nil
-	case -1:
-		return ErrUnexpected
-	default:
-		return fmt.Errorf("error non-zero exit code: %d", s.ExitCode)
+		if !resp.Container.State.Running {
+			switch resp.Container.State.ExitCode {
+			case 0:
+				return nil
+			case -1:
+				return ErrUnexpected
+			default:
+				return fmt.Errorf("error non-zero exit code: %d", resp.Container.State.ExitCode)
+			}
+		}
 	}
 }
 
-func (j *RunJob) deleteContainer() error {
+func (j *RunJob) deleteContainer(ctx *Context) error {
 	if delete, _ := strconv.ParseBool(j.Delete); !delete {
 		return nil
 	}
 
-	return j.Client.RemoveContainer(docker.RemoveContainerOptions{
-		ID: j.containerID,
-	})
+	_, err := j.Client.ContainerRemove(ctx.Context(), j.containerID, client.ContainerRemoveOptions{})
+	return err
 }

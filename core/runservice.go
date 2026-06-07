@@ -7,17 +7,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/api/types/swarm"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/containerd/errdefs"
+	"github.com/moby/moby/api/types/swarm"
+	"github.com/moby/moby/client"
 )
-
-// Note: The ServiceJob is loosely inspired by https://github.com/alexellis/jaas/
 
 type RunServiceJob struct {
 	BareJob `mapstructure:",squash"`
-	Client  *docker.Client `json:"-"`
-	User    string         `default:"root"`
-	TTY     bool           `default:"false"`
+	Client  DockerClient `json:"-"`
+	User    string       `default:"root"`
+	TTY     bool         `default:"false"`
 	// do not use bool values with "default:true" because if
 	// user would set it to "false" explicitly, it still will be
 	// changed to "true" https://github.com/mcuadros/ofelia/issues/135
@@ -27,114 +26,92 @@ type RunServiceJob struct {
 	Network string
 }
 
-func NewRunServiceJob(c *docker.Client) *RunServiceJob {
+func NewRunServiceJob(c DockerClient) *RunServiceJob {
 	return &RunServiceJob{Client: c}
 }
 
 func (j *RunServiceJob) Run(ctx *Context) error {
-	if err := j.pullImage(); err != nil {
+	if err := pullImage(j.Client, j.Image, ctx.Context()); err != nil {
 		return err
 	}
 
-	svc, err := j.buildService()
-
+	svcID, err := j.buildService(ctx)
 	if err != nil {
 		return err
 	}
 
-	ctx.Logger.Info("Created new service", "id", svc.ID, "job", j.Name)
+	ctx.Logger.Info("Created new service", "id", svcID, "job", j.Name)
 
-	if err := j.watchContainer(ctx, svc.ID); err != nil {
+	if err := j.watchContainer(ctx, svcID); err != nil {
 		return err
 	}
 
-	return j.deleteService(ctx, svc.ID)
+	return j.deleteService(ctx, svcID)
 }
 
-func (j *RunServiceJob) pullImage() error {
-	o, a := buildPullOptions(j.Image)
-	if err := j.Client.PullImage(o, a); err != nil {
-		return fmt.Errorf("error pulling image %q: %s", j.Image, err)
+func (j *RunServiceJob) buildService(ctx *Context) (string, error) {
+	max := uint64(1)
+
+	spec := swarm.ServiceSpec{}
+	spec.TaskTemplate.ContainerSpec = &swarm.ContainerSpec{
+		Image: j.Image,
 	}
 
-	return nil
-}
+	spec.TaskTemplate.RestartPolicy = &swarm.RestartPolicy{
+		MaxAttempts: &max,
+		Condition:   swarm.RestartPolicyConditionNone,
+	}
 
-func (j *RunServiceJob) buildService() (*swarm.Service, error) {
-
-	//createOptions := types.ServiceCreateOptions{}
-
-	max := uint64(1)
-	createSvcOpts := docker.CreateServiceOptions{}
-
-	createSvcOpts.ServiceSpec.TaskTemplate.ContainerSpec =
-		&swarm.ContainerSpec{
-			Image: j.Image,
-		}
-
-	// Make the service run once and not restart
-	createSvcOpts.ServiceSpec.TaskTemplate.RestartPolicy =
-		&swarm.RestartPolicy{
-			MaxAttempts: &max,
-			Condition:   swarm.RestartPolicyConditionNone,
-		}
-
-	// For a service to interact with other services in a stack,
-	// we need to attach it to the same network
 	if j.Network != "" {
-		createSvcOpts.Networks = []swarm.NetworkAttachmentConfig{
-			swarm.NetworkAttachmentConfig{
-				Target: j.Network,
-			},
+		spec.TaskTemplate.Networks = []swarm.NetworkAttachmentConfig{
+			{Target: j.Network},
 		}
 	}
 
 	if j.Command != "" {
-		createSvcOpts.ServiceSpec.TaskTemplate.ContainerSpec.Command = strings.Split(j.Command, " ")
+		spec.TaskTemplate.ContainerSpec.Command = strings.Split(j.Command, " ")
 	}
 
-	svc, err := j.Client.CreateService(createSvcOpts)
+	resp, err := j.Client.ServiceCreate(ctx.Context(), client.ServiceCreateOptions{
+		Spec: spec,
+	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return svc, err
+	return resp.ID, nil
 }
 
 const (
-
-	// TODO are these const defined somewhere in the docker API?
 	swarmError   = -999
 	timeoutError = -998
 )
-
-var svcChecker = time.NewTicker(watchDuration)
 
 func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 	exitCode := swarmError
 
 	ctx.Logger.Info("Checking for service termination", "id", svcID, "job", j.Name)
 
-	svc, err := j.Client.InspectService(svcID)
+	svc, err := j.Client.ServiceInspect(ctx.Context(), svcID, client.ServiceInspectOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to inspect service %s: %s", svcID, err.Error())
 	}
 
-	// On every tick, check if all the services have completed, or have error out
+	ticker := time.NewTicker(watchDuration)
+	defer ticker.Stop()
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
-		for _ = range svcChecker.C {
-
-			if svc.CreatedAt.After(time.Now().Add(maxProcessDuration)) {
+		for range ticker.C {
+			if time.Since(svc.Service.CreatedAt) > maxProcessDuration {
 				err = ErrMaxTimeRunning
 				return
 			}
 
-			taskExitCode, found := j.findtaskstatus(ctx, svc.ID)
-
+			taskExitCode, found := j.findtaskstatus(ctx, svc.Service.ID)
 			if found {
 				exitCode = taskExitCode
 				return
@@ -145,25 +122,27 @@ func (j *RunServiceJob) watchContainer(ctx *Context, svcID string) error {
 	wg.Wait()
 
 	ctx.Logger.Info("Service has completed", "id", svcID, "job", j.Name, "exit_code", exitCode)
-	return err
+	if err != nil {
+		return err
+	}
+	if exitCode != 0 {
+		return fmt.Errorf("error non-zero exit code: %d", exitCode)
+	}
+	return nil
 }
 
 func (j *RunServiceJob) findtaskstatus(ctx *Context, taskID string) (int, bool) {
-	taskFilters := make(map[string][]string)
-	taskFilters["service"] = []string{taskID}
-
-	tasks, err := j.Client.ListTasks(docker.ListTasksOptions{
-		Filters: taskFilters,
+	resp, err := j.Client.TaskList(ctx.Context(), client.TaskListOptions{
+		Filters: client.Filters{}.Add("service", taskID),
 	})
 
 	if err != nil {
-		ctx.Logger.Error("Failed to find task ID. Considering the task terminated.", "id", taskID, "error", err)
+		ctx.Logger.Error("Failed to list tasks, will retry", "id", taskID, "error", err)
 		return 0, false
 	}
 
-	if len(tasks) == 0 {
-		// That task is gone now (maybe someone else removed it. Our work here is done
-		return 0, true
+	if len(resp.Items) == 0 {
+		return 0, false
 	}
 
 	exitCode := 1
@@ -174,8 +153,7 @@ func (j *RunServiceJob) findtaskstatus(ctx *Context, taskID string) (int, bool) 
 		swarm.TaskStateRejected,
 	}
 
-	for _, task := range tasks {
-
+	for _, task := range resp.Items {
 		stop := false
 		for _, stopState := range stopStates {
 			if task.Status.State == stopState {
@@ -185,11 +163,14 @@ func (j *RunServiceJob) findtaskstatus(ctx *Context, taskID string) (int, bool) 
 		}
 
 		if stop {
-
+			if task.Status.ContainerStatus == nil {
+				exitCode = 255
+				done = true
+				break
+			}
 			exitCode = task.Status.ContainerStatus.ExitCode
-
 			if exitCode == 0 && task.Status.State == swarm.TaskStateRejected {
-				exitCode = 255 // force non-zero exit for task rejected
+				exitCode = 255
 			}
 			done = true
 			break
@@ -203,16 +184,12 @@ func (j *RunServiceJob) deleteService(ctx *Context, svcID string) error {
 		return nil
 	}
 
-	err := j.Client.RemoveService(docker.RemoveServiceOptions{
-		ID: svcID,
-	})
-
-	if _, is := err.(*docker.NoSuchService); is {
+	_, err := j.Client.ServiceRemove(ctx.Context(), svcID, client.ServiceRemoveOptions{})
+	if err != nil && errdefs.IsNotFound(err) {
 		ctx.Logger.Warning("Service cannot be removed. An error may have happened, "+
 			"or it might have been removed by another process", "id", svcID)
 		return nil
 	}
 
 	return err
-
 }
