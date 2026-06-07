@@ -15,7 +15,7 @@ require (
 	github.com/gohugoio/hashstructure v0.6.0
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/lmittmann/tint v1.1.3
-	github.com/magefile/mage v1.17.1
+	github.com/magefile/mage v1.17.2
 	github.com/mcuadros/go-defaults v1.2.0
 	github.com/moby/moby/api v1.54.2
 	github.com/moby/moby/client v0.4.1
