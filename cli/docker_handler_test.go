@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/mcuadros/ofelia/core"
 	"github.com/moby/moby/api/types/container"
@@ -21,6 +22,7 @@ type TestDockerSuit struct{}
 // mockCLIDockerClient implements core.DockerClient for CLI tests.
 type mockCLIDockerClient struct {
 	containers []container.Summary
+	eventsFn   func(ctx context.Context, options client.EventsListOptions) client.EventsResult
 }
 
 func (m *mockCLIDockerClient) Info(ctx context.Context, options client.InfoOptions) (client.SystemInfoResult, error) {
@@ -28,9 +30,16 @@ func (m *mockCLIDockerClient) Info(ctx context.Context, options client.InfoOptio
 }
 
 func (m *mockCLIDockerClient) Events(ctx context.Context, options client.EventsListOptions) client.EventsResult {
+	if m.eventsFn != nil {
+		return m.eventsFn(ctx, options)
+	}
+	messages := make(chan events.Message)
+	close(messages)
+	errs := make(chan error)
+	close(errs)
 	return client.EventsResult{
-		Messages: make(<-chan events.Message),
-		Err:      make(<-chan error),
+		Messages: messages,
+		Err:      errs,
 	}
 }
 
@@ -235,7 +244,7 @@ func (s *TestDockerSuit) TestLabelsFilterJobsCount(c *check.C) {
 	conf.ServiceJobs = make(map[string]*RunServiceConfig)
 	conf.LocalJobs = make(map[string]*LocalJobConfig)
 
-	dockerLabels, err := handler.GetDockerLabels()
+	dockerLabels, err := handler.GetDockerLabels(context.Background())
 	c.Assert(err, check.IsNil)
 
 	err = conf.buildFromDockerLabels(dockerLabels)
@@ -250,7 +259,7 @@ func (s *TestDockerSuit) TestGetDockerLabelsNoContainers(c *check.C) {
 	}
 
 	handler := newTestDockerHandler(mock, nil)
-	_, err := handler.GetDockerLabels()
+	_, err := handler.GetDockerLabels(context.Background())
 	c.Assert(err, check.NotNil)
 	c.Assert(err.Error(), check.Matches, ".*no containers matching filters.*")
 }
@@ -261,7 +270,7 @@ func (s *TestDockerSuit) TestFilterErrors(c *check.C) {
 	}
 
 	handler := newTestDockerHandler(mock, []string{"bad-filter"})
-	_, err := handler.GetDockerLabels()
+	_, err := handler.GetDockerLabels(context.Background())
 	c.Assert(err, check.NotNil)
 	c.Assert(errors.Is(err, errInvalidDockerFilter), check.Equals, true)
 }
@@ -279,7 +288,7 @@ func (s *TestDockerSuit) TestFilterErrorsNoMatchingContainers(c *check.C) {
 	}
 
 	handler := newTestDockerHandler(mock, []string{"label=test=123", "name=test-name"})
-	_, err := handler.GetDockerLabels()
+	_, err := handler.GetDockerLabels(context.Background())
 	c.Assert(errors.Is(err, errNoContainersMatchingFilters), check.Equals, true)
 }
 
@@ -313,6 +322,268 @@ func (s *TestDockerSuit) TestGetContainerID(c *check.C) {
 		id, err := getContainerID(tmpFile.Name())
 		c.Assert(err, check.IsNil)
 		c.Assert(id, check.Equals, tt.expect)
+	}
+}
+
+func (s *TestDockerSuit) TestIsReloadAction(c *check.C) {
+	reloadActions := []events.Action{
+		events.ActionCreate,
+		events.ActionStart,
+		events.ActionRestart,
+		events.ActionStop,
+		events.ActionKill,
+		events.ActionDie,
+		events.ActionDestroy,
+		events.ActionPause,
+		events.ActionUnPause,
+		events.ActionRename,
+		events.ActionUpdate,
+	}
+	for _, action := range reloadActions {
+		c.Assert(isReloadAction(action), check.Equals, true, check.Commentf("expected %q to trigger reload", action))
+	}
+
+	nonReloadActions := []events.Action{
+		events.ActionAttach,
+		events.ActionDetach,
+		events.ActionResize,
+		events.ActionTop,
+		events.ActionExecStart,
+		events.ActionExecCreate,
+		events.ActionExecDie,
+	}
+	for _, action := range nonReloadActions {
+		c.Assert(isReloadAction(action), check.Equals, false, check.Commentf("expected %q to NOT trigger reload", action))
+	}
+}
+
+func (s *TestDockerSuit) TestConsumeEventsTriggersLabelUpdate(c *check.C) {
+	mock := &mockCLIDockerClient{
+		containers: []container.Summary{
+			{
+				Names: []string{"/myapp"},
+				Labels: map[string]string{
+					requiredLabel:                                  "true",
+					labelPrefix + "." + jobExec + ".job1.schedule": "* * * * *",
+					labelPrefix + "." + jobExec + ".job1.command":  "echo hello",
+				},
+			},
+		},
+	}
+
+	updatedCh := make(chan map[string]map[string]string, 1)
+	notifier := &mockLabelUpdater{ch: updatedCh}
+
+	handler := &DockerHandler{
+		dockerClient:      mock,
+		configsFromLabels: true,
+		filters:           nil,
+		logger:            &TestLogger{},
+		notifier:          notifier,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	messages := make(chan events.Message, 1)
+	errs := make(chan error)
+
+	messages <- events.Message{
+		Type:   events.ContainerEventType,
+		Action: events.ActionStart,
+		Actor:  events.Actor{ID: "abc123", Attributes: map[string]string{"name": "myapp"}},
+	}
+
+	result := client.EventsResult{
+		Messages: messages,
+		Err:      errs,
+	}
+
+	go func() {
+		handler.consumeEvents(ctx, result)
+	}()
+
+	select {
+	case labels := <-updatedCh:
+		c.Assert(labels["myapp"], check.NotNil)
+	case <-time.After(2 * time.Second):
+		c.Fatal("timed out waiting for label update")
+	}
+}
+
+func (s *TestDockerSuit) TestConsumeEventsDebounces(c *check.C) {
+	mock := &mockCLIDockerClient{
+		containers: []container.Summary{
+			{
+				Names: []string{"/myapp"},
+				Labels: map[string]string{
+					requiredLabel:                                  "true",
+					labelPrefix + "." + jobExec + ".job1.schedule": "* * * * *",
+					labelPrefix + "." + jobExec + ".job1.command":  "echo hello",
+				},
+			},
+		},
+	}
+
+	updatedCh := make(chan map[string]map[string]string, 10)
+	notifier := &mockLabelUpdater{ch: updatedCh}
+
+	handler := &DockerHandler{
+		dockerClient:      mock,
+		configsFromLabels: true,
+		filters:           nil,
+		logger:            &TestLogger{},
+		notifier:          notifier,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	messages := make(chan events.Message, 10)
+	errs := make(chan error)
+
+	for i := 0; i < 5; i++ {
+		messages <- events.Message{
+			Type:   events.ContainerEventType,
+			Action: events.ActionStart,
+			Actor:  events.Actor{ID: "abc123", Attributes: map[string]string{"name": "myapp"}},
+		}
+	}
+
+	result := client.EventsResult{
+		Messages: messages,
+		Err:      errs,
+	}
+
+	go func() {
+		handler.consumeEvents(ctx, result)
+	}()
+
+	select {
+	case <-updatedCh:
+	case <-time.After(2 * time.Second):
+		c.Fatal("timed out waiting for label update")
+	}
+
+	// Allow some time for any extra calls to arrive
+	time.Sleep(100 * time.Millisecond)
+
+	select {
+	case <-updatedCh:
+		c.Fatal("debounce failed: received more than one update for rapid events")
+	default:
+	}
+}
+
+func (s *TestDockerSuit) TestConsumeEventsIgnoresNonReloadActions(c *check.C) {
+	mock := &mockCLIDockerClient{
+		containers: []container.Summary{
+			{
+				Names:  []string{"/myapp"},
+				Labels: map[string]string{requiredLabel: "true"},
+			},
+		},
+	}
+
+	updatedCh := make(chan map[string]map[string]string, 1)
+	notifier := &mockLabelUpdater{ch: updatedCh}
+
+	handler := &DockerHandler{
+		dockerClient:      mock,
+		configsFromLabels: true,
+		filters:           nil,
+		logger:            &TestLogger{},
+		notifier:          notifier,
+	}
+
+	messages := make(chan events.Message, 1)
+	errs := make(chan error, 1)
+
+	messages <- events.Message{
+		Type:   events.ContainerEventType,
+		Action: events.ActionAttach,
+		Actor:  events.Actor{ID: "abc123", Attributes: map[string]string{"name": "myapp"}},
+	}
+	close(messages)
+
+	result := client.EventsResult{
+		Messages: messages,
+		Err:      errs,
+	}
+
+	_ = handler.consumeEvents(context.Background(), result)
+
+	select {
+	case <-updatedCh:
+		c.Fatal("should not have triggered a label update for attach event")
+	default:
+	}
+}
+
+func (s *TestDockerSuit) TestConsumeEventsExitsOnError(c *check.C) {
+	mock := &mockCLIDockerClient{}
+	handler := &DockerHandler{
+		dockerClient:      mock,
+		configsFromLabels: true,
+		logger:            &TestLogger{},
+		notifier:          &mockLabelUpdater{ch: make(chan map[string]map[string]string, 1)},
+	}
+
+	messages := make(chan events.Message)
+	errs := make(chan error, 1)
+	errs <- errors.New("connection lost")
+
+	result := client.EventsResult{
+		Messages: messages,
+		Err:      errs,
+	}
+
+	err := handler.consumeEvents(context.Background(), result)
+	c.Assert(err, check.ErrorMatches, "connection lost")
+}
+
+func (s *TestDockerSuit) TestWatchExitsOnContextCancel(c *check.C) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	messages := make(chan events.Message)
+	errs := make(chan error, 1)
+
+	mock := &mockCLIDockerClient{}
+	mock.eventsFn = func(_ context.Context, _ client.EventsListOptions) client.EventsResult {
+		return client.EventsResult{Messages: messages, Err: errs}
+	}
+
+	handler := &DockerHandler{
+		dockerClient:      mock,
+		configsFromLabels: true,
+		logger:            &TestLogger{},
+		notifier:          &mockLabelUpdater{ch: make(chan map[string]map[string]string, 1)},
+	}
+
+	done := make(chan struct{})
+	go func() {
+		handler.watch(ctx)
+		close(done)
+	}()
+
+	cancel()
+	errs <- context.Canceled
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		c.Fatal("watch did not exit after context cancellation")
+	}
+}
+
+type mockLabelUpdater struct {
+	ch chan map[string]map[string]string
+}
+
+func (m *mockLabelUpdater) dockerLabelsUpdate(labels map[string]map[string]string) {
+	select {
+	case m.ch <- labels:
+	default:
 	}
 }
 

@@ -44,9 +44,13 @@ func (m *mockDockerClient) Events(ctx context.Context, options client.EventsList
 	if m.EventsFn != nil {
 		return m.EventsFn(ctx, options)
 	}
+	messages := make(chan events.Message)
+	close(messages)
+	errs := make(chan error)
+	close(errs)
 	return client.EventsResult{
-		Messages: make(<-chan events.Message),
-		Err:      make(<-chan error),
+		Messages: messages,
+		Err:      errs,
 	}
 }
 

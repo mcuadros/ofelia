@@ -12,7 +12,7 @@ import (
 // DaemonCommand daemon process
 type DaemonCommand struct {
 	ConfigFile        string   `long:"config" description:"configuration file" default:"/etc/ofelia.conf"`
-	DockerLabelConfig bool     `short:"d" long:"docker" description:"continiously poll docker labels for configurations"`
+	DockerLabelConfig bool     `short:"d" long:"docker" description:"listen for docker events and reload job configurations from container labels"`
 	DockerFilters     []string `short:"f" long:"docker-filter" description:"filter to select docker containers. https://docs.docker.com/reference/cli/docker/container/ls/#filter"`
 	scheduler         *core.Scheduler
 	dockerHandler     *DockerHandler
@@ -71,6 +71,7 @@ func (c *DaemonCommand) boot() (err error) {
 		return fmt.Errorf("can't start the app: %w", err)
 	}
 
+	config.dockerHandler.StartWatching()
 	c.scheduler = config.sh
 
 	return err

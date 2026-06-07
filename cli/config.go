@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/mcuadros/ofelia/core"
@@ -74,7 +75,7 @@ func (c *Config) InitializeApp() error {
 
 		// In order to support non dynamic job types such as Local or Run using labels
 		// lets parse the labels and merge the job lists
-		dockerLabels, err := c.dockerHandler.GetDockerLabels()
+		dockerLabels, err := c.dockerHandler.GetDockerLabels(context.Background())
 		if err != nil {
 			return err
 		}
