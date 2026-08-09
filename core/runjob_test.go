@@ -8,6 +8,7 @@ import (
 	"iter"
 	"sync/atomic"
 
+	"github.com/containerd/errdefs"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/api/types/jsonstream"
@@ -168,6 +169,116 @@ func (s *SuiteRunJob) TestRunExistingContainer(c *C) {
 
 	err := job.Run(ctx)
 	c.Assert(err, IsNil)
+}
+
+func (s *SuiteRunJob) TestRunNamedContainer(c *C) {
+	testCases := []struct {
+		description    string
+		containerFound bool
+		delete         string
+		expectCreated  bool
+		expectRemoved  bool
+		expectStartID  string
+	}{
+		{
+			description:    "first run: container not found, creates with name, keeps it (delete=false)",
+			containerFound: false,
+			delete:         "false",
+			expectCreated:  true,
+			expectRemoved:  false,
+			expectStartID:  "new-cnt",
+		},
+		{
+			description:    "subsequent run: container exists, reuses it (delete=false)",
+			containerFound: true,
+			delete:         "false",
+			expectCreated:  false,
+			expectRemoved:  false,
+			expectStartID:  "existing-cnt",
+		},
+		{
+			description:    "container not found, creates with name, removes after run (delete=true)",
+			containerFound: false,
+			delete:         "true",
+			expectCreated:  true,
+			expectRemoved:  true,
+			expectStartID:  "new-cnt",
+		},
+	}
+
+	for _, tc := range testCases {
+		var created bool
+		var removed bool
+		var startedID string
+		var inspectCount atomic.Int32
+
+		mock := &mockDockerClient{
+			ContainerInspectFn: func(ctx context.Context, containerID string, options client.ContainerInspectOptions) (client.ContainerInspectResult, error) {
+				count := inspectCount.Add(1)
+				if count == 1 {
+					if !tc.containerFound {
+						return client.ContainerInspectResult{}, errdefs.ErrNotFound
+					}
+					return client.ContainerInspectResult{
+						Container: container.InspectResponse{
+							ID:    "existing-cnt",
+							State: &container.State{Running: false, ExitCode: 0},
+						},
+					}, nil
+				}
+				if count <= 3 {
+					return client.ContainerInspectResult{
+						Container: container.InspectResponse{
+							State: &container.State{Running: true},
+						},
+					}, nil
+				}
+				return client.ContainerInspectResult{
+					Container: container.InspectResponse{
+						State: &container.State{Running: false, ExitCode: 0},
+					},
+				}, nil
+			},
+			ImageListFn: func(ctx context.Context, options client.ImageListOptions) (client.ImageListResult, error) {
+				return client.ImageListResult{Items: []image.Summary{{}}}, nil
+			},
+			ContainerCreateFn: func(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error) {
+				created = true
+				c.Assert(options.Name, Equals, "my-named-container")
+				return client.ContainerCreateResult{ID: "new-cnt"}, nil
+			},
+			ContainerStartFn: func(ctx context.Context, containerID string, options client.ContainerStartOptions) (client.ContainerStartResult, error) {
+				startedID = containerID
+				return client.ContainerStartResult{}, nil
+			},
+			ContainerLogsFn: func(ctx context.Context, containerID string, options client.ContainerLogsOptions) (client.ContainerLogsResult, error) {
+				return io.NopCloser(bytes.NewReader(nil)), nil
+			},
+			ContainerRemoveFn: func(ctx context.Context, containerID string, options client.ContainerRemoveOptions) (client.ContainerRemoveResult, error) {
+				removed = true
+				return client.ContainerRemoveResult{}, nil
+			},
+		}
+
+		job := &RunJob{Client: mock}
+		job.Image = "alpine:latest"
+		job.Container = "my-named-container"
+		job.Command = "echo hello"
+		job.Delete = tc.delete
+		job.Pull = "false"
+		job.Name = "test"
+
+		ctx := &Context{}
+		ctx.Execution = NewExecution()
+		ctx.Logger = NewSlogLogger(io.Discard)
+		ctx.Job = job
+
+		err := job.Run(ctx)
+		c.Assert(err, IsNil, Commentf(tc.description))
+		c.Assert(created, Equals, tc.expectCreated, Commentf(tc.description))
+		c.Assert(removed, Equals, tc.expectRemoved, Commentf(tc.description))
+		c.Assert(startedID, Equals, tc.expectStartID, Commentf(tc.description))
+	}
 }
 
 func (s *SuiteRunJob) TestPullImageError(c *C) {
