@@ -18,7 +18,7 @@ require (
 	github.com/magefile/mage v1.17.2
 	github.com/mcuadros/go-defaults v1.2.0
 	github.com/moby/moby/api v1.55.0
-	github.com/moby/moby/client v0.4.1
+	github.com/moby/moby/client v0.5.1
 	github.com/robfig/cron/v3 v3.0.1
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/gcfg.v1 v1.2.3
