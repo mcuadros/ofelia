@@ -62,16 +62,22 @@ func (c *DaemonCommand) boot() (err error) {
 
 	config.dockerHandler, err = NewDockerHandler(config, c.DockerFilters, c.DockerLabelConfig, c.Logger)
 	if err != nil {
-		return fmt.Errorf("failed to create docker handler: %w", err)
+		if config.RequiresDocker() || c.DockerLabelConfig {
+			return fmt.Errorf("failed to create docker handler: %w", err)
+		}
+		c.Logger.Warning("failed to create docker handler. Proceeding in 'job-local' only mode.", "error", err)
+	} else {
+		c.dockerHandler = config.dockerHandler
 	}
-	c.dockerHandler = config.dockerHandler
 
 	err = config.InitializeApp()
 	if err != nil {
 		return fmt.Errorf("can't start the app: %w", err)
 	}
 
-	config.dockerHandler.StartWatching()
+	if config.dockerHandler != nil {
+		config.dockerHandler.StartWatching()
+	}
 	c.scheduler = config.sh
 
 	return err
