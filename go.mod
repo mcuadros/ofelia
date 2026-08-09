@@ -12,7 +12,7 @@ require (
 	github.com/docker/cli v29.5.3+incompatible
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93
-	github.com/gohugoio/hashstructure v0.6.0
+	github.com/gohugoio/hashstructure v1.0.0
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/lmittmann/tint v1.1.3
 	github.com/magefile/mage v1.17.2
