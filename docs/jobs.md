@@ -69,50 +69,51 @@ docker run -it --rm \
 
 ## Job-run
 
-This job can be used in 2 situations:
+This job can be used in 3 situations:
 
 1. To run a command inside of a new container, using a specific image. Similar to `docker run`
 1. To start a stopped container, similar to `docker start`
+1. To run a named container from an image, creating it on first run and reusing it on subsequent runs
 
 ### Parameters
 
-- **Schedule** * (1,2)
+- **Schedule** * (1,2,3)
   - *description*: When the job should be executed. E.g. every 10 seconds or every night at 1 AM.
   - *value*: String, see [Scheduling format](https://pkg.go.dev/github.com/robfig/cron/v3@v3.0.1#hdr-CRON_Expression_Format) of the Go implementation of `cron`. E.g. `@every 10s` or `0 1 * * *` (every night at 1 AM).
   - *default*: Required field, no default.
-- **Command** (1)
+- **Command** (1,3)
   - *description*: Command you want to run inside the container.
   - *value*: String, e.g. `touch /tmp/example`
   - *default*: Default container command
-- **Entrypoint** (1)
+- **Entrypoint** (1,3)
   - *description*: Override container default entrypoint.
   - *value*: String, e.g. `/bin/bash -c`
   - *default*: Default container entrypoint
-- **Image** (1)
+- **Image** (1,3)
   - *description*: Image you want to use for the job.
   - *value*: String, e.g. `nginx:latest`
   - *default*: No default. If left blank, Ofelia assumes you will specify a container to start (situation 2).
-- **User** (1)
+- **User** (1,3)
   - *description*: User as which the command should be executed, similar to `docker run --user <user>`
   - *value*: String, e.g. `www-data`
   - *default*: `root`
-- **Network** (1)
+- **Network** (1,3)
   - *description*: Connect the container to this network
   - *value*: String, e.g. `backend-proxy`
   - *default*: Optional field, no default.
-- **Hostname** (1)
+- **Hostname** (1,3)
   - *description*: Define the hostname of the instantiated container
   - *value*: String, e.g. `test-server`
   - *default*: Optional field, no default.
-- **Delete** (1)
-  - *description*: Delete the container after the job is finished. Similar to `docker run --rm`
+- **Delete** (1,3)
+  - *description*: Delete the container after the job is finished. Similar to `docker run --rm`. For situation 3, set to `false` to keep and reuse the container across runs.
   - *value*: Boolean, either `true` or `false`
   - *default*: `true`
-- **Container** (2)
-  - *description*: Name of the container you want to start.
+- **Container** (2,3)
+  - *description*: Name of the container you want to start (situation 2) or the name to assign to the new container (situation 3).
   - *value*: String, e.g. `nginx-proxy`
   - *default*: Required field in case parameter `image` is not specified, no default.
-- **tty** (1,2)
+- **tty** (1,2,3)
   - *description*: Allocate a pseudo-tty, similar to `docker exec -t`. See this [Stack Overflow answer](https://stackoverflow.com/questions/30137135/confused-about-docker-t-option-to-allocate-a-pseudo-tty) for more info.
   - *value*: Boolean, either `true` or `false`
   - *default*: `false`
@@ -148,6 +149,19 @@ environment = BAZ=qux
 ```
 
 Then you can check output in host machine file `/tmp/test/date`
+
+### INI-file example (named persistent container)
+
+```ini
+[job-run "my-worker"]
+schedule = @every 1h
+image = alpine:latest
+container = my-worker
+delete = false
+command = sh -c 'echo working'
+```
+
+The container `my-worker` is created from `alpine:latest` on the first run. With `delete = false`, the container is kept and reused on subsequent runs.
 
 ### Docker labels example
 

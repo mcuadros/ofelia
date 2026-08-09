@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/containerd/errdefs"
 	"github.com/distribution/reference"
 	"github.com/gobs/args"
 	"github.com/moby/moby/api/pkg/stdcopy"
@@ -49,58 +50,42 @@ func (j *RunJob) Run(ctx *Context) error {
 	var err error
 	pull, _ := strconv.ParseBool(j.Pull)
 
-	if j.Image != "" && j.Container == "" {
-		if err = func() error {
-			var pullError error
-
-			if pull {
-				if pullError = pullImage(j.Client, j.Image, ctx.Context()); pullError == nil {
-					ctx.Logger.Debug("Pulled new image", "image", j.Image, "pull", pull)
-					return nil
-				}
+	if j.Image != "" && j.Container != "" {
+		// Named container from image: create once, reuse on subsequent runs
+		containerID, err = j.findExistingContainer(ctx)
+		if errdefs.IsNotFound(err) {
+			if err = j.pullImageIfNeeded(ctx, pull); err != nil {
+				return err
 			}
-
-			searchErr := j.searchLocalImage(ctx)
-			if searchErr == nil {
-				ctx.Logger.Debug("Found image locally", "image", j.Image, "pull", pull)
-				return nil
+			containerID, err = j.buildContainer(ctx)
+			if err != nil {
+				return err
 			}
-
-			if !pull && searchErr == ErrLocalImageNotFound {
-				if pullError = pullImage(j.Client, j.Image, ctx.Context()); pullError == nil {
-					ctx.Logger.Debug("Pulled new image", "image", j.Image, "pull", pull)
-					return nil
-				}
-			}
-
-			if pullError != nil {
-				return pullError
-			}
-
-			if searchErr != nil {
-				return searchErr
-			}
-
-			return nil
-		}(); err != nil {
+		} else if err != nil {
 			return err
 		}
-
+	} else if j.Image != "" {
+		// Ephemeral container from image: create and delete after run
+		if err = j.pullImageIfNeeded(ctx, pull); err != nil {
+			return err
+		}
 		containerID, err = j.buildContainer(ctx)
 		if err != nil {
 			return err
 		}
-	} else {
-		resp, inspectErr := j.Client.ContainerInspect(ctx.Context(), j.Container, client.ContainerInspectOptions{})
-		if inspectErr != nil {
-			return inspectErr
+	} else if j.Container != "" {
+		// Reuse existing container by name (no image specified)
+		containerID, err = j.findExistingContainer(ctx)
+		if err != nil {
+			return err
 		}
-		containerID = resp.Container.ID
+	} else {
+		return fmt.Errorf("either image or container must be specified")
 	}
 
 	j.containerID = containerID
 
-	if j.Container == "" {
+	if j.Image != "" {
 		defer func() {
 			if delErr := j.deleteContainer(ctx); delErr != nil {
 				ctx.Warn("Failed to delete container", "error", delErr)
@@ -182,6 +167,7 @@ func (j *RunJob) buildContainer(ctx *Context) (string, error) {
 
 	resp, err := j.Client.ContainerCreate(ctx.Context(), client.ContainerCreateOptions{
 		Config: config,
+		Name:   j.Container,
 		HostConfig: &container.HostConfig{
 			Binds:       j.Volume,
 			VolumesFrom: j.VolumesFrom,
@@ -254,6 +240,44 @@ func (j *RunJob) watchContainer(ctx *Context) error {
 			}
 		}
 	}
+}
+
+func (j *RunJob) findExistingContainer(ctx *Context) (string, error) {
+	resp, err := j.Client.ContainerInspect(ctx.Context(), j.Container, client.ContainerInspectOptions{})
+	if err != nil {
+		return "", err
+	}
+	return resp.Container.ID, nil
+}
+
+func (j *RunJob) pullImageIfNeeded(ctx *Context, pull bool) error {
+	var pullError error
+
+	if pull {
+		if pullError = pullImage(j.Client, j.Image, ctx.Context()); pullError == nil {
+			ctx.Logger.Debug("Pulled new image", "image", j.Image, "pull", pull)
+			return nil
+		}
+	}
+
+	searchErr := j.searchLocalImage(ctx)
+	if searchErr == nil {
+		ctx.Logger.Debug("Found image locally", "image", j.Image, "pull", pull)
+		return nil
+	}
+
+	if !pull && searchErr == ErrLocalImageNotFound {
+		if pullError = pullImage(j.Client, j.Image, ctx.Context()); pullError == nil {
+			ctx.Logger.Debug("Pulled new image", "image", j.Image, "pull", pull)
+			return nil
+		}
+	}
+
+	if pullError != nil {
+		return pullError
+	}
+
+	return searchErr
 }
 
 func (j *RunJob) deleteContainer(ctx *Context) error {
