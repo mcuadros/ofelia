@@ -9,7 +9,7 @@ require (
 	github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625
 	github.com/containerd/errdefs v1.0.0
 	github.com/distribution/reference v0.6.0
-	github.com/docker/cli v29.7.2+incompatible
+	github.com/docker/cli v29.8.0+incompatible
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/gobs/args v0.0.0-20210311043657-b8c0b223be93
 	github.com/gohugoio/hashstructure v1.0.0
