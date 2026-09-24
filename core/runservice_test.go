@@ -83,6 +83,7 @@ func (s *SuiteRunServiceJob) TestRun(c *C) {
 	c.Assert(err, IsNil)
 
 	c.Assert(createdOpts.Spec.TaskTemplate.ContainerSpec.Command, DeepEquals, []string{"echo", "-a", "foo", "bar"})
+	c.Assert(createdOpts.Spec.TaskTemplate.ContainerSpec.User, Equals, "foo")
 	c.Assert(createdOpts.Spec.TaskTemplate.ContainerSpec.Image, Equals, ServiceImageFixture)
 	c.Assert(createdOpts.Spec.TaskTemplate.Networks, DeepEquals, []swarm.NetworkAttachmentConfig{{Target: "foo"}})
 	c.Assert(createdOpts.Spec.TaskTemplate.RestartPolicy.Condition, Equals, swarm.RestartPolicyConditionNone)

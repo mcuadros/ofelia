@@ -63,6 +63,20 @@ func (s *SuiteConfig) TestJobDefaultsNotSet(c *C) {
 	c.Assert(j.Pull, Equals, "true")
 }
 
+func (s *SuiteConfig) TestJobUserDefaultsToContainerUser(c *C) {
+	exec := &ExecJobConfig{}
+	run := &RunJobConfig{}
+	service := &RunServiceConfig{}
+
+	defaults.SetDefaults(exec)
+	defaults.SetDefaults(run)
+	defaults.SetDefaults(service)
+
+	c.Assert(exec.User, Equals, "")
+	c.Assert(run.User, Equals, "")
+	c.Assert(service.User, Equals, "")
+}
+
 func (s *SuiteConfig) TestExecJobBuildEmpty(c *C) {
 	j := &ExecJobConfig{}
 
