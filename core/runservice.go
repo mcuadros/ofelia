@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/containerd/errdefs"
+	"github.com/google/shlex"
 	"github.com/moby/moby/api/types/swarm"
 	"github.com/moby/moby/client"
 )
@@ -69,7 +70,11 @@ func (j *RunServiceJob) buildService(ctx *Context) (string, error) {
 	}
 
 	if j.Command != "" {
-		spec.TaskTemplate.ContainerSpec.Command = strings.Split(j.Command, " ")
+		args, err := shlex.Split(j.Command)
+		if err != nil {
+			return "", fmt.Errorf("invalid service command: %w", err)
+		}
+		spec.TaskTemplate.ContainerSpec.Command = args
 	}
 
 	resp, err := j.Client.ServiceCreate(ctx.Context(), client.ServiceCreateOptions{
