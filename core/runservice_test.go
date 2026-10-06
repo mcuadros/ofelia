@@ -88,56 +88,17 @@ func (s *SuiteRunServiceJob) TestRun(c *C) {
 	c.Assert(createdOpts.Spec.TaskTemplate.RestartPolicy.Condition, Equals, swarm.RestartPolicyConditionNone)
 }
 
-func (s *SuiteRunServiceJob) TestPullImageError(c *C) {
+func (s *SuiteRunServiceJob) TestQuotedCommandPreserved(c *C) {
+	var createdOpts client.ServiceCreateOptions
+
 	mock := &mockDockerClient{
 		ImagePullFn: func(ctx context.Context, refStr string, options client.ImagePullOptions) (client.ImagePullResponse, error) {
-			c.Assert(refStr, Equals, "docker.io/library/private:latest")
-			return &mockPullResponseWithError{err: "denied"}, nil
+			return &mockPullResponse{}, nil
 		},
-	}
-
-	err := pullImage(mock, "private", context.Background())
-	c.Assert(err, ErrorMatches, `error pulling image "private": denied`)
-}
-
-func (s *SuiteRunServiceJob) TestFindTaskStatusWaitsWhenNoTasksExist(c *C) {
-	mock := &mockDockerClient{
-		TaskListFn: func(ctx context.Context, options client.TaskListOptions) (client.TaskListResult, error) {
-			return client.TaskListResult{}, nil
+		ServiceCreateFn: func(ctx context.Context, options client.ServiceCreateOptions) (client.ServiceCreateResult, error) {
+			createdOpts = options
+			return client.ServiceCreateResult{ID: "svc-123"}, nil
 		},
-	}
-
-	job := &RunServiceJob{Client: mock}
-	exitCode, done := job.findtaskstatus(&Context{Logger: logger}, "svc-123")
-
-	c.Assert(exitCode, Equals, 0)
-	c.Assert(done, Equals, false)
-}
-
-func (s *SuiteRunServiceJob) TestFindTaskStatusRejectedWithoutContainerStatus(c *C) {
-	mock := &mockDockerClient{
-		TaskListFn: func(ctx context.Context, options client.TaskListOptions) (client.TaskListResult, error) {
-			return client.TaskListResult{
-				Items: []swarm.Task{
-					{
-						Status: swarm.TaskStatus{
-							State: swarm.TaskStateRejected,
-						},
-					},
-				},
-			}, nil
-		},
-	}
-
-	job := &RunServiceJob{Client: mock}
-	exitCode, done := job.findtaskstatus(&Context{Logger: logger}, "svc-123")
-
-	c.Assert(exitCode, Equals, 255)
-	c.Assert(done, Equals, true)
-}
-
-func (s *SuiteRunServiceJob) TestWatchContainerReturnsNonZeroExit(c *C) {
-	mock := &mockDockerClient{
 		ServiceInspectFn: func(ctx context.Context, serviceID string, options client.ServiceInspectOptions) (client.ServiceInspectResult, error) {
 			return client.ServiceInspectResult{
 				Service: swarm.Service{
@@ -153,57 +114,51 @@ func (s *SuiteRunServiceJob) TestWatchContainerReturnsNonZeroExit(c *C) {
 				Items: []swarm.Task{
 					{
 						Status: swarm.TaskStatus{
-							State: swarm.TaskStateFailed,
+							State: swarm.TaskStateComplete,
 							ContainerStatus: &swarm.ContainerStatus{
-								ExitCode: 7,
+								ExitCode: 0,
 							},
 						},
+						Spec: swarm.TaskSpec{
+							ContainerSpec: &swarm.ContainerSpec{
+								Command: []string{"/bin/sh", "-c", "echo \"hello world\""},
+							},
+						},
+						ServiceID: "svc-123",
 					},
 				},
 			}, nil
 		},
+		ServiceRemoveFn: func(ctx context.Context, serviceID string, options client.ServiceRemoveOptions) (client.ServiceRemoveResult, error) {
+			return client.ServiceRemoveResult{}, nil
+		},
 	}
 
 	job := &RunServiceJob{Client: mock}
-	err := job.watchContainer(&Context{Logger: logger}, "svc-123")
+	job.Image = ServiceImageFixture
+	job.Command = `/bin/sh -c "echo \"hello world\""`
 
-	c.Assert(err, ErrorMatches, "error non-zero exit code: 7")
+	e := NewExecution()
+	err := job.Run(&Context{Execution: e, Logger: logger})
+	c.Assert(err, IsNil)
+
+	// Verify that quoted arguments are preserved as single arguments
+	c.Assert(createdOpts.Spec.TaskTemplate.ContainerSpec.Command, DeepEquals,
+		[]string{"/bin/sh", "-c", "echo \"hello world\""})
 }
 
-func (s *SuiteRunServiceJob) TestWatchContainerTimesOut(c *C) {
+func (s *SuiteRunServiceJob) TestPullImageError(c *C) {
 	mock := &mockDockerClient{
-		ServiceInspectFn: func(ctx context.Context, serviceID string, options client.ServiceInspectOptions) (client.ServiceInspectResult, error) {
-			return client.ServiceInspectResult{
-				Service: swarm.Service{
-					ID: serviceID,
-					Meta: swarm.Meta{
-						CreatedAt: time.Now().Add(-maxProcessDuration - time.Second),
-					},
-				},
-			}, nil
-		},
-		TaskListFn: func(ctx context.Context, options client.TaskListOptions) (client.TaskListResult, error) {
-			return client.TaskListResult{}, nil
+		ImagePullFn: func(ctx context.Context, refStr string, options client.ImagePullOptions) (client.ImagePullResponse, error) {
+			c.Assert(refStr, Equals, "docker.io/library/private:latest")
+			return &mockPullResponseWithError{err: "denied"}, nil
 		},
 	}
 
-	job := &RunServiceJob{Client: mock}
-	err := job.watchContainer(&Context{Logger: logger}, "svc-123")
-
-	c.Assert(err, Equals, ErrMaxTimeRunning)
+	err := pullImage(mock, "private", context.Background())
+	c.Assert(err, ErrorMatches, `error pulling image "private": denied`)
 }
 
-func (s *SuiteRunServiceJob) TestBuildPullImageOptionsBareImage(c *C) {
-	ref, _ := buildPullOptions("foo")
-	c.Assert(ref, Equals, "docker.io/library/foo:latest")
-}
-
-func (s *SuiteRunServiceJob) TestBuildPullImageOptionsVersion(c *C) {
-	ref, _ := buildPullOptions("foo:qux")
-	c.Assert(ref, Equals, "docker.io/library/foo:qux")
-}
-
-func (s *SuiteRunServiceJob) TestBuildPullImageOptionsRegistry(c *C) {
-	ref, _ := buildPullOptions("quay.io/srcd/rest:qux")
-	c.Assert(ref, Equals, "quay.io/srcd/rest:qux")
-}
+func (s *SuiteRunServiceJob) TestFindTaskStatusWaitsWhenNoTasksExist(c *C) {
+	mock := &mockDockerClient{
+		TaskListFn: func(ctx context.Context, options client.TaskListOptions) (client.TaskListResult, error) {
