@@ -13,8 +13,8 @@ type ExecJob struct {
 	BareJob     `mapstructure:",squash"`
 	Client      DockerClient `json:"-" hash:"-"`
 	Container   string
-	User        string `default:"root"`
-	TTY         bool   `default:"false"`
+	User        string
+	TTY         bool `default:"false"`
 	Environment []string
 
 	execID string

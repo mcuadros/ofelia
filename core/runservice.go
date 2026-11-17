@@ -15,8 +15,8 @@ import (
 type RunServiceJob struct {
 	BareJob `mapstructure:",squash"`
 	Client  DockerClient `json:"-"`
-	User    string       `default:"root"`
-	TTY     bool         `default:"false"`
+	User    string
+	TTY     bool `default:"false"`
 	// do not use bool values with "default:true" because if
 	// user would set it to "false" explicitly, it still will be
 	// changed to "true" https://github.com/mcuadros/ofelia/issues/135
@@ -55,6 +55,7 @@ func (j *RunServiceJob) buildService(ctx *Context) (string, error) {
 	spec := swarm.ServiceSpec{}
 	spec.TaskTemplate.ContainerSpec = &swarm.ContainerSpec{
 		Image: j.Image,
+		User:  j.User,
 	}
 
 	spec.TaskTemplate.RestartPolicy = &swarm.RestartPolicy{
