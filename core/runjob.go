@@ -17,7 +17,7 @@ import (
 type RunJob struct {
 	BareJob `mapstructure:",squash"`
 	Client  DockerClient `json:"-"`
-	User    string       `default:"root"`
+	User    string
 
 	TTY bool `default:"false"`
 
