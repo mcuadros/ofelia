@@ -5,11 +5,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"sync"
 	"time"
 
-	"github.com/armon/circbuf"
 	"github.com/distribution/reference"
 	dockercliconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
@@ -157,19 +157,123 @@ type Execution struct {
 	Skipped   bool
 	Error     error
 
-	OutputStream, ErrorStream *circbuf.Buffer `json:"-"`
+	OutputStream, ErrorStream *streamBuffer `json:"-"`
 }
 
-// NewExecution returns a new Execution, with a random ID
+// NewExecution returns a new Execution, with a random ID.
 func NewExecution() *Execution {
-	bufOut, _ := circbuf.NewBuffer(maxStreamSize)
-	bufErr, _ := circbuf.NewBuffer(maxStreamSize)
 	return &Execution{
 		ID:           randomID(),
-		OutputStream: bufOut,
-		ErrorStream:  bufErr,
+		OutputStream: newStreamBuffer(maxStreamSize),
+		ErrorStream:  newStreamBuffer(maxStreamSize),
 	}
 }
+
+// streamBuffer is a lazy ring buffer that keeps only the last limit bytes
+// written. The backing array grows on demand (doubling up to limit), so
+// executions whose output stays small avoid reserving the full limit up front,
+// which previously forced two 10 MiB allocations per execution.
+type streamBuffer struct {
+	limit int64
+
+	written int64 // total bytes ever written
+	head    int   // index in data where the next byte is written
+	data    []byte
+}
+
+func newStreamBuffer(limit int64) *streamBuffer {
+	return &streamBuffer{limit: limit}
+}
+
+// grow enlarges the backing array to hold at least n bytes, doubling its
+// capacity up to limit. It is only called while the buffer is not full, when
+// the retained bytes are data[:head] in write order.
+func (b *streamBuffer) grow(n int) {
+	capacity := max(len(b.data), min(256, int(b.limit)))
+	for capacity < n {
+		capacity *= 2
+	}
+	// n never exceeds limit, so capping here keeps capacity >= n while
+	// avoiding an overshoot past the limit.
+	capacity = min(capacity, int(b.limit))
+
+	data := make([]byte, capacity)
+	copy(data, b.data[:b.head])
+	b.data = data
+}
+
+// Write appends buf to the buffer, keeping only the last limit bytes. It never
+// fails and always reports len(buf), so it is safe as an io.Writer for job
+// output streams.
+func (b *streamBuffer) Write(buf []byte) (int, error) {
+	n := len(buf)
+
+	if b.limit <= 0 {
+		// Nothing can be retained; just account for the bytes.
+		b.written += int64(n)
+		return n, nil
+	}
+
+	if b.written < b.limit {
+		// Not full yet: append, growing the backing array on demand.
+		m := min(n, int(b.limit-b.written))
+		if len(b.data)-b.head < m {
+			b.grow(b.head + m)
+		}
+		copy(b.data[b.head:], buf[:m])
+		b.head += m
+		b.written += int64(m)
+		buf = buf[m:]
+		if b.written < b.limit || len(buf) == 0 {
+			if b.written == b.limit {
+				b.head = 0
+			}
+			return n, nil
+		}
+		b.head = 0 // now exactly full: the oldest byte is at the start
+	}
+
+	// Full: overwrite the oldest bytes from head, wrapping around the ring.
+	b.written += int64(len(buf))
+	full := len(b.data)
+	if len(buf) >= full {
+		// The write covers the whole ring: only its tail survives.
+		buf = buf[len(buf)-full:]
+	}
+	first := min(len(buf), full-b.head)
+	copy(b.data[b.head:], buf[:first])
+	copy(b.data, buf[first:])
+	b.head = (b.head + len(buf)) % full
+	return n, nil
+}
+
+// Size returns the maximum number of bytes the buffer keeps.
+func (b *streamBuffer) Size() int64 {
+	return b.limit
+}
+
+// TotalWritten returns the total number of bytes written so far.
+func (b *streamBuffer) TotalWritten() int64 {
+	return b.written
+}
+
+// Bytes returns a copy of the retained bytes, in write order.
+func (b *streamBuffer) Bytes() []byte {
+	if b.written < b.limit {
+		return append([]byte(nil), b.data[:b.head]...)
+	}
+	out := make([]byte, len(b.data))
+	n1 := copy(out, b.data[b.head:])
+	copy(out[n1:], b.data[:b.head])
+	return out
+}
+
+// String returns the retained bytes as a string.
+func (b *streamBuffer) String() string {
+	return string(b.Bytes())
+}
+
+var _ io.Writer = (*streamBuffer)(nil)
 
 // Start start the exection, initialize the running flags and the start date.
 func (e *Execution) Start() {
